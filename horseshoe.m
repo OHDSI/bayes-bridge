@@ -1,4 +1,4 @@
-function[betaout]=horseshoe(y,X,BURNIN,MCMC,thin,scl_ub,scl_lb,phasein,a0,b0,BetaTrue)
+function[betaout, lambdaout]=horseshoe(y,X,BURNIN,MCMC,thin,scl_ub,scl_lb,phasein,a0,b0,BetaTrue)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
 % Based on code by Antik Chakraborty (antik@stat.tamu.edu) and Anirban Bhattacharya (anirbanb@stat.tamu.edu)
@@ -84,31 +84,31 @@ Eta = lambda.^(-2);
 for i=1:N  
     
     % update tau %
-    if i>0
-        LX=bsxfun(@times,(lambda.^2),X');
-        XLX = X*LX;
+    LX=bsxfun(@times,(lambda.^2),X');
+    XLX = X*LX;
 
-        Eta = lambda.^(-2);
-        if i<phasein
-           std_MH = (scl_ub.*(phasein-i)+scl_lb.*i)./phasein; 
-        else
-           std_MH = scl_lb; 
-        end
-        prop_Xi = exp(normrnd(log(Xi),std_MH));
-        lrat_prop = lmh_ratio(XLX,y,prop_Xi,I_n,n,a0,b0);
-        lrat_curr = lmh_ratio(XLX,y,Xi,I_n,n,a0,b0);
-        log_acc_rat = (lrat_prop-lrat_curr)+(log(prop_Xi)-log(Xi));
-
-        ACC(i) = (rand < exp(log_acc_rat));
-        if ACC(i) % if accepted, update
-            Xi = prop_Xi;
-        end
-        tau = 1./sqrt(Xi);
+    Eta = lambda.^(-2);
+    if i<phasein
+       std_MH = (scl_ub.*(phasein-i)+scl_lb.*i)./phasein; 
+    else
+       std_MH = scl_lb; 
     end
+    prop_Xi = exp(normrnd(log(Xi),std_MH));
+    [lrat_prop, M_chol_prop] = lmh_ratio(XLX,y,prop_Xi,I_n,n,a0,b0);
+    [lrat_curr, M_chol_curr] = lmh_ratio(XLX,y,Xi,I_n,n,a0,b0);
+    log_acc_rat = (lrat_prop-lrat_curr)+(log(prop_Xi)-log(Xi));
+
+    ACC(i) = (rand < exp(log_acc_rat));
+    if ACC(i) % if accepted, update
+        Xi = prop_Xi;
+        M_chol = M_chol_prop;
+    else
+        M_chol = M_chol_curr;
+    end
+    tau = 1./sqrt(Xi);
     
     % update sigma_sq marginal of beta %
-    M = I_n + (1./Xi).*XLX;
-    xtmp = M\y;
+    xtmp = cho_solve(M_chol, y);
     ssr = y'*xtmp;
     sigma_sq = 1/gamrnd((n+a0)/2,2/(ssr+b0));
     
@@ -128,7 +128,7 @@ for i=1:N
     U = (1./Xi).*LX;
     u=normrnd(0,tau*lambda);
     v=X*u+normrnd(0,l);
-    v_star=(M)\((y./sqrt(sigma_sq))-v);
+    v_star= cho_solve(M_chol, (y./sqrt(sigma_sq))-v);
     Beta=sqrt(sigma_sq)*(u+U*v_star);
     
     % update lambda_j's in a block using slice sampling %
@@ -180,20 +180,25 @@ end
 
 
 
-function lr = lmh_ratio(XLX,y,Xi,I_n,n,a0,b0)
+function [lr, M_chol] = lmh_ratio(XLX,y,Xi,I_n,n,a0,b0)
     % marginal of beta, sigma2
-    M = I_n + (1./Xi).*XLX;
-    x = M\y;
-    ssr = y'*x+b0;
     try
-        cM = chol(M); 
-        ldetM = 2*sum(log(diag(cM)));
+        M = I_n + (1./Xi).*XLX;
+        M_chol = chol(M); 
+        x = cho_solve(M_chol, y);
+        ssr = y'*x+b0;
+        ldetM = 2*sum(log(diag(M_chol)));
         ll = -.5.*ldetM - ((n+a0)/2).*log(ssr);
         lpr = -log(sqrt(Xi).*(1+Xi));
         lr = ll+lpr;
     catch
         lr = -Inf; warning('proposal was rejected because I+XDX was not positive-definite');
     end
+end
+
+function x = cho_solve(R, b)
+%%% Solve the system R * R' * x = b where R is upper triangular.
+    x = linsolve(R, linsolve(R', b, struct('LT', true)), struct('UT', true));
 end
 
 function x = gen_truncated_exp(mn,trunc_point)
