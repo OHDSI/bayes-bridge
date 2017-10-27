@@ -1,4 +1,4 @@
-function[betaout, lambdaout] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, a0, b0, beta_true)
+function[beta_samples, lambda_samples] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, a0, b0, beta_true)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
 % Based on code by Antik Chakraborty (antik@stat.tamu.edu) and Anirban Bhattacharya (anirbanb@stat.tamu.edu)
@@ -19,38 +19,20 @@ function[betaout, lambdaout] = horseshoe(y, X, n_burnin, n_post_burnin, thin, sc
 % implements the algorith of Johndrow and Orenstein, which uses a block
 % update for \tau, \sigma^2, \beta
 
-
-
 % Input: y = response, a n * 1 vector %%
 %        X = matrix of covariates, dimension n * p %%
-%        BURNIN= number of burnin MCMC samples %%
-%        MCMC= number of posterior draws to be saved %%
-%        thin= thinning parameter of the chain %%
+%        n_burnin = number of burnin MCMC samples %%
+%        n_post_burnin = number of posterior draws to be saved %%
+%        thin = thinning parameter of the chain %%
 %        scl_ub = upper bound on scale for MH proposals
 %        scl_lb = lower bound on scale for MH proposals (usually make these
 %        equal; 0.8 a good default)
 %        n_warmup = number of iterations over which to transition between upper
 %        and lower bound on MH proposals; usually make this 1 and just make
 %        scl_ub = scl_lb; only use for particularly challenging cases
-%        SAVE_SAMPLES = binary; whether to save samples
-%        ab = whether to run the algorithm of Bhattachaya et al.
-%        trunc = whether to use the numeric truncations of Bhattacharya et al
 %        a0 = parameter of gamma prior for sigma2
 %        b0 = second parameter of gamma prior for sigma2
-%        BetaTrue = true beta (for simulations)
-%        disp_int = how often to produce output
-%        plotting = whether to make plots
-%        corX = whether simulations were performed with correlated design
-
-
-
-% Output:
-%         pMean= posterior mean of Beta, a p by 1 vector%%
-%         pMeadian = posterior median of Beta, a p by 1 vector %%
-%         pLambda = posterior mean of local scale parameters, a p by 1 vector %%
-%         pSigma = posterior mean of Error variance %%
-%         betaout = posterior samples of beta %%
-
+%        beta_true = true beta (for simulations)
 
 tic;
 n_iter = n_burnin + n_post_burnin;
@@ -64,15 +46,15 @@ tau = 1;
 sigma_sq = 1;
 
 % output %
-betaout = zeros(50, n_sample);
-lambdaout = zeros(50, n_sample);
-etaout = zeros(50, n_sample);
-tauout = zeros(n_sample, 1);
-xiout = zeros(n_post_burnin + n_burnin, 1);
-sigmaSqout = zeros(n_sample, 1);
-l1out = zeros(n_post_burnin + n_burnin, 1);
-pexpout = zeros(n_post_burnin + n_burnin, 1);
-ACC = zeros(n_post_burnin + n_burnin, 1);
+beta_samples = zeros(50, n_sample);
+lambda_samples = zeros(50, n_sample);
+eta_samples = zeros(50, n_sample);
+tau_samples = zeros(n_sample, 1);
+xi_samples = zeros(n_post_burnin + n_burnin, 1);
+sigmaSq_samples = zeros(n_sample, 1);
+l1_samples = zeros(n_post_burnin + n_burnin, 1);
+pexp_samples = zeros(n_post_burnin + n_burnin, 1);
+accept_prob = zeros(n_post_burnin + n_burnin, 1);
 
 % matrices %
 I_n = eye(n);
@@ -97,8 +79,8 @@ for i = 1:n_iter
     [lrat_curr, M_chol_curr] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0);
     log_acc_rat = (lrat_prop - lrat_curr) + (log(prop_xi) - log(xi));
 
-    ACC(i) = (rand < exp(log_acc_rat));
-    if ACC(i) % if accepted, update
+    accept_prob(i) = (rand < exp(log_acc_rat));
+    if accept_prob(i) % if accepted, update
         xi = prop_xi;
         M_chol = M_chol_prop;
     else
@@ -161,14 +143,14 @@ for i = 1:n_iter
     L1_loss = 1 - sum(abs(beta - beta_true)) ./ sum(abs(beta_true));
 
     if i > n_burnin && mod(i, thin) == 0
-        betaout(:, (i - n_burnin) / thin) = beta(1:50);
-        lambdaout(:, (i - n_burnin) / thin) = lambda(1:50);
-        etaout(:, (i - n_burnin) / thin) = eta(1:50);
-        tauout((i - n_burnin) / thin) = tau;
-        xiout(i) = xi;
-        sigmaSqout((i - n_burnin) / thin) = sigma_sq;
-        l1out(i) = L1_loss;
-        pexpout(i) = per_expl;
+        beta_samples(:, (i - n_burnin) / thin) = beta(1:50);
+        lambda_samples(:, (i - n_burnin) / thin) = lambda(1:50);
+        eta_samples(:, (i - n_burnin) / thin) = eta(1:50);
+        tau_samples((i - n_burnin) / thin) = tau;
+        xi_samples(i) = xi;
+        sigmaSq_samples((i - n_burnin) / thin) = sigma_sq;
+        l1_samples(i) = L1_loss;
+        pexp_samples(i) = per_expl;
     end
 end
 
