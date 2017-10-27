@@ -1,4 +1,5 @@
-function[beta_samples, lambda_samples] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, a0, b0, beta_true)
+function[beta_samples, lambda_samples, tau_samples] = ...
+    horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, a0, b0, fixed_tau, tau)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
 % Based on code by Antik Chakraborty (antik@stat.tamu.edu) and Anirban Bhattacharya (anirbanb@stat.tamu.edu)
@@ -32,7 +33,7 @@ function[beta_samples, lambda_samples] = horseshoe(y, X, n_burnin, n_post_burnin
 %        scl_ub = scl_lb; only use for particularly challenging cases
 %        a0 = parameter of gamma prior for sigma2
 %        b0 = second parameter of gamma prior for sigma2
-%        beta_true = true beta (for simulations)
+%        fixed_tau = if true, tau will not be update
 
 tic;
 n_iter = n_burnin + n_post_burnin;
@@ -42,8 +43,10 @@ n_sample = ceil(n_post_burnin / thin); % Number of samples to keep
 % paramters %
 beta = zeros(p, 1);
 lambda = ones(p, 1);
-tau = 1;
 sigma_sq = 1;
+if ~fixed_tau
+    tau = 1;
+end
 
 % output %
 beta_samples = zeros(50, n_sample);
@@ -52,41 +55,44 @@ eta_samples = zeros(50, n_sample);
 tau_samples = zeros(n_sample, 1);
 xi_samples = zeros(n_post_burnin + n_burnin, 1);
 sigmaSq_samples = zeros(n_sample, 1);
-l1_samples = zeros(n_post_burnin + n_burnin, 1);
-pexp_samples = zeros(n_post_burnin + n_burnin, 1);
 accept_prob = zeros(n_post_burnin + n_burnin, 1);
 
 % matrices %
 I_n = eye(n);
 l = ones(n, 1);
 xi = tau^(-2);
+eta = lambda.^(-2);
 
 % start Gibbs sampling %
 for i = 1:n_iter
-
-    % update tau %
+    
     LX = bsxfun(@times, (lambda.^2), X');
     XLX = X * LX;
-
-    eta = lambda.^(-2);
-    if i<n_warmup
-       std_MH = (scl_ub .* (n_warmup - i) + scl_lb .* i) ./ n_warmup;
+    
+    % update tau %
+    if fixed_tau
+        M = I_n + (1 ./ xi) .* XLX;
+        M_chol = chol(M);
     else
-       std_MH = scl_lb;
-    end
-    prop_xi = exp(normrnd(log(xi), std_MH));
-    [lrat_prop, M_chol_prop] = lmh_ratio(XLX, y, prop_xi, I_n, n, a0, b0);
-    [lrat_curr, M_chol_curr] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0);
-    log_acc_rat = (lrat_prop - lrat_curr) + (log(prop_xi) - log(xi));
+        if i<n_warmup
+           std_MH = (scl_ub .* (n_warmup - i) + scl_lb .* i) ./ n_warmup;
+        else
+           std_MH = scl_lb;
+        end
+        prop_xi = exp(normrnd(log(xi), std_MH));
+        [lrat_prop, M_chol_prop] = lmh_ratio(XLX, y, prop_xi, I_n, n, a0, b0);
+        [lrat_curr, M_chol_curr] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0);
+        log_acc_rat = (lrat_prop - lrat_curr) + (log(prop_xi) - log(xi));
 
-    accept_prob(i) = (rand < exp(log_acc_rat));
-    if accept_prob(i) % if accepted, update
-        xi = prop_xi;
-        M_chol = M_chol_prop;
-    else
-        M_chol = M_chol_curr;
+        accept_prob(i) = (rand < exp(log_acc_rat));
+        if accept_prob(i) % if accepted, update
+            xi = prop_xi;
+            M_chol = M_chol_prop;
+        else
+            M_chol = M_chol_curr;
+        end
+        tau = 1 ./ sqrt(xi);
     end
-    tau = 1 ./ sqrt(xi);
 
     % update sigma_sq marginal of beta %
     xtmp = cho_solve(M_chol, y);
@@ -139,9 +145,6 @@ for i = 1:n_iter
         Eta = eta;
     %}
 
-    per_expl = 1 - sqrt(sum((beta - beta_true).^2)) ./ sqrt(sum(beta_true.^2));
-    L1_loss = 1 - sum(abs(beta - beta_true)) ./ sum(abs(beta_true));
-
     if i > n_burnin && mod(i, thin) == 0
         beta_samples(:, (i - n_burnin) / thin) = beta(1:50);
         lambda_samples(:, (i - n_burnin) / thin) = lambda(1:50);
@@ -149,8 +152,6 @@ for i = 1:n_iter
         tau_samples((i - n_burnin) / thin) = tau;
         xi_samples(i) = xi;
         sigmaSq_samples((i - n_burnin) / thin) = sigma_sq;
-        l1_samples(i) = L1_loss;
-        pexp_samples(i) = per_expl;
     end
 end
 

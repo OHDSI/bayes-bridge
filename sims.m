@@ -35,8 +35,10 @@ for p = ps
 
     % Running horse_nmean_mh
     n_burnin = 0; n_post_burnin = nmc; thin = 1; plotting = true;
+    fix_tau = true;
+    tau = 10^-3;
     profile on
-    [betaout_new, lambda_out] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, a0, b0, beta_true);
+    [beta_samples, lambda_samples, tau_samples] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, a0, b0, fix_tau, tau);
     profile off
 end
 
@@ -44,9 +46,15 @@ end
 % modifications were made.
 tol = 10^-6;
 load('output.mat')
-if all(all(abs(betaout - betaout_new) < tol))
+if all(all(abs(betaout - beta_samples) < tol))
     disp('The current output agrees with the previous one.')
 else
     disp('WARNING! The current output does NOT agree with the previous error.')
     disp('Some bugs have likely been introduced to the code.')
 end
+
+%%
+subplot(2, 1, 1)
+plot(beta_samples')
+subplot(2, 1, 2)
+plot(lambda_samples')
