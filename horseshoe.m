@@ -1,4 +1,4 @@
-function[betaout, lambdaout] = horseshoe(y, X, BURNIN, MCMC, thin, scl_ub, scl_lb, phasein, a0, b0, BetaTrue)
+function[betaout, lambdaout] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, a0, b0, beta_true)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
 % Based on code by Antik Chakraborty (antik@stat.tamu.edu) and Anirban Bhattacharya (anirbanb@stat.tamu.edu)
@@ -29,7 +29,7 @@ function[betaout, lambdaout] = horseshoe(y, X, BURNIN, MCMC, thin, scl_ub, scl_l
 %        scl_ub = upper bound on scale for MH proposals
 %        scl_lb = lower bound on scale for MH proposals (usually make these
 %        equal; 0.8 a good default)
-%        phasin = number of iterations over which to transition between upper
+%        n_warmup = number of iterations over which to transition between upper
 %        and lower bound on MH proposals; usually make this 1 and just make
 %        scl_ub = scl_lb; only use for particularly challenging cases
 %        SAVE_SAMPLES = binary; whether to save samples
@@ -53,59 +53,58 @@ function[betaout, lambdaout] = horseshoe(y, X, BURNIN, MCMC, thin, scl_ub, scl_l
 
 
 tic;
-N = BURNIN + MCMC;
-effsamp = (N-BURNIN) / thin;
+n_iter = n_burnin + n_post_burnin;
+n_sample = ceil(n_post_burnin / thin); % Number of samples to keep
 [n, p] = size(X);
 
 % paramters %
-Beta = ones(p, 1);
+beta = zeros(p, 1);
 lambda = ones(p, 1);
-tau = 1; sigma_sq = 1;
+tau = 1; 
+sigma_sq = 1;
 
 % output %
-betaout = zeros(50, effsamp);
-lambdaout = zeros(50, effsamp);
-etaout = zeros(50, effsamp);
-tauout = zeros(effsamp, 1);
-xiout = zeros(MCMC + BURNIN, 1);
-sigmaSqout = zeros(effsamp, 1);
-l1out = zeros(MCMC + BURNIN, 1);
-pexpout = zeros(MCMC + BURNIN, 1);
-ACC = zeros(MCMC + BURNIN, 1);
+betaout = zeros(50, n_sample);
+lambdaout = zeros(50, n_sample);
+etaout = zeros(50, n_sample);
+tauout = zeros(n_sample, 1);
+xiout = zeros(n_post_burnin + n_burnin, 1);
+sigmaSqout = zeros(n_sample, 1);
+l1out = zeros(n_post_burnin + n_burnin, 1);
+pexpout = zeros(n_post_burnin + n_burnin, 1);
+ACC = zeros(n_post_burnin + n_burnin, 1);
 
 % matrices %
 I_n = eye(n);
 l = ones(n, 1);
-
-Xi = tau^(-2);
-Eta = lambda.^(-2);
+xi = tau^(-2);
 
 % start Gibbs sampling %
-for i = 1:N
+for i = 1:n_iter
 
     % update tau %
     LX = bsxfun(@times, (lambda.^2), X');
     XLX = X * LX;
 
-    Eta = lambda.^(-2);
-    if i<phasein
-       std_MH = (scl_ub .* (phasein-i) + scl_lb .* i) ./ phasein;
+    eta = lambda.^(-2);
+    if i<n_warmup
+       std_MH = (scl_ub .* (n_warmup-i) + scl_lb .* i) ./ n_warmup;
     else
        std_MH = scl_lb;
     end
-    prop_Xi = exp(normrnd(log(Xi), std_MH));
-    [lrat_prop, M_chol_prop] = lmh_ratio(XLX, y, prop_Xi, I_n, n, a0, b0);
-    [lrat_curr, M_chol_curr] = lmh_ratio(XLX, y, Xi, I_n, n, a0, b0);
-    log_acc_rat = (lrat_prop-lrat_curr) + (log(prop_Xi)-log(Xi));
+    prop_xi = exp(normrnd(log(xi), std_MH));
+    [lrat_prop, M_chol_prop] = lmh_ratio(XLX, y, prop_xi, I_n, n, a0, b0);
+    [lrat_curr, M_chol_curr] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0);
+    log_acc_rat = (lrat_prop-lrat_curr) + (log(prop_xi)-log(xi));
 
     ACC(i) = (rand < exp(log_acc_rat));
     if ACC(i) % if accepted, update
-        Xi = prop_Xi;
+        xi = prop_xi;
         M_chol = M_chol_prop;
     else
         M_chol = M_chol_curr;
     end
-    tau = 1 ./ sqrt(Xi);
+    tau = 1 ./ sqrt(xi);
 
     % update sigma_sq marginal of beta %
     xtmp = cho_solve(M_chol, y);
@@ -125,21 +124,21 @@ for i = 1:N
     %}
 
     % update beta %
-    U = (1 ./ Xi) .* LX;
+    U = (1 ./ xi) .* LX;
     u = normrnd(0, tau * lambda);
     v = X * u + normrnd(0, l);
     v_star= cho_solve(M_chol, (y ./ sqrt(sigma_sq))-v);
-    Beta = sqrt(sigma_sq) * (u + U * v_star);
+    beta = sqrt(sigma_sq) * (u + U * v_star);
 
     % update lambda_j's in a block using slice sampling %
-    u = unifrnd(0, 1 ./ (Eta + 1));
-    gamma_rate = (Beta.^2) .* Xi ./ (2 .* sigma_sq);
-    Eta = gen_truncated_exp(gamma_rate, (1-u) ./ u);
-    if any(Eta <= 0)
-       disp([num2str(sum(Eta <= 0)) ' Eta underflowed, replacing = machine epsilon']);
-       Eta(Eta <= 0) = eps;
+    u = unifrnd(0, 1 ./ (eta + 1));
+    gamma_rate = (beta.^2) .* xi ./ (2 .* sigma_sq);
+    eta = gen_truncated_exp(gamma_rate, (1-u) ./ u);
+    if any(eta <= 0)
+       disp([num2str(sum(eta <= 0)) ' Eta underflowed, replacing = machine epsilon']);
+       eta(eta <= 0) = eps;
     end
-    lambda = 1 ./ sqrt(Eta);
+    lambda = 1 ./ sqrt(eta);
 
     % (theoretically) equivalent way to sample lambda_j's, but supposedly
     % not as numerically stable.
@@ -158,38 +157,38 @@ for i = 1:N
         Eta = eta;
     %}
 
-    per_expl = 1-sqrt(sum((Beta-BetaTrue).^2)) ./ sqrt(sum(BetaTrue.^2));
-    L1_loss = 1-sum(abs(Beta-BetaTrue)) ./ sum(abs(BetaTrue));
+    per_expl = 1-sqrt(sum((beta-beta_true).^2)) ./ sqrt(sum(beta_true.^2));
+    L1_loss = 1-sum(abs(beta-beta_true)) ./ sum(abs(beta_true));
 
-    if i > BURNIN && mod(i, thin) == 0
-        betaout(:, (i-BURNIN) / thin) = Beta(1:50);
-        lambdaout(:, (i-BURNIN) / thin) = lambda(1:50);
-        etaout(:, (i-BURNIN) / thin) = Eta(1:50);
-        tauout((i-BURNIN) / thin) = tau;
-        xiout(i) = Xi;
-        sigmaSqout((i-BURNIN) / thin) = sigma_sq;
+    if i > n_burnin && mod(i, thin) == 0
+        betaout(:, (i-n_burnin) / thin) = beta(1:50);
+        lambdaout(:, (i-n_burnin) / thin) = lambda(1:50);
+        etaout(:, (i-n_burnin) / thin) = eta(1:50);
+        tauout((i-n_burnin) / thin) = tau;
+        xiout(i) = xi;
+        sigmaSqout((i-n_burnin) / thin) = sigma_sq;
         l1out(i) = L1_loss;
         pexpout(i) = per_expl;
     end
 end
 
 t = toc;
-fprintf('Execution time of %d Gibbs iteration with (n, p) = (%d, %d)is %f seconds. \n', N, n, p, t)
+fprintf('Execution time of %d Gibbs iteration with (n, p) = (%d, %d)is %f seconds. \n', n_iter, n, p, t)
 
 end
 
 
 
-function [lr, M_chol] = lmh_ratio(XLX, y, Xi, I_n, n, a0, b0)
+function [lr, M_chol] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0)
     % marginal of beta, sigma2
     try
-        M = I_n + (1 ./ Xi) .* XLX;
+        M = I_n + (1 ./ xi) .* XLX;
         M_chol = chol(M);
         x = cho_solve(M_chol, y);
         ssr = y' * x + b0;
         ldetM = 2 * sum(log(diag(M_chol)));
         ll = -.5 .* ldetM - ((n + a0) / 2) .* log(ssr);
-        lpr = -log(sqrt(Xi) .* (1 + Xi));
+        lpr = -log(sqrt(xi) .* (1 + xi));
         lr = ll + lpr;
     catch
         lr = -Inf; warning('proposal was rejected because I + XDX was not positive-definite');
