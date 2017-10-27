@@ -42,7 +42,7 @@ for p=ps
     scl_lb = .8; % lb scale 
     phasein = 1;
     slice_lambda = true; % whether to update lambda via slice sampling
-    nmc = 40000; % length of Markov chain
+    nmc = 100; % length of Markov chain
     burn = 0; % number of burn-ins
     % disp_int = 1000; % display interval; outputs parameter estimates while running
     % plotting = false # whether to plot diagnostics while running
@@ -50,9 +50,16 @@ for p=ps
 
     % Running horse_nmean_mh
     BURNIN = 0; MCMC = nmc; thin = 1; plotting = true; 
-    [pMean,pMedian,pLambda,pSigma,betaout]=horseshoe(y,X,BURNIN,MCMC,thin,scl_ub,scl_lb,phasein,SAVE_SAMPLES,ab,trunc,a0,b0,BetaTrue,disp_int,plotting,corX);
+    betaout_new = horseshoe(y,X,BURNIN,MCMC,thin,scl_ub,scl_lb,phasein,SAVE_SAMPLES,ab,trunc,a0,b0,BetaTrue,disp_int,plotting,corX);
 end
 
+% Make sure that the output of the code is identical to the one before
+% modifications were made.
+tol = 10^-8;
+load('output.mat')
+if all(all(abs(betaout - betaout_new) < tol))
+    disp('The current output agrees with the previous one.')
+end
 
 
 

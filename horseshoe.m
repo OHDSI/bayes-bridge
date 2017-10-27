@@ -1,4 +1,4 @@
-function[pMean,pMedian,pLambda,pSigma,betaout]=horseshoe(y,X,BURNIN,MCMC,thin,scl_ub,scl_lb,phasein,SAVE_SAMPLES,ab,trunc,a0,b0,BetaTrue,disp_int,plotting,corX)
+function[betaout]=horseshoe(y,X,BURNIN,MCMC,thin,scl_ub,scl_lb,phasein,SAVE_SAMPLES,ab,trunc,a0,b0,BetaTrue,disp_int,plotting,corX)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
 % Based on code by Antik Chakraborty (antik@stat.tamu.edu) and Anirban Bhattacharya (anirbanb@stat.tamu.edu)
@@ -223,35 +223,9 @@ for i=1:N
         pexpout(i) = per_expl;
     end
 end
-pMean=mean(betaout,2);
-pMedian=median(betaout,2);
-pSigma=mean(sigmaSqout);
-pLambda=mean(lambdaout,2);
+
 t=toc;
-fprintf('Execution time of %d Gibbs iteration with (n,p)=(%d,%d)is %f seconds',N,n,p,t)
-if SAVE_SAMPLES
-    if ~ab
-        if corX
-            save(strcat('Outputs/post_reg_horse_corX_',num2str(n),'_',num2str(p),'.mat'),'betaout','lambdaout','etaout','tauout','xiout','sigmaSqout','l1out','pexpout','t');  
-        else
-            save(strcat('Outputs/post_reg_horse_',num2str(n),'_',num2str(p),'.mat'),'betaout','lambdaout','etaout','tauout','xiout','sigmaSqout','l1out','pexpout','t');  
-        end
-    else
-        if trunc
-            if corX
-                save(strcat('Outputs/post_reg_horse_ab_trunc_corX_',num2str(n),'_',num2str(p),'.mat'),'betaout','lambdaout','etaout','tauout','xiout','sigmaSqout','l1out','pexpout','t');
-            else
-                save(strcat('Outputs/post_reg_horse_ab_trunc_',num2str(n),'_',num2str(p),'.mat'),'betaout','lambdaout','etaout','tauout','xiout','sigmaSqout','l1out','pexpout','t');
-            end
-        else
-            if corX
-                save(strcat('Outputs/post_reg_horse_ab_corX_',num2str(n),'_',num2str(p),'.mat'),'betaout','lambdaout','etaout','tauout','xiout','sigmaSqout','l1out','pexpout','t');
-            else
-                save(strcat('Outputs/post_reg_horse_ab_',num2str(n),'_',num2str(p),'.mat'),'betaout','lambdaout','etaout','tauout','xiout','sigmaSqout','l1out','pexpout','t');
-            end
-        end
-    end
-end
+fprintf('Execution time of %d Gibbs iteration with (n,p)=(%d,%d)is %f seconds. \n',N,n,p,t)
 
 %profile viewer;
 end
