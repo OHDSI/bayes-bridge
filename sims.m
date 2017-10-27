@@ -10,21 +10,21 @@ for p = ps
     %p = 10000; % number of parameters
 
     % True parameters
-    SigmaTrue = 2;
-    BetaTrue = zeros(p, 1);
-    BetaTrue(1:5) = 4;
-    BetaTrue(6:15) = 2.^(-(0:.5:4.5));
+    sigma_true = 2;
+    beta_true = zeros(p, 1);
+    beta_true(1:5) = 4;
+    beta_true(6:15) = 2.^(-(0:.5:4.5));
 
     % Basic Variables
     if corX
         X = normrnd(0, 1, [n p]);
         for j = 2:p
-            X(:, j) = rhoX.*X(:, j-1) + X(:, j);
+            X(:, j) = rhoX .* X(:, j-1) + X(:, j);
         end
     else
         X = normrnd(0, 1, [n p]);
     end
-    y = X*BetaTrue + SigmaTrue.*normrnd(0, 1, [n 1]);
+    y = X * beta_true + sigma_true.*normrnd(0, 1, [n 1]);
 
     scl_ub = 3; % scale for Metropolis-Hastings proposals for xi
     scl_lb = .8; % lb scale
@@ -34,9 +34,9 @@ for p = ps
     a0 = 1/2; b0 = 1/2; % Hyper-params on the prior for sigma_sq. Jeffrey's prior would be a0 = b0 = 0.
 
     % Running horse_nmean_mh
-    BURNIN = 0; MCMC = nmc; thin = 1; plotting = true;
+    n_burnin = 0; n_post_burnin = nmc; thin = 1; plotting = true;
     profile on
-    [betaout_new, lambda_out] = horseshoe(y, X, BURNIN, MCMC, thin, scl_ub, scl_lb, phasein, a0, b0, BetaTrue);
+    [betaout_new, lambda_out] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, a0, b0, beta_true);
     profile off
 end
 
