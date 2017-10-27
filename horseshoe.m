@@ -60,7 +60,7 @@ n_sample = ceil(n_post_burnin / thin); % Number of samples to keep
 % paramters %
 beta = zeros(p, 1);
 lambda = ones(p, 1);
-tau = 1; 
+tau = 1;
 sigma_sq = 1;
 
 % output %
@@ -88,14 +88,14 @@ for i = 1:n_iter
 
     eta = lambda.^(-2);
     if i<n_warmup
-       std_MH = (scl_ub .* (n_warmup-i) + scl_lb .* i) ./ n_warmup;
+       std_MH = (scl_ub .* (n_warmup - i) + scl_lb .* i) ./ n_warmup;
     else
        std_MH = scl_lb;
     end
     prop_xi = exp(normrnd(log(xi), std_MH));
     [lrat_prop, M_chol_prop] = lmh_ratio(XLX, y, prop_xi, I_n, n, a0, b0);
     [lrat_curr, M_chol_curr] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0);
-    log_acc_rat = (lrat_prop-lrat_curr) + (log(prop_xi)-log(xi));
+    log_acc_rat = (lrat_prop - lrat_curr) + (log(prop_xi) - log(xi));
 
     ACC(i) = (rand < exp(log_acc_rat));
     if ACC(i) % if accepted, update
@@ -114,10 +114,10 @@ for i = 1:n_iter
     % Alternative update of sigma_sq conditional on beta
     %{
         if trunc
-            E_1 = max((y-X * Beta)' * (y-X * Beta), (1e-10)); % for numerical stability
+            E_1 = max((y - X * Beta)' * (y - X * Beta), (1e-10)); % for numerical stability
             E_2 = max(sum(Beta.^2 ./ ((tau * lambda)).^2), (1e-10));
         else
-            E_1 = (y-X * Beta)' * (y-X * Beta); E_2 = sum(Beta.^2 ./ ((tau * lambda)).^2);
+            E_1 = (y - X * Beta)' * (y - X * Beta); E_2 = sum(Beta.^2 ./ ((tau * lambda)).^2);
         end
 
         sigma_sq = 1 / gamrnd((n + p + a0) / 2, 2 / (b0 + E_1 + E_2));
@@ -127,13 +127,13 @@ for i = 1:n_iter
     U = (1 ./ xi) .* LX;
     u = normrnd(0, tau * lambda);
     v = X * u + normrnd(0, l);
-    v_star= cho_solve(M_chol, (y ./ sqrt(sigma_sq))-v);
+    v_star= cho_solve(M_chol, (y ./ sqrt(sigma_sq)) - v);
     beta = sqrt(sigma_sq) * (u + U * v_star);
 
     % update lambda_j's in a block using slice sampling %
     u = unifrnd(0, 1 ./ (eta + 1));
     gamma_rate = (beta.^2) .* xi ./ (2 .* sigma_sq);
-    eta = gen_truncated_exp(gamma_rate, (1-u) ./ u);
+    eta = gen_truncated_exp(gamma_rate, (1 - u) ./ u);
     if any(eta <= 0)
        disp([num2str(sum(eta <= 0)) ' Eta underflowed, replacing = machine epsilon']);
        eta(eta <= 0) = eps;
@@ -146,27 +146,27 @@ for i = 1:n_iter
     eta = 1 ./ (lambda.^2);
         upsi = unifrnd(0, 1 ./ (1 + eta));
         tempps = Beta.^2 / (2 * sigma_sq * tau^2);
-        ub = (1-upsi) ./ upsi;
+        ub = (1 - upsi) ./ upsi;
 
-        % now sample eta from exp(tempv) truncated between 0 & upsi / (1-upsi)
-        Fub = 1 - exp(-tempps .* ub); % exp cdf at ub
+        % now sample eta from exp(tempv) truncated between 0 & upsi / (1 - upsi)
+        Fub = 1 - exp( - tempps .* ub); % exp cdf at ub
         Fub(Fub < (1e-4)) = 1e-4;  % for numerical stability
         up = unifrnd(0, Fub);
-        eta = -log(1-up) ./ tempps;
+        eta = -log(1 - up) ./ tempps;
         lambda = 1 ./ sqrt(eta);
         Eta = eta;
     %}
 
-    per_expl = 1-sqrt(sum((beta-beta_true).^2)) ./ sqrt(sum(beta_true.^2));
-    L1_loss = 1-sum(abs(beta-beta_true)) ./ sum(abs(beta_true));
+    per_expl = 1 - sqrt(sum((beta - beta_true).^2)) ./ sqrt(sum(beta_true.^2));
+    L1_loss = 1 - sum(abs(beta - beta_true)) ./ sum(abs(beta_true));
 
     if i > n_burnin && mod(i, thin) == 0
-        betaout(:, (i-n_burnin) / thin) = beta(1:50);
-        lambdaout(:, (i-n_burnin) / thin) = lambda(1:50);
-        etaout(:, (i-n_burnin) / thin) = eta(1:50);
-        tauout((i-n_burnin) / thin) = tau;
+        betaout(:, (i - n_burnin) / thin) = beta(1:50);
+        lambdaout(:, (i - n_burnin) / thin) = lambda(1:50);
+        etaout(:, (i - n_burnin) / thin) = eta(1:50);
+        tauout((i - n_burnin) / thin) = tau;
         xiout(i) = xi;
-        sigmaSqout((i-n_burnin) / thin) = sigma_sq;
+        sigmaSqout((i - n_burnin) / thin) = sigma_sq;
         l1out(i) = L1_loss;
         pexpout(i) = per_expl;
     end
@@ -187,11 +187,11 @@ function [lr, M_chol] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0)
         x = cho_solve(M_chol, y);
         ssr = y' * x + b0;
         ldetM = 2 * sum(log(diag(M_chol)));
-        ll = -.5 .* ldetM - ((n + a0) / 2) .* log(ssr);
-        lpr = -log(sqrt(xi) .* (1 + xi));
+        ll = - .5 .* ldetM - ((n + a0) / 2) .* log(ssr);
+        lpr = - log(sqrt(xi) .* (1 + xi));
         lr = ll + lpr;
     catch
-        lr = -Inf; warning('proposal was rejected because I + XDX was not positive-definite');
+        lr = - Inf; warning('proposal was rejected because I + XDX was not positive-definite');
     end
 end
 
@@ -207,14 +207,14 @@ function x = gen_truncated_exp(mn, trunc_point)
     tmp = zeros(max(length(mn), length(trunc_point)), 1);
 
     if any(sml)
-        tmp(sml) = expm1(-r(sml)) .* rand(length(mn(sml)), 1);
+        tmp(sml) = expm1( - r(sml)) .* rand(length(mn(sml)), 1);
     end
-    tmp(~sml) = (exp(-r(~sml))-1) .* rand(length(mn(~sml)), 1);
+    tmp(~sml) = (exp( - r(~sml)) - 1) .* rand(length(mn(~sml)), 1);
 
     sml = abs(tmp) < eps;
     if any(sml)
-       x(sml) = -log1p(tmp(sml)) ./ mn(sml);
+       x(sml) = - log1p(tmp(sml)) ./ mn(sml);
     end
-    x(~sml) = -log(1 + tmp(~sml)) ./ mn(~sml);
+    x(~sml) = - log(1 + tmp(~sml)) ./ mn(~sml);
 
 end

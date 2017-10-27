@@ -19,12 +19,12 @@ for p = ps
     if corX
         X = normrnd(0, 1, [n p]);
         for j = 2:p
-            X(:, j) = rhoX.*X(:, j-1)+X(:, j);
+            X(:, j) = rhoX.*X(:, j-1) + X(:, j);
         end
     else
         X = normrnd(0, 1, [n p]);
     end
-    y = X*BetaTrue+SigmaTrue.*normrnd(0, 1, [n 1]);
+    y = X*BetaTrue + SigmaTrue.*normrnd(0, 1, [n 1]);
 
     scl_ub = 3; % scale for Metropolis-Hastings proposals for xi
     scl_lb = .8; % lb scale
