@@ -35,10 +35,10 @@ for p = ps
 
     % Running horse_nmean_mh
     n_burnin = 0; n_post_burnin = nmc; thin = 1; plotting = true;
-    fix_tau = true;
+    fix_tau = false;
     tau = 10^-3;
     profile on
-    [beta_samples, lambda_samples, tau_samples] = horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, a0, b0, fix_tau, tau);
+    [beta_samples, lambda_samples, tau_samples] = gibbs(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, a0, b0, fix_tau, tau);
     profile off
 end
 
