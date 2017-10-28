@@ -31,14 +31,13 @@ for p = ps
     phasein = 1;
     nmc = 100; % length of Markov chain
     burn = 0; % number of burn-ins
-    a0 = 1/2; b0 = 1/2; % Hyper-params on the prior for sigma_sq. Jeffrey's prior would be a0 = b0 = 0.
 
     % Running horse_nmean_mh
     n_burnin = 0; n_post_burnin = nmc; thin = 1; plotting = true;
     fix_tau = false;
     tau = 10^-3;
     profile on
-    [beta_samples, lambda_samples, tau_samples] = gibbs(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, a0, b0, fix_tau, tau);
+    [beta_samples, lambda_samples, tau_samples] = gibbs(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, fix_tau, tau);
     profile off
 end
 
