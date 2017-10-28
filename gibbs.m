@@ -1,5 +1,5 @@
 function[beta_samples, lambda_samples, tau_samples] = ...
-    horseshoe(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, a0, b0, fixed_tau, tau)
+    gibbs(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, fixed_tau, tau, lambda0)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
 % Based on code by Antik Chakraborty (antik@stat.tamu.edu) and Anirban Bhattacharya (anirbanb@stat.tamu.edu)
@@ -31,22 +31,30 @@ function[beta_samples, lambda_samples, tau_samples] = ...
 %        n_warmup = number of iterations over which to transition between upper
 %        and lower bound on MH proposals; usually make this 1 and just make
 %        scl_ub = scl_lb; only use for particularly challenging cases
-%        a0 = parameter of gamma prior for sigma2
-%        b0 = second parameter of gamma prior for sigma2
-%        fixed_tau = if true, tau will not be update
+%        fixed_tau = if true, tau will not be updated.
+%        lambda0 = the initial value for MCMC
 
 tic;
 n_iter = n_burnin + n_post_burnin;
 n_sample = ceil(n_post_burnin / thin); % Number of samples to keep
 [n, p] = size(X);
 
+% Hyper-params on the prior for sigma_sq. Jeffrey's prior would be a0 = b0 = 0.
+a0 = .5;
+b0 = .5;
+
 % paramters %
-beta = zeros(p, 1);
-lambda = ones(p, 1);
-sigma_sq = 1;
+beta = zeros(p, 1); % Unused with the current gibbs update order.
+sigma_sq = 1; % Unused with the current gibbs update order.
+if ~isnan(lambda0)
+    lambda = lambda0;
+else
+    lambda = ones(p, 1);
+end
 if ~fixed_tau
     tau = 1;
 end
+
 
 % output %
 beta_samples = zeros(50, n_sample);
