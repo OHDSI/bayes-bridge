@@ -56,11 +56,9 @@ end
 
 
 % output %
-beta_samples = zeros(50, n_sample);
-lambda_samples = zeros(50, n_sample);
-eta_samples = zeros(50, n_sample);
+beta_samples = zeros(p, n_sample);
+lambda_samples = zeros(p, n_sample);
 tau_samples = zeros(n_sample, 1);
-xi_samples = zeros(n_post_burnin + n_burnin, 1);
 sigmaSq_samples = zeros(n_sample, 1);
 accept_prob = zeros(n_post_burnin + n_burnin, 1);
 
@@ -148,11 +146,9 @@ for i = 1:n_iter
     %}
 
     if i > n_burnin && mod(i, thin) == 0
-        beta_samples(:, (i - n_burnin) / thin) = beta(1:50);
-        lambda_samples(:, (i - n_burnin) / thin) = lambda(1:50);
-        eta_samples(:, (i - n_burnin) / thin) = eta(1:50);
+        beta_samples(:, (i - n_burnin) / thin) = beta;
+        lambda_samples(:, (i - n_burnin) / thin) = lambda;
         tau_samples((i - n_burnin) / thin) = tau;
-        xi_samples(i) = xi;
         sigmaSq_samples((i - n_burnin) / thin) = sigma_sq;
     end
 end
