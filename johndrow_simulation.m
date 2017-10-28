@@ -38,7 +38,7 @@ for p = ps
     tau = 10^-3;
     lambda0 = ones(p, 1);
     profile on
-    [beta_samples, lambda_samples, tau_samples] = gibbs(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, phasein, fix_tau, tau, lambda0);
+    [beta_samples, lambda_samples, tau_samples] = gibbs(y, X, n_burnin, n_post_burnin, thin, fix_tau, tau, lambda0);
     profile off
 end
 

@@ -1,5 +1,5 @@
 function[beta_samples, lambda_samples, tau_samples] = ...
-    gibbs(y, X, n_burnin, n_post_burnin, thin, scl_ub, scl_lb, n_warmup, fixed_tau, tau, lambda0)
+    gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau, tau, lambda0)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
 % Based on code by Antik Chakraborty (antik@stat.tamu.edu) and Anirban Bhattacharya (anirbanb@stat.tamu.edu)
@@ -25,10 +25,6 @@ function[beta_samples, lambda_samples, tau_samples] = ...
 %        n_burnin = number of burnin MCMC samples %%
 %        n_post_burnin = number of posterior draws to be saved %%
 %        thin = thinning parameter of the chain %%
-%        scl_ub = upper bound on scale for MH proposals
-%        scl_lb = lower bound on scale for MH proposals (usually make these
-%        equal; 0.8 a good default)
-%        n_warmup = number of iterations over which to transition between upper
 %        and lower bound on MH proposals; usually make this 1 and just make
 %        scl_ub = scl_lb; only use for particularly challenging cases
 %        fixed_tau = if true, tau will not be updated.
@@ -42,6 +38,9 @@ n_sample = ceil(n_post_burnin / thin); % Number of samples to keep
 % Hyper-params on the prior for sigma_sq. Jeffrey's prior would be a0 = b0 = 0.
 a0 = .5;
 b0 = .5;
+
+% Stepsize of Metropolis. Apparently, .8 is a good default.
+std_MH = .8;
 
 % paramters %
 beta = zeros(p, 1); % Unused with the current gibbs update order.
@@ -82,11 +81,6 @@ for i = 1:n_iter
         M = I_n + (1 ./ xi) .* XLX;
         M_chol = chol(M);
     else
-        if i<n_warmup
-           std_MH = (scl_ub .* (n_warmup - i) + scl_lb .* i) ./ n_warmup;
-        else
-           std_MH = scl_lb;
-        end
         prop_xi = exp(normrnd(log(xi), std_MH));
         [lrat_prop, M_chol_prop] = lmh_ratio(XLX, y, prop_xi, I_n, n, a0, b0);
         [lrat_curr, M_chol_curr] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0);
