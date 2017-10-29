@@ -24,19 +24,15 @@ for p = ps
     else
         X = normrnd(0, 1, [n p]);
     end
-    y = X * beta_true + sigma_true.*normrnd(0, 1, [n 1]);
-
-    scl_ub = 3; % scale for Metropolis-Hastings proposals for xi
-    scl_lb = .8; % lb scale
-    phasein = 1;
-    nmc = 100; % length of Markov chain
-    burn = 0; % number of burn-ins
+    y = X * beta_true + sigma_true .* normrnd(0, 1, [n 1]);
 
     % Running horse_nmean_mh
-    n_burnin = 0; n_post_burnin = nmc; thin = 1; plotting = true;
+    n_burnin = 0; 
+    n_post_burnin = 100; 
+    thin = 1; 
     fix_tau = false;
     tau = 10^-3;
-    lambda0 = ones(p, 1);
+    lambda0 = 1 * ones(p, 1);
     profile on
     [beta_samples, lambda_samples, tau_samples] = gibbs(y, X, n_burnin, n_post_burnin, thin, fix_tau, tau, lambda0);
     profile off

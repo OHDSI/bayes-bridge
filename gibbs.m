@@ -74,7 +74,7 @@ for i = 1:n_iter
     LX = bsxfun(@times, (lambda.^2), X');
     XLX = X * LX;
     
-    % update tau %
+    % update tau
     if fixed_tau
         M = I_n + (1 ./ xi) .* XLX;
         M_chol = chol(M);
@@ -132,17 +132,16 @@ for i = 1:n_iter
     % not as numerically stable.
     %{
     eta = 1 ./ (lambda.^2);
-        upsi = unifrnd(0, 1 ./ (1 + eta));
-        tempps = Beta.^2 / (2 * sigma_sq * tau^2);
-        ub = (1 - upsi) ./ upsi;
+    upsi = unifrnd(0, 1 ./ (1 + eta));
+    tempps = beta.^2 / (2 * sigma_sq * tau^2);
+    ub = (1 - upsi) ./ upsi;
 
-        % now sample eta from exp(tempv) truncated between 0 & upsi / (1 - upsi)
-        Fub = 1 - exp( - tempps .* ub); % exp cdf at ub
-        Fub(Fub < (1e-4)) = 1e-4;  % for numerical stability
-        up = unifrnd(0, Fub);
-        eta = -log(1 - up) ./ tempps;
-        lambda = 1 ./ sqrt(eta);
-        Eta = eta;
+    % now sample eta from exp(tempv) truncated between 0 & upsi / (1 - upsi)
+    Fub = 1 - exp( - tempps .* ub); % exp cdf at ub
+    Fub(Fub < (1e-4)) = 1e-4;  % for numerical stability
+    up = unifrnd(0, Fub);
+    eta = -log(1 - up) ./ tempps;
+    lambda = 1 ./ sqrt(eta);
     %}
 
     if i > n_burnin && mod(i, thin) == 0
