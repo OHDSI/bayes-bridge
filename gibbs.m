@@ -30,7 +30,6 @@ function[beta_samples, sigma_sq_samples, lambda_samples, tau_samples] = ...
 %        fixed_tau = if true, tau will not be updated.
 %        lambda0 = the initial value for MCMC
 
-tic;
 n_iter = n_burnin + n_post_burnin;
 n_sample = ceil(n_post_burnin / thin); % Number of samples to keep
 [n, p] = size(X);
@@ -151,9 +150,6 @@ for i = 1:n_iter
         sigma_sq_samples((i - n_burnin) / thin) = sigma_sq;
     end
 end
-
-t = toc;
-fprintf('Execution time of %d Gibbs iteration with (n, p) = (%d, %d)is %f seconds. \n', n_iter, n, p, t)
 
 end
 
