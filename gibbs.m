@@ -1,4 +1,4 @@
-function[beta_samples, lambda_samples, tau_samples] = ...
+function[beta_samples, sigma_sq_samples, lambda_samples, tau_samples] = ...
     gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau, tau, lambda0)
 % Function to impelement Horseshoe shrinkage prior (http://faculty.chicagobooth.edu/nicholas.polson/research/papers/Horse.pdf)
 % in Bayesian Linear Regression. %%
@@ -59,7 +59,7 @@ end
 beta_samples = zeros(p, n_sample);
 lambda_samples = zeros(p, n_sample);
 tau_samples = zeros(n_sample, 1);
-sigmaSq_samples = zeros(n_sample, 1);
+sigma_sq_samples = zeros(n_sample, 1);
 accept_prob = zeros(n_post_burnin + n_burnin, 1);
 
 % matrices %
@@ -148,7 +148,7 @@ for i = 1:n_iter
         beta_samples(:, (i - n_burnin) / thin) = beta;
         lambda_samples(:, (i - n_burnin) / thin) = lambda;
         tau_samples((i - n_burnin) / thin) = tau;
-        sigmaSq_samples((i - n_burnin) / thin) = sigma_sq;
+        sigma_sq_samples((i - n_burnin) / thin) = sigma_sq;
     end
 end
 
