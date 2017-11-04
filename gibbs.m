@@ -111,16 +111,19 @@ for i = 1:n_iter
     %}
 
     % update beta %
-    U = (1 ./ xi) .* LX;
-    u = normrnd(0, tau * lambda);
-    v = X * u + normrnd(0, l);
-    v_star= cho_solve(M_chol, (y ./ sqrt(sigma_sq)) - v);
-    beta = sqrt(sigma_sq) * (u + U * v_star);
+    D = (tau * lambda).^2;
+    beta = sqrt(sigma_sq) * ...
+        generate_gaussian(y ./ sqrt(sigma_sq), X, D, M_chol, true);
+%     U = (1 ./ xi) .* LX;
+%     u = normrnd(0, tau * lambda);
+%     v = X * u + normrnd(0, l);
+%     v_star= cho_solve(M_chol, (y ./ sqrt(sigma_sq)) - v);
+%     beta = sqrt(sigma_sq) * (u + U * v_star);
 
     % update lambda_j's in a block using slice sampling %
     u = unifrnd(0, 1 ./ (eta + 1));
     gamma_rate = (beta.^2) .* xi ./ (2 .* sigma_sq);
-    eta = gen_truncated_exp(gamma_rate, (1 - u) ./ u);
+    eta = generate_truncated_exp(gamma_rate, (1 - u) ./ u);
     if any(eta <= 0)
        disp([num2str(sum(eta <= 0)) ' Eta underflowed, replacing = machine epsilon']);
        eta(eta <= 0) = eps;
@@ -153,8 +156,6 @@ end
 
 end
 
-
-
 function [lr, M_chol] = lmh_ratio(XLX, y, xi, I_n, n, a0, b0)
     % marginal of beta, sigma2
     try
@@ -176,21 +177,41 @@ function x = cho_solve(R, b)
     x = linsolve(R, linsolve(R', b, struct('LT', true)), struct('UT', true));
 end
 
-function x = gen_truncated_exp(mn, trunc_point)
-    r = mn .* trunc_point;
-    sml = abs(r)<eps;
-    x = zeros(max(length(mn), length(trunc_point)), 1);
-    tmp = zeros(max(length(mn), length(trunc_point)), 1);
+function x = generate_gaussian(y, X, D, A, is_chol)
+% Generate a multi-variate Gaussian with the mean mu and covariance Sigma 
+% of the form
+%   Sigma = (X'X + D^{-1})^{-1}, mu = Sigma X' y
+% where D is assumed to be diagonal.
+%
+% Param:
+% ------
+% A : matrix
+%   Equals the matrix (XDX' + I) or, if is_chol == true, its cholesky decomposition
 
-    if any(sml)
-        tmp(sml) = expm1( - r(sml)) .* rand(length(mn(sml)), 1);
-    end
-    tmp(~sml) = (exp( - r(~sml)) - 1) .* rand(length(mn(~sml)), 1);
+[n, p] = size(X);
+u = sqrt(D) .* randn(p, 1);
+v = X * u + randn(n, 1);
+if is_chol
+    w = cho_solve(A, y - v);
+else
+    w = A \ (y - v);
+end
+x = u + D .* (X' * w);
 
-    sml = abs(tmp) < eps;
-    if any(sml)
-       x(sml) = - log1p(tmp(sml)) ./ mn(sml);
-    end
-    x(~sml) = - log(1 + tmp(~sml)) ./ mn(~sml);
+end
+
+function x = generate_truncated_exp(rate, trunc_point)
+
+r = rate .* trunc_point;
+small = abs(r) < eps;
+x = zeros(length(rate), 1);
+tmp = zeros(length(rate), 1);
+
+tmp(small) = expm1( - r(small)) .* rand(length(rate(small)), 1);
+tmp(~small) = (exp( - r(~small)) - 1) .* rand(length(rate(~small)), 1);
+
+small = abs(tmp) < eps;
+x(small) = - log1p(tmp(small)) ./ rate(small);
+x(~small) = - log(1 + tmp(~small)) ./ rate(~small);
 
 end
