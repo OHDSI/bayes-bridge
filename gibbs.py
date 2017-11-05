@@ -4,6 +4,69 @@ import scipy.linalg
 import math
 import warnings
 
+def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
+    """
+    Returns a Monte Carlo estimate of the gradient of log marginal
+    distribution of 'tau'.
+
+    Params
+    ------
+      sampler(tau, lam0, n_burnin, n_samples): callable
+          Returns the samples of 'beta' and 'lam' drawn from the posterior
+          conditional distribution.
+      tau: float
+          The value at which the gradient will be evaluated.
+      lam0: vector
+          The initial value of local shrinkage parameters for the Gibbs
+          sampler.
+    """
+
+    tau = math.exp(log_tau)
+    beta_samples, sigma_sq_samples, lam_samples, _ = \
+        sampler(tau, lam0, n_burnin, n_samples)
+    p = np.size(beta_samples, 0)
+
+    # Contributions from the likelihood \pi(\beta | \lam, \tau)
+    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2,
+                             0) / sigma_sq_samples
+    grad_samples = sq_norm_samples / tau ** 2 - p
+    grad = np.mean(grad_samples)
+    cov_grad = np.var(grad_samples)
+    hess = - 2 / tau ** 2 * np.mean(sq_norm_samples) + cov_grad
+
+    # Return a sample of lam to feed into the next iteration.
+    lam = lam_samples[:, -1]
+
+    return grad, cov_grad, hess, lam
+
+
+def mcem(sampler, log_tau, lam0, n_burnin, n_samples):
+    """
+    Update tau via Monte Carlo EM.
+
+    Params
+    ------
+      sampler(tau, lam0, n_burnin, n_samples): callable
+          Returns the samples of 'beta' and 'lam' drawn from the posterior
+          conditional distribution.
+      tau: float
+          The value with respect to which the incomplete log-likelihood is
+          computed.
+      lam0: vector
+          The initial value of local shrinkage parameters for the Gibbs
+          sampler.
+    """
+
+    tau = math.exp(log_tau)
+    beta_samples, sigma_sq_samples, lam_samples, _ = \
+        sampler(tau, lam0, n_burnin, n_samples)
+    p = np.size(beta_samples, 0)
+    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2, 0) / sigma_sq_samples
+    tau = math.sqrt(np.mean(sq_norm_samples) / p)
+    log_tau = math.log(tau)
+    lam = lam_samples[:, -1]
+    return log_tau, lam
+
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
           tau = None, lam0=None):
