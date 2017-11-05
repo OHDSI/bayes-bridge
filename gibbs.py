@@ -69,7 +69,7 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples):
 
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
-          tau = None, lam0=None):
+          tau0=None, lam0=None):
     """
     MCMC implementation for Bayesian linear regression with the horseshoe prior.
     Based on code by Antik Chakraborty, Anirban Bhattacharya, and James Johndrow
@@ -115,7 +115,9 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
         lam = lam0
     else:
         lam = np.ones(p)
-    if not fixed_tau:
+    if tau0 is not None:
+        tau = tau0
+    else:
         tau = 1
     xi = tau ** -2
     eta = lam ** -2
@@ -249,6 +251,7 @@ def generate_gaussian(y, X, D, A, is_chol):
         w = np.linalg.solve(A, y - v)
     x = u + D * np.dot(X.T, w)
     return x
+
 
 def quantile_truncated_exp(x, rate, upper_bd):
     """ Computes the inverse cdf function of a truncated exponential
