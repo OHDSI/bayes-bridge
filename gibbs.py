@@ -229,7 +229,7 @@ def compute_beta_logp(M_chol, y, xi, a0, b0):
     return logp
 
 
-def generate_gaussian(y, X, D, A, is_chol):
+def generate_gaussian(y, X, D, A=None, is_chol=False):
     """
     Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
        Sigma = (X'X + D^{-1})^{-1}, mu = Sigma X' y
@@ -239,16 +239,25 @@ def generate_gaussian(y, X, D, A, is_chol):
     ------
         A : matrix
             Equals the matrix (XDX' + I) or, if is_chol == true, its cholesky decomposition
+        D : vector
     """
 
     n, p = np.shape(X)
-    u = np.sqrt(D) * np.random.randn(p)
-    v = np.dot(X, u) + np.random.randn(n)
-    if is_chol:
-        w = sp.linalg.cho_solve((A, False), y - v)
+    if n > p:
+        Phi = np.dot(X.T, X) + D ** -1
+        Phi_chol = sp.linalg.cholesky(Phi)
+        mu = sp.linalg.cho_solve((Phi_chol, False), np.dot(X.T, y))
+        x = mu + sp.linalg.cho_solve((Phi_chol, False), np.random.randn(p))
     else:
-        w = np.linalg.solve(A, y - v)
-    x = u + D * np.dot(X.T, w)
+        if A is None:
+            A = np.dot(X, D[:, np.newaxis] ** 2 * X.T) + np.eye(n)
+        u = np.sqrt(D) * np.random.randn(p)
+        v = np.dot(X, u) + np.random.randn(n)
+        if is_chol:
+            w = sp.linalg.cho_solve((A, False), y - v)
+        else:
+            w = np.linalg.solve(A, y - v)
+        x = u + D * np.dot(X.T, w)
     return x
 
 
