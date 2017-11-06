@@ -27,8 +27,8 @@ def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
     p = np.size(beta_samples, 0)
 
     # Contributions from the likelihood \pi(\beta | \lam, \tau)
-    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2,
-                             0) / sigma_sq_samples
+    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2, 0) \
+                      / sigma_sq_samples
     grad_samples = sq_norm_samples / tau ** 2 - p
     grad = np.mean(grad_samples)
     cov_grad = np.var(grad_samples)
@@ -145,8 +145,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
                 M_chol_prop = sp.linalg.cholesky(I_n + (1 / prop_xi) * XLX)
             except:
                 warnings.warn(
-                    'Proposal rejected because of a non-positive-definite matrix.',
-                    RuntimeWarning)
+                    'Proposed value yields a non-positive-definite matrix, '
+                    + 'rejectiong.', RuntimeWarning)
                 break
             logp_curr = compute_beta_logp(M_chol, y, xi, a0, b0)
             logp_prop = compute_beta_logp(M_chol_prop, y, prop_xi, a0, b0)
@@ -160,8 +160,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
         tau = 1 / math.sqrt(xi)
 
         # Update sigma_sq with beta maginalized out
-        xtmp = sp.linalg.cho_solve((M_chol, False), y)
-        ssr = np.dot(y, xtmp)
+        ssr = np.dot(y, sp.linalg.cho_solve((M_chol, False), y))
         sigma_sq = 1 / np.random.gamma((n + a0) / 2, 2 / (ssr + b0))
 
         # Alternative update of sigma_sq conditional on beta
