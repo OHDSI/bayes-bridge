@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import scipy.stats
 import scipy.linalg
 import math
 import warnings
@@ -92,13 +93,12 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
 def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
           tau0=None, lam0=None, link='gaussian'):
     """
-    MCMC implementation for Bayesian regularized regression based on a
-    horseshoe prior.
+    MCMC implementation for the Bayesian lasso.
 
     Model: y = X\beta + \epslion, \epsilon \sim N(0, \sigma^2) 
            \beta_j \sim N(0, \sigma^2 \lambda_j^2 \tau^2)
-           \lambda_j \sim Half-Cauchy(0, 1),
-           \tau \sim Half-Cauchy (0, 1), 
+           \lambda_j^2 \sim Exp(2),
+           \tau \sim Half-Cauchy(0, global_scale^2),
            \pi(\sigma^2) \sim 1 / \sigma^2
 
 
@@ -120,9 +120,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         omega = n_trial / 2
 
     # Hyper-parameters
-    df_local = 1
-    df_global = 1
-    global_scale = 1 # scale of the t-distribution prior on 'tau'
+    global_scale = 1 # scale of the half-Cauchy prior on 'tau'
 
     # Initial state of the Markov chain
     beta = np.zeros(p)
@@ -131,16 +129,10 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         lam = lam0
     else:
         lam = np.ones(p)
-    nu = np.random.gamma((df_local + 1) / 2, 1, size=p) \
-         / (1 + df_local / lam ** 2)
-        # an auxiliary parameter for sampling 'lam'
     if tau0 is not None:
         tau = tau0
     else:
         tau = 1
-    xi = np.random.gamma((df_global + 1) / 2, 1) \
-         / (1 + global_scale ** 2 * df_global / tau ** 2)
-        # an auxiliary parameter for sampling 'tau'
 
     # Pre-allocate
     samples = {
@@ -172,23 +164,14 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             raise NotImplementedError(
                 'The specified link function is not supported.')
 
-        # Update local shrinkage parameters via parameter expansion
-        # TODO: this data augmentation strategy seems to not-so-good mixing
-        # property. Run several iterations or replace with slice sampler.
-        scale = df_local * nu + beta ** 2 / 2 / tau ** 2
-        lam_sq = scale / np.random.gamma((df_local + 1) / 2, 1, size=p)
-        nu = np.random.gamma((df_local + 1) / 2, 1, size=p) \
-             / (1 + df_local / lam_sq)
-        lam = np.sqrt(lam_sq)
-
-        # Update the global shrinkage parameter
+        # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
         if not tau_fixed:
-            scale = global_scale ** 2 * df_global * xi \
-                    + np.sum((beta / lam) ** 2) / 2  # inverse-gamma scale
-            tau_sq = scale / np.random.gamma((df_global + p) / 2, 1)
-            xi = np.random.gamma((df_global + 1) / 2, 1) \
-                 / (1 + global_scale ** 2 * df_global / tau_sq)
-            tau = math.sqrt(tau_sq)
+            shape = p + 1
+            scale = 1 / np.sum(np.abs(beta))
+            tau = update_global_shrinkage(tau, beta, global_scale)
+
+        lam_sq = 1 / np.random.wald(mean=np.abs(tau / beta), scale=1)
+        lam = np.sqrt(lam_sq)
 
         if i >= n_burnin and i % thin == 0:
             index = math.floor((i - n_burnin) / thin)
@@ -232,3 +215,23 @@ def generate_gaussian(y, X, D, A=None, is_chol=False):
             w = sp.linalg.solve(A, y - v, sym_pos=True)
         x = u + D * np.dot(X.T, w)
     return x
+
+def update_global_shrinkage(tau, beta, global_scale):
+    """ Update the global shrinkage parameter with slice sampling. """
+
+    n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
+
+    # Initialize a gamma distribution object.
+    shape = beta.size + 1
+    scale = 1 / np.sum(np.abs(beta))
+    gamma_rv = sp.stats.gamma(shape, scale=scale)
+
+    # Slice sample phi = 1 / tau.
+    phi = 1 / tau
+    for i in range(n_update):
+        u = np.random.uniform() / (1 + (global_scale * phi) ** 2)
+        upper = np.sqrt(1 / u - 1) / global_scale  # Invert the half-Cauchy density.
+        phi = gamma_rv.ppf(gamma_rv.cdf(upper) * np.random.uniform())
+    tau = 1 / phi
+
+    return tau
