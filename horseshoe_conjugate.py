@@ -69,7 +69,7 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples):
 
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
-          tau0=None, lam0=None):
+          tau0=None, lam0=None, by_slice=True):
     """
     MCMC implementation for Bayesian linear regression with the horseshoe prior.
     Based on code by Antik Chakraborty, Anirban Bhattacharya, and James Johndrow
@@ -108,6 +108,10 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
     # The value proposed as a good default in Johndrow and Orenstein (2017).
     metropolis_sd = .8
 
+    # The local shrinkage parameters can be updated either by slice sampling
+    # or by parameter expansion.
+    # by_slice = False
+
     # Initial state of the Markov chain
     beta = np.zeros(p)  # Unused with the current gibbs update order.
     sigma_sq = 1  # Unused with the current gibbs update order.
@@ -120,6 +124,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
     else:
         tau = 1
     xi = tau ** -2
+    nu = np.random.gamma(1 / 2, 1, len(lam)) # for parameter expansion of lam
     eta = lam ** -2
 
     # Pre-allocate
@@ -180,15 +185,21 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
         beta = math.sqrt(sigma_sq) \
                * generate_gaussian(y / math.sqrt(sigma_sq), X, D, M_chol, True)
 
-        # Update lam_j's using slice sampling
-        u = np.random.rand(p) / (eta + 1)
-        gamma_rate = (beta ** 2) * xi / (2 * sigma_sq)
-        upper_bd = (1 - u) / u
-        eta = quantile_truncated_exp(np.random.rand(p), gamma_rate, upper_bd) # inverse CDF method
-        if np.any(eta <= 0):
-            print("Eta underflowed, replacing with machine epsilon.")
-            eta[eta <= 0] = np.finfo(float).eps
-        lam = 1 / np.sqrt(eta)
+        # Update lam_j's using slice sampling or parameter expansion
+        if by_slice:
+            u = np.random.rand(p) / (eta + 1)
+            gamma_rate = (beta ** 2) * xi / (2 * sigma_sq)
+            upper_bd = (1 - u) / u
+            eta = quantile_truncated_exp(np.random.rand(p), gamma_rate,
+                                         upper_bd)  # inverse CDF method
+            if np.any(eta <= 0):
+                print("Eta underflowed, replacing with machine epsilon.")
+                eta[eta <= 0] = np.finfo(float).eps
+            lam = 1 / np.sqrt(eta)
+        else:
+            scale = 1 / nu + beta ** 2 / 2 / tau ** 2 / sigma_sq # inverse-gamma scale
+            lam = np.sqrt(1 / np.random.gamma(1, 1 / scale))
+            nu = 1 / np.random.gamma(1, 1 / (1 + 1 / lam ** 2))
 
         # (theoretically) equivalent way to sample lam_j's, but supposedly
         # not as numerically stable.
