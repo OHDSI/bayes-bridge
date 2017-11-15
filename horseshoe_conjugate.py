@@ -258,10 +258,11 @@ def generate_gaussian(y, X, D, A=None, is_chol=False):
         Phi = np.dot(X.T, X) + D ** -1
         Phi_chol = sp.linalg.cholesky(Phi)
         mu = sp.linalg.cho_solve((Phi_chol, False), np.dot(X.T, y))
-        x = mu + sp.linalg.cho_solve((Phi_chol, False), np.random.randn(p))
+        x = mu + sp.linalg.solve_triangular(Phi_chol, np.random.randn(p),
+                                            lower=False)
     else:
         if A is None:
-            A = np.dot(X, D[:, np.newaxis] ** 2 * X.T) + np.eye(n)
+            A = np.dot(X, D[:, np.newaxis] * X.T) + np.eye(n)
         u = np.sqrt(D) * np.random.randn(p)
         v = np.dot(X, u) + np.random.randn(n)
         if is_chol:
