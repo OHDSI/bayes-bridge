@@ -33,13 +33,17 @@ def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
     cov_grad = np.var(grad_samples)
     hess = - 2 / tau ** 2 * np.mean(sq_norm_samples) + cov_grad
 
+    # Contributions from the half-Cauchy prior on 'tau'.
+    grad += (1 - tau ** 2) / (1 + tau ** 2)
+    hess += - 4 * tau ** 2 / (1 + tau ** 2) ** 2
+
     # Return a sample of lam to feed into the next iteration.
     lam = lam_samples[:, -1]
 
     return grad, cov_grad, hess, lam
 
 
-def mcem(sampler, log_tau, lam0, n_burnin, n_samples):
+def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
     """
     Update tau via Monte Carlo EM.
 
@@ -54,6 +58,9 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples):
       lam0: vector
           The initial value of local shrinkage parameters for the Gibbs
           sampler.
+      include_prior: bool
+          If False, the algorithm tries to maximize only the marginal
+          likelihood ignoring the half-Cauchy prior.
     """
 
     tau = math.exp(log_tau)
@@ -61,7 +68,16 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples):
         sampler(tau, lam0, n_burnin, n_samples)
     p = np.size(beta_samples, 0)
     sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2, 0)
-    tau = math.sqrt(np.mean(sq_norm_samples) / p)
+
+    if include_prior:
+        tau = math.sqrt(np.mean(sq_norm_samples) / p)
+    else:
+        a = 1 + p
+        b = - (1 - p + np.mean(sq_norm_samples))
+        c = - np.mean(sq_norm_samples)
+        tau_sq = (- b + math.sqrt(b ** 2 - 4 * a * c)) / 2 / a
+        tau = math.sqrt(tau_sq)
+
     log_tau = math.log(tau)
     lam = lam_samples[:, -1]
     return log_tau, lam
