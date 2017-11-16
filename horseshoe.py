@@ -3,6 +3,8 @@ import scipy as sp
 import scipy.linalg
 import math
 import warnings
+from pypolyagamma import PyPolyaGamma
+pg = PyPolyaGamma()
 
 def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
     """
@@ -84,7 +86,7 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
 
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
-          tau0=None, lam0=None):
+          tau0=None, lam0=None, link='gaussian'):
     """
     MCMC implementation for Bayesian Lasso. Note that the names of 'lambda'
     (local parameter here) and 'tau' (global parameter here) are often switched
@@ -109,9 +111,13 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     n_iter = n_burnin + n_post_burnin
     n_sample = math.ceil(n_post_burnin / thin)  # Number of samples to keep
     n, p = np.shape(X)
+    if link == 'logit':
+        n_trial = np.ones(n)
+        kappa = y - n_trial / 2
+        omega = n_trial / 2
 
     # Initial state of the Markov chain
-    beta = np.zeros(p)  # Unused with the current gibbs update order.
+    beta = np.zeros(p)
     sigma_sq = 1
     if lam0 is not None:
         lam = lam0
@@ -133,15 +139,24 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     # Start Gibbs sampling
     for i in range(n_iter):
 
-        # Update beta
-        D = (tau * lam) ** 2 / sigma_sq
-        beta = math.sqrt(sigma_sq) \
-               * generate_gaussian(y / math.sqrt(sigma_sq), X, D)
+        # Update beta and related parameters.
+        if link == 'gaussian':
+            D = (tau * lam) ** 2 / sigma_sq
+            beta = math.sqrt(sigma_sq) \
+                   * generate_gaussian(y / math.sqrt(sigma_sq), X, D)
+            resid = y - np.dot(X, beta)
+            scale = np.sum(resid ** 2) / 2  # + np.sum(beta ** 2 / D) / 2
+            sigma_sq = 1 / np.random.gamma(n / 2, 1 / scale)
+        elif link == 'logit':
+            pg.pgdrawv(n_trial, np.dot(X, beta), omega)
+            D = (tau * lam) ** 2
+            beta = generate_gaussian(
+                kappa / np.sqrt(omega), np.sqrt(omega)[:, np.newaxis] * X, D)
+            # omega = np.zeros(n) # Allocate memory
 
-        # Update sigma
-        resid = y - np.dot(X, beta)
-        scale = np.sum(resid ** 2) / 2 # + np.sum(beta ** 2 / D) / 2
-        sigma_sq = 1 / np.random.gamma(n / 2, 1 / scale)
+        else:
+            raise NotImplementedError(
+                'The specified link function is not supported.')
 
         # Update local shrinkage parameters via parameter expansion
         scale = 1 / nu + beta ** 2 / 2 / tau ** 2 # inverse-gamma scale
@@ -181,7 +196,7 @@ def generate_gaussian(y, X, D, A=None, is_chol=False):
 
     n, p = np.shape(X)
     if n > p:
-        Phi = np.dot(X.T, X) + D ** -1
+        Phi = np.dot(X.T, X) + D ** -1 
         Phi_chol = sp.linalg.cholesky(Phi)
         mu = sp.linalg.cho_solve((Phi_chol, False), np.dot(X.T, y))
         x = mu + sp.linalg.solve_triangular(Phi_chol, np.random.randn(p),
