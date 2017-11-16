@@ -196,7 +196,7 @@ def generate_gaussian(y, X, D, A=None, is_chol=False):
 
     n, p = np.shape(X)
     if n > p:
-        Phi = np.dot(X.T, X) + D ** -1 
+        Phi = np.dot(X.T, X) + np.diag(D ** -1)
         Phi_chol = sp.linalg.cholesky(Phi)
         mu = sp.linalg.cho_solve((Phi_chol, False), np.dot(X.T, y))
         x = mu + sp.linalg.solve_triangular(Phi_chol, np.random.randn(p),
