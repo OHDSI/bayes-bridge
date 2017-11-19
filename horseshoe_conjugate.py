@@ -22,13 +22,12 @@ def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
     """
 
     tau = math.exp(log_tau)
-    beta_samples, sigma_sq_samples, lam_samples, _ = \
-        sampler(tau, lam0, n_burnin, n_samples)
-    p = np.size(beta_samples, 0)
+    samples = sampler(tau, lam0, n_burnin, n_samples)
+    p = np.size(samples['beta'], 0)
 
     # Contributions from the likelihood \pi(\beta | \lam, \tau)
-    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2, 0) \
-                      / sigma_sq_samples
+    sq_norm_samples = np.sum((samples['beta'] / samples['lambda']) ** 2, 0) \
+                      / samples['sigma_sq']
     grad_samples = sq_norm_samples / tau ** 2 - p
     grad = np.mean(grad_samples)
     cov_grad = np.var(grad_samples)
@@ -39,7 +38,7 @@ def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
     hess += - 4 * tau ** 2 / (1 + tau ** 2) ** 2
 
     # Return a sample of lam to feed into the next iteration.
-    lam = lam_samples[:, -1]
+    lam = samples['lambda'][:, -1]
 
     return grad, cov_grad, hess, lam
 
@@ -65,10 +64,9 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
     """
 
     tau = math.exp(log_tau)
-    beta_samples, sigma_sq_samples, lam_samples, _ = \
-        sampler(tau, lam0, n_burnin, n_samples)
-    p = np.size(beta_samples, 0)
-    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2, 0) / sigma_sq_samples
+    samples = sampler(tau, lam0, n_burnin, n_samples)
+    p = np.size(samples['beta'], 0)
+    sq_norm_samples = np.sum((samples['beta'] / samples['lambda']) ** 2, 0) / samples['sigma_sq']
 
     if include_prior:
         tau = math.sqrt(np.mean(sq_norm_samples) / p)
@@ -80,7 +78,7 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
         tau = math.sqrt(tau_sq)
 
     log_tau = math.log(tau)
-    lam = lam_samples[:, -1]
+    lam = samples['lambda'][:, -1]
     return log_tau, lam
 
 
@@ -144,10 +142,12 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
     eta = lam ** -2
 
     # Pre-allocate
-    beta_samples = np.zeros((p, n_sample))
-    lam_samples = np.zeros((p, n_sample))
-    tau_samples = np.zeros(n_sample)
-    sigma_sq_samples = np.zeros(n_sample)
+    samples = {
+        'beta': np.zeros((p, n_sample)),
+        'lambda': np.zeros((p, n_sample)),
+        'tau': np.zeros(n_sample),
+        'sigma_sq': np.zeros(n_sample)
+    }
     accepted = np.zeros(n_post_burnin + n_burnin)
     I_n = np.eye(n)
 
@@ -235,12 +235,12 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, fixed_tau=False,
 
         if i >= n_burnin and i % thin == 0:
             index = math.floor((i - n_burnin) / thin)
-            beta_samples[:, index] = beta
-            lam_samples[:, index] = lam
-            tau_samples[index] = tau
-            sigma_sq_samples[index] = sigma_sq
+            samples['beta'][:, index] = beta
+            samples['lambda'][:, index] = lam
+            samples['tau'][index] = tau
+            samples['sigma_sq'][index] = sigma_sq
 
-    return beta_samples, sigma_sq_samples, lam_samples, tau_samples
+    return samples
 
 
 def compute_beta_logp(M_chol, y, xi, a0, b0):

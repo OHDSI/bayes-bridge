@@ -24,12 +24,11 @@ def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
     """
 
     tau = math.exp(log_tau)
-    beta_samples, sigma_sq_samples, lam_samples, _ = \
-        sampler(tau, lam0, n_burnin, n_samples)
-    p = np.size(beta_samples, 0)
+    samples = sampler(tau, lam0, n_burnin, n_samples)
+    p = np.size(samples['beta'], 0)
 
     # Contributions from the likelihood \pi(\beta | \lam, \tau)
-    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2, 0)
+    sq_norm_samples = np.sum((samples['beta'] / samples['lambda']) ** 2, 0)
     grad_samples = sq_norm_samples / tau ** 2 - p
     grad = np.mean(grad_samples)
     cov_grad = np.var(grad_samples)
@@ -40,7 +39,7 @@ def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
     hess += - 4 * tau ** 2 / (1 + tau ** 2) ** 2
 
     # Return a sample of lam to feed into the next iteration.
-    lam = lam_samples[:, -1]
+    lam = samples['lambda'][:, -1]
 
     return grad, cov_grad, hess, lam
 
@@ -66,10 +65,9 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
     """
 
     tau = math.exp(log_tau)
-    beta_samples, sigma_sq_samples, lam_samples, _ = \
-        sampler(tau, lam0, n_burnin, n_samples)
-    p = np.size(beta_samples, 0)
-    sq_norm_samples = np.sum((beta_samples / lam_samples) ** 2, 0)
+    samples = sampler(tau, lam0, n_burnin, n_samples)
+    p = np.size(samples['beta'], 0)
+    sq_norm_samples = np.sum((samples['beta'] / samples['lambda']) ** 2, 0)
 
     if include_prior:
         tau = math.sqrt(np.mean(sq_norm_samples) / p)
@@ -81,7 +79,7 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
         tau = math.sqrt(tau_sq)
 
     log_tau = math.log(tau)
-    lam = lam_samples[:, -1]
+    lam = samples['lambda'][:, -1]
     return log_tau, lam
 
 
@@ -131,10 +129,13 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     xi = 1 # an auxiliary parameter for sampling 'tau'
 
     # Pre-allocate
-    beta_samples = np.zeros((p, n_sample))
-    lam_samples = np.zeros((p, n_sample))
-    tau_samples = np.zeros(n_sample)
-    sigma_sq_samples = np.zeros(n_sample)
+    samples = {
+        'beta': np.zeros((p, n_sample)),
+        'lambda': np.zeros((p, n_sample)),
+        'tau': np.zeros(n_sample)
+    }
+    if link == 'gaussian':
+        samples['sigma_sq'] = np.zeros(n_sample)
 
     # Start Gibbs sampling
     for i in range(n_iter):
@@ -145,14 +146,13 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             beta = math.sqrt(sigma_sq) \
                    * generate_gaussian(y / math.sqrt(sigma_sq), X, D)
             resid = y - np.dot(X, beta)
-            scale = np.sum(resid ** 2) / 2  # + np.sum(beta ** 2 / D) / 2
+            scale = np.sum(resid ** 2) / 2
             sigma_sq = 1 / np.random.gamma(n / 2, 1 / scale)
         elif link == 'logit':
             pg.pgdrawv(n_trial, np.dot(X, beta), omega)
             D = (tau * lam) ** 2
             beta = generate_gaussian(
                 kappa / np.sqrt(omega), np.sqrt(omega)[:, np.newaxis] * X, D)
-            # omega = np.zeros(n) # Allocate memory
 
         else:
             raise NotImplementedError(
@@ -173,12 +173,13 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         if i >= n_burnin and i % thin == 0:
             index = math.floor((i - n_burnin) / thin)
-            beta_samples[:, index] = beta
-            lam_samples[:, index] = lam
-            tau_samples[index] = tau
-            sigma_sq_samples[index] = sigma_sq
+            samples['beta'][:, index] = beta
+            samples['lambda'][:, index] = lam
+            samples['tau'][index] = tau
+            if link == 'gaussian':
+                samples['sigma_sq'][index] = sigma_sq
 
-    return beta_samples, sigma_sq_samples, lam_samples, tau_samples
+    return samples
 
 
 def generate_gaussian(y, X, D, A=None, is_chol=False):
