@@ -114,6 +114,10 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         kappa = y - n_trial / 2
         omega = n_trial / 2
 
+    # Hyper-parameters
+    df_local = 1
+    df_global = 1
+
     # Initial state of the Markov chain
     beta = np.zeros(p)
     sigma_sq = 1
@@ -147,7 +151,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
                    * generate_gaussian(y / math.sqrt(sigma_sq), X, D)
             resid = y - np.dot(X, beta)
             scale = np.sum(resid ** 2) / 2
-            sigma_sq = 1 / np.random.gamma(n / 2, 1 / scale)
+            sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
             pg.pgdrawv(n_trial, np.dot(X, beta), omega)
             D = (tau * lam) ** 2
@@ -160,15 +164,15 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         # Update local shrinkage parameters via parameter expansion
         scale = 1 / nu + beta ** 2 / 2 / tau ** 2 # inverse-gamma scale
-        lam_sq = 1 / np.random.gamma(1, 1 / scale)
-        nu = 1 / np.random.gamma(1, 1 / (1 + 1 / lam_sq))
+        lam_sq = scale / np.random.gamma(1, 1, size=p)
+        nu = (1 + 1 / lam_sq) / np.random.gamma(df_local, df_local, size=p)
         lam = np.sqrt(lam_sq)
 
         # Update the global shrinkage parameter
         if not tau_fixed:
             scale = 1 / xi + np.sum((beta / lam) ** 2) / 2 # inverse-gamma scale
-            tau_sq = 1 / np.random.gamma((1 + p) / 2, 1 / scale)
-            xi = 1 / np.random.gamma(1, 1 / (1 + 1 / tau_sq))
+            tau_sq = scale / np.random.gamma((1 + p) / 2, 1)
+            xi = (1 + 1 / tau_sq) / np.random.gamma(df_global, df_global)
             tau = math.sqrt(tau_sq)
 
         if i >= n_burnin and i % thin == 0:
