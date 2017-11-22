@@ -117,6 +117,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     # Hyper-parameters
     df_local = 5
     df_global = 1
+    global_scale = 1 # scale of the t-distribution prior on 'tau'
 
     # Initial state of the Markov chain
     beta = np.zeros(p)
@@ -173,7 +174,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         if not tau_fixed:
             scale = 1 / xi + np.sum((beta / lam) ** 2) / 2 # inverse-gamma scale
             tau_sq = scale / np.random.gamma((1 + p) / 2, 1)
-            xi = (df_global + 1 / tau_sq) \
+            xi = (global_scale ** -2 * df_global + 1 / tau_sq) \
                  / np.random.gamma((df_global + 1) / 2, 1)
             tau = math.sqrt(tau_sq)
 
