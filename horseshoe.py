@@ -115,7 +115,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         omega = n_trial / 2
 
     # Hyper-parameters
-    df_local = 1
+    df_local = 5
     df_global = 1
 
     # Initial state of the Markov chain
@@ -165,14 +165,16 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         # Update local shrinkage parameters via parameter expansion
         scale = 1 / nu + beta ** 2 / 2 / tau ** 2 # inverse-gamma scale
         lam_sq = scale / np.random.gamma(1, 1, size=p)
-        nu = (1 + 1 / lam_sq) / np.random.gamma(df_local, df_local, size=p)
+        nu = (df_local + 1 / lam_sq) \
+             / np.random.gamma((df_local + 1) / 2, 1, size=p)
         lam = np.sqrt(lam_sq)
 
         # Update the global shrinkage parameter
         if not tau_fixed:
             scale = 1 / xi + np.sum((beta / lam) ** 2) / 2 # inverse-gamma scale
             tau_sq = scale / np.random.gamma((1 + p) / 2, 1)
-            xi = (1 + 1 / tau_sq) / np.random.gamma(df_global, df_global)
+            xi = (df_global + 1 / tau_sq) \
+                 / np.random.gamma((df_global + 1) / 2, 1)
             tau = math.sqrt(tau_sq)
 
         if i >= n_burnin and i % thin == 0:
