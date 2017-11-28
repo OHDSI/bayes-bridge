@@ -23,6 +23,9 @@ def grad_marginal(sampler, log_tau, lam0, n_burnin, n_samples):
           sampler.
     """
 
+    # TODO: Update the code to accommodate other values of horseshoe
+    # hyper-parameters other than all 1's.
+
     tau = math.exp(log_tau)
     samples = sampler(tau, lam0, n_burnin, n_samples)
     p = np.size(samples['beta'], 0)
@@ -63,6 +66,9 @@ def mcem(sampler, log_tau, lam0, n_burnin, n_samples, include_prior=True):
           If False, the algorithm tries to maximize only the marginal
           likelihood ignoring the half-Cauchy prior.
     """
+
+    # TODO: Update the code to accommodate other values of horseshoe
+    # hyper-parameters other than all 1's.
 
     tau = math.exp(log_tau)
     samples = sampler(tau, lam0, n_burnin, n_samples)
@@ -115,7 +121,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         omega = n_trial / 2
 
     # Hyper-parameters
-    df_local = 5
+    df_local = 1
     df_global = 1
     global_scale = 1 # scale of the t-distribution prior on 'tau'
 
@@ -167,6 +173,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
                 'The specified link function is not supported.')
 
         # Update local shrinkage parameters via parameter expansion
+        # TODO: this data augmentation strategy seems to not-so-good mixing
+        # property. Run several iterations or replace with slice sampler.
         scale = 1 / nu + beta ** 2 / 2 / tau ** 2 # inverse-gamma scale
         lam_sq = scale / np.random.gamma(1, 1, size=p)
         nu = (df_local + 1 / lam_sq) \
