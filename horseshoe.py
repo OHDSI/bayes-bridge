@@ -132,17 +132,16 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         lam = lam0
     else:
         lam = np.ones(p)
-    nu = 1 / np.random.gamma(df_local / 2, df_local, size=p)
+    nu = np.random.gamma((df_local + 1) / 2, 1, size=p) \
+         / (1 + df_local / lam ** 2)
         # an auxiliary parameter for sampling 'lam'
-    nu = 1 / nu
     if tau0 is not None:
         tau = tau0
     else:
         tau = 1
-    xi = global_scale ** -2 \
-         / np.random.gamma(df_global / 2, df_global)
+    xi = np.random.gamma((df_global + 1) / 2, 1) \
+         / (1 + global_scale ** 2 * df_global / tau ** 2)
         # an auxiliary parameter for sampling 'tau'
-    xi = 1 / xi
 
     # Pre-allocate
     samples = {
