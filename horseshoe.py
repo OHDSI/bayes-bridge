@@ -134,6 +134,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         lam = np.ones(p)
     nu = 1 / np.random.gamma(df_local / 2, df_local, size=p)
         # an auxiliary parameter for sampling 'lam'
+    nu = 1 / nu
     if tau0 is not None:
         tau = tau0
     else:
@@ -141,6 +142,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     xi = global_scale ** -2 \
          / np.random.gamma(df_global / 2, df_global)
         # an auxiliary parameter for sampling 'tau'
+    xi = 1 / xi
 
     # Pre-allocate
     samples = {
@@ -175,18 +177,19 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         # Update local shrinkage parameters via parameter expansion
         # TODO: this data augmentation strategy seems to not-so-good mixing
         # property. Run several iterations or replace with slice sampler.
-        scale = 1 / nu + beta ** 2 / 2 / tau ** 2 # inverse-gamma scale
-        lam_sq = scale / np.random.gamma(1, 1, size=p)
-        nu = (df_local + 1 / lam_sq) \
-             / np.random.gamma((df_local + 1) / 2, 1, size=p)
+        scale = df_local * nu + beta ** 2 / 2 / tau ** 2
+        lam_sq = scale / np.random.gamma((df_local + 1) / 2, 1, size=p)
+        nu = np.random.gamma((df_local + 1) / 2, 1, size=p) \
+             / (1 + df_local / lam_sq)
         lam = np.sqrt(lam_sq)
 
         # Update the global shrinkage parameter
         if not tau_fixed:
-            scale = 1 / xi + np.sum((beta / lam) ** 2) / 2 # inverse-gamma scale
-            tau_sq = scale / np.random.gamma((1 + p) / 2, 1)
-            xi = (global_scale ** -2 * df_global + 1 / tau_sq) \
-                 / np.random.gamma((df_global + 1) / 2, 1)
+            scale = global_scale ** 2 * df_global * xi \
+                    + np.sum((beta / lam) ** 2) / 2  # inverse-gamma scale
+            tau_sq = scale / np.random.gamma((df_global + p) / 2, 1)
+            xi = np.random.gamma((df_global + 1) / 2, 1) \
+                 / (1 + global_scale ** 2 * df_global / tau_sq)
             tau = math.sqrt(tau_sq)
 
         if i >= n_burnin and i % thin == 0:
