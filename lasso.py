@@ -40,9 +40,6 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     # Hyper-parameters
     global_scale = 1 # scale of the half-Cauchy prior on 'tau'
-    beta0_var = 1000 * global_scale
-        # Prior variance of the intercept --- it is meant to approximate
-        # an infinity but is chosen to be finite for numerical issues.
 
     # Initial state of the Markov chain
     beta = np.zeros(p + 1)
@@ -103,22 +100,23 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 def sample_gaussian_posterior(y, X, lam, tau, omega):
     """
     Sample from a Gaussian with a precision Phi and mean mu such that
-        Phi = X.T * diag(omega) * X + (tau * diag(lam)) ** -2
+        Phi = X.T * diag(omega) * X + (tau * diag(float('inf'), lam)) ** -2
         mu = inv(Phi) * X.T * omega * y
     For numerical stability, the code first sample from the scaled parameter
-    beta / tau / lam.
+    beta / precond_scale.
     """
 
-    p = X.shape[1]
-    X_lam = X * lam[np.newaxis, :]
-    Phi_scaled = np.eye(p) \
+    p = lam.size
+    lam_aug = np.concatenate(([np.sum(omega) ** (- 1 / 2) / tau], lam))
+    X_lam = X * lam_aug[np.newaxis, :]
+    Phi_scaled = np.diag(np.concatenate(([0], np.ones(p)))) \
                   + tau ** 2 * np.dot(X_lam.T, omega[:, np.newaxis] * X_lam)
     Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
     mu = sp.linalg.cho_solve((Phi_scaled_chol, False),
-                             tau * lam * np.dot(X.T, omega * y))
+                             tau * lam_aug * np.dot(X.T, omega * y))
     beta_scaled = mu \
-        + sp.linalg.solve_triangular(Phi_scaled_chol, np.random.randn(p), lower=False)
-    beta = tau * lam * beta_scaled
+        + sp.linalg.solve_triangular(Phi_scaled_chol, np.random.randn(p + 1), lower=False)
+    beta = tau * lam_aug * beta_scaled
 
     return beta
 
