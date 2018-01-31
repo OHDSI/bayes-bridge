@@ -118,12 +118,16 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         n_trial = np.ones(n)
         kappa = y - n_trial / 2
         omega = n_trial / 2
+    X = np.hstack((np.ones((n, 1)), X))  # Add an intercept term.
 
     # Hyper-parameters
     global_scale = 1 # scale of the half-Cauchy prior on 'tau'
+    beta0_var = 1000 * global_scale
+        # Prior variance of the intercept --- it is meant to approximate
+        # an infinity but is chosen to be finite for numerical issues.
 
     # Initial state of the Markov chain
-    beta = np.zeros(p)
+    beta = np.zeros(p + 1)
     sigma_sq = 1
     if lam0 is not None:
         lam = lam0
@@ -136,7 +140,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     # Pre-allocate
     samples = {
-        'beta': np.zeros((p, n_sample)),
+        'beta': np.zeros((p + 1, n_sample)),
         'lambda': np.zeros((p, n_sample)),
         'tau': np.zeros(n_sample)
     }
@@ -148,18 +152,13 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         # Update beta and related parameters.
         if link == 'gaussian':
-            D = (tau * lam) ** 2 / sigma_sq
-            beta = math.sqrt(sigma_sq) \
-                   * generate_gaussian(y / math.sqrt(sigma_sq), X, D)
+            beta = sample_gaussian_posterior(y, X, lam, tau, np.ones(n) / sigma_sq)
             resid = y - np.dot(X, beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
             pg.pgdrawv(n_trial, np.dot(X, beta), omega)
-            D = (tau * lam) ** 2
-            beta = generate_gaussian(
-                kappa / np.sqrt(omega), np.sqrt(omega)[:, np.newaxis] * X, D)
-
+            beta = sample_gaussian_posterior(kappa / omega, X, lam, tau, omega)
         else:
             raise NotImplementedError(
                 'The specified link function is not supported.')
@@ -167,10 +166,10 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
         if not tau_fixed:
             shape = p + 1
-            scale = 1 / np.sum(np.abs(beta))
-            tau = update_global_shrinkage(tau, beta, global_scale)
+            scale = 1 / np.sum(np.abs(beta[1:]))
+            tau = update_global_shrinkage(tau, beta[1:], global_scale)
 
-        lam_sq = 1 / np.random.wald(mean=np.abs(tau / beta), scale=1)
+        lam_sq = 1 / np.random.wald(mean=np.abs(tau / beta[1:]), scale=1)
         lam = np.sqrt(lam_sq)
 
         if i >= n_burnin and i % thin == 0:
@@ -183,6 +182,27 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     return samples
 
+def sample_gaussian_posterior(y, X, lam, tau, omega):
+    """
+    Sample from a Gaussian with a precision Phi and mean mu such that
+        Phi = X.T * diag(omega) * X + (tau * diag(lam)) ** -2
+        mu = inv(Phi) * X.T * omega * y
+    For numerical stability, the code first sample from the scaled parameter
+    beta / tau / lam.
+    """
+
+    p = X.shape[1]
+    X_lam = X * lam[np.newaxis, :]
+    Phi_scaled = np.eye(p) \
+                  + tau ** 2 * np.dot(X_lam.T, omega[:, np.newaxis] * X_lam)
+    Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
+    mu = sp.linalg.cho_solve((Phi_scaled_chol, False),
+                             tau * lam * np.dot(X.T, omega * y))
+    beta_scaled = mu \
+        + sp.linalg.solve_triangular(Phi_scaled_chol, np.random.randn(p), lower=False)
+    beta = tau * lam * beta_scaled
+
+    return beta
 
 def generate_gaussian(y, X, D, A=None, is_chol=False):
     """
