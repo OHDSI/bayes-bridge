@@ -62,6 +62,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     }
     if link == 'gaussian':
         samples['sigma_sq'] = np.zeros(n_sample)
+    elif link == 'logit':
+        samples['omega'] = np.zeros((n, n_sample))
 
     # Start Gibbs sampling
     for i in range(n_iter):
@@ -95,6 +97,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             samples['tau'][index] = tau
             if link == 'gaussian':
                 samples['sigma_sq'][index] = sigma_sq
+            elif link == 'logit':
+                samples['omega'][:, index] = omega
 
     return samples
 
