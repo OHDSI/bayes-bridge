@@ -30,7 +30,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     """
 
     n_iter = n_burnin + n_post_burnin
-    n_sample = math.ceil(n_post_burnin / thin)  # Number of samples to keep
+    n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
     n, p = np.shape(X)
     if link == 'logit':
         n_trial = np.ones(n)
@@ -66,7 +66,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         samples['omega'] = np.zeros((n, n_sample))
 
     # Start Gibbs sampling
-    for i in range(n_iter):
+    for i in range(1, n_iter + 1):
 
         # Update beta and related parameters.
         if link == 'gaussian':
@@ -90,8 +90,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         lam_sq = 1 / np.random.wald(mean=np.abs(tau / beta[1:]), scale=1)
         lam = np.sqrt(lam_sq)
 
-        if i >= n_burnin and i % thin == 0:
-            index = math.floor((i - n_burnin) / thin)
+        if i > n_burnin and (i - n_burnin) % thin == 0:
+            index = math.floor((i - n_burnin) / thin) - 1
             samples['beta'][:, index] = beta
             samples['lambda'][:, index] = lam
             samples['tau'][index] = tau
