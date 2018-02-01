@@ -35,7 +35,6 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     if link == 'logit':
         n_trial = np.ones(n)
         kappa = y - n_trial / 2
-        omega = n_trial / 2
     X = np.hstack((np.ones((n, 1)), X))  # Add an intercept term.
 
     # Hyper-parameters
@@ -44,6 +43,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     # Initial state of the Markov chain
     beta = np.zeros(p + 1)
     sigma_sq = 1
+    if link == 'logit':
+        omega = n_trial / 2
     if lam0 is not None:
         lam = lam0
     else:
