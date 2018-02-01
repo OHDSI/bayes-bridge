@@ -67,13 +67,13 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         # Update beta and related parameters.
         if link == 'gaussian':
-            beta = sample_gaussian_posterior(y, X, lam, tau, np.ones(n) / sigma_sq)
+            beta = sample_gaussian_posterior(y, X, tau * lam, np.ones(n) / sigma_sq)
             resid = y - np.dot(X, beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
             pg.pgdrawv(n_trial, np.dot(X, beta), omega)
-            beta = sample_gaussian_posterior(kappa / omega, X, lam, tau, omega)
+            beta = sample_gaussian_posterior(kappa / omega, X, tau * lam, omega)
         else:
             raise NotImplementedError(
                 'The specified link function is not supported.')
@@ -97,26 +97,26 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     return samples
 
-def sample_gaussian_posterior(y, X, lam, tau, omega):
+def sample_gaussian_posterior(y, X, prior_sd, omega):
     """
     Sample from a Gaussian with a precision Phi and mean mu such that
-        Phi = X.T * diag(omega) * X + (tau * diag(float('inf'), lam)) ** -2
+        Phi = X.T * diag(omega) * X + diag(0, prior_sd) ** -2
         mu = inv(Phi) * X.T * omega * y
     For numerical stability, the code first sample from the scaled parameter
     beta / precond_scale.
     """
 
-    p = lam.size
-    lam_aug = np.concatenate(([np.sum(omega) ** (- 1 / 2) / tau], lam))
-    X_lam = X * lam_aug[np.newaxis, :]
+    p = X.shape[1] - 1 #
+    precond_scale = np.concatenate(([np.sum(omega) ** (- 1 / 2)], prior_sd))
+    X_scaled = X * precond_scale[np.newaxis, :]
     Phi_scaled = np.diag(np.concatenate(([0], np.ones(p)))) \
-                  + tau ** 2 * np.dot(X_lam.T, omega[:, np.newaxis] * X_lam)
+                  + np.dot(X_scaled.T, omega[:, np.newaxis] * X_scaled)
     Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
     mu = sp.linalg.cho_solve((Phi_scaled_chol, False),
-                             tau * lam_aug * np.dot(X.T, omega * y))
+                             np.dot(X_scaled.T, omega * y))
     beta_scaled = mu \
         + sp.linalg.solve_triangular(Phi_scaled_chol, np.random.randn(p + 1), lower=False)
-    beta = tau * lam_aug * beta_scaled
+    beta = precond_scale * beta_scaled
 
     return beta
 
