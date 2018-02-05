@@ -9,7 +9,7 @@ pg = PyPolyaGamma()
 
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
-          tau0=None, lam0=None, link='gaussian'):
+          init={}, link='gaussian'):
     """
     MCMC implementation for the Bayesian lasso.
 
@@ -45,14 +45,16 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     sigma_sq = 1
     if link == 'logit':
         omega = n_trial / 2
-    if lam0 is not None:
-        lam = lam0
+    if 'lambda' in init:
+        lam = init['lambda']
     else:
         lam = np.ones(p)
-    if tau0 is not None:
-        tau = tau0
+    if 'tau' in init:
+        tau = init['tau']
     else:
         tau = 1
+    if 'intercept' in init:
+        beta[0] = init['intercept']
 
     # Pre-allocate
     samples = {
