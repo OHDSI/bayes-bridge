@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import scipy.stats
 import scipy.linalg
+import scipy.sparse
 import math
 import warnings
 from pypolyagamma import PyPolyaGamma
@@ -35,7 +36,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     if link == 'logit':
         n_trial = np.ones(n)
         kappa = y - n_trial / 2
-    X = np.hstack((np.ones((n, 1)), X))  # Add an intercept term.
+    X = sp.sparse.hstack((np.ones((n, 1)), X))  # Add an intercept term.
 
     # Hyper-parameters
     global_scale = 1 # scale of the half-Cauchy prior on 'tau'
@@ -73,11 +74,11 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         # Update beta and related parameters.
         if link == 'gaussian':
             beta = sample_gaussian_posterior(y, X, tau * lam, np.ones(n) / sigma_sq)
-            resid = y - np.dot(X, beta)
+            resid = y - X.dot(beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
-            pg.pgdrawv(n_trial, np.dot(X, beta), omega)
+            pg.pgdrawv(n_trial, X.dot(beta), omega)
             beta = sample_gaussian_posterior(kappa / omega, X, tau * lam, omega)
         else:
             raise NotImplementedError(
@@ -111,14 +112,17 @@ def sample_gaussian_posterior(y, X, prior_sd, omega):
     beta / precond_scale.
     """
 
+    n = X.shape[0]
     p = X.shape[1] - 1 #
     precond_scale = np.concatenate(([np.sum(omega) ** (- 1 / 2)], prior_sd))
-    X_scaled = X * precond_scale[np.newaxis, :]
-    Phi_scaled = np.diag(np.concatenate(([0], np.ones(p)))) \
-                  + np.dot(X_scaled.T, omega[:, np.newaxis] * X_scaled)
+    precond_scale_mat = sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
+    omega_mat = sp.sparse.dia_matrix((omega, 0), (n, n))
+    X_scaled = X.dot(precond_scale_mat)
+    Phi_scaled = X_scaled.T.dot(omega_mat.dot(X_scaled)).toarray() \
+            + np.diag(np.concatenate(([0], np.ones(p))))
     Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
     mu = sp.linalg.cho_solve((Phi_scaled_chol, False),
-                             np.dot(X_scaled.T, omega * y))
+                             X_scaled.T.dot(omega * y))
     beta_scaled = mu \
         + sp.linalg.solve_triangular(Phi_scaled_chol, np.random.randn(p + 1), lower=False)
     beta = precond_scale * beta_scaled
