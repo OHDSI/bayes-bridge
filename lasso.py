@@ -85,8 +85,6 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
         if not tau_fixed:
-            shape = p + 1
-            scale = 1 / np.sum(np.abs(beta[1:]))
             tau = update_global_shrinkage(tau, beta[1:], global_scale)
 
         lam_sq = 1 / np.random.wald(mean=np.abs(tau / beta[1:]), scale=1)
