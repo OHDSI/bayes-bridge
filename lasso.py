@@ -75,13 +75,14 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         # Update beta and related parameters.
         if link == 'gaussian':
-            beta = sample_gaussian_posterior(y, X_csr, X_csc, tau * lam, np.ones(n) / sigma_sq)
+            omega = np.ones(n) / sigma_sq
+            beta = update_beta(y, X_csr, X_csc, omega, tau, lam)
             resid = y - X_csr.dot(beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
             pg.pgdrawv(n_trial, X_csr.dot(beta), omega)
-            beta = sample_gaussian_posterior(kappa / omega, X_csr, X_csc, tau * lam, omega)
+            beta = update_beta(kappa / omega, X_csr, X_csc, omega, tau, lam)
         else:
             raise NotImplementedError(
                 'The specified link function is not supported.')
@@ -134,7 +135,113 @@ def sample_gaussian_posterior(y, X_csr, X_csc, prior_sd, omega):
 
     return beta
 
-def generate_gaussian(y, X, D, A=None, is_chol=False):
+def update_beta(y, X_csr, X_csc, omega, tau, lam):
+
+    n = X_csr.shape[0]
+
+    prior_sd = np.concatenate(([float('inf')], tau * lam))
+        # Flat prior for intercept
+    omega_sqrt = omega ** (1 / 2)
+    omega_sqrt_mat = sp.sparse.dia_matrix((omega_sqrt, 0), (n, n))
+    weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
+
+    beta = generate_gaussian(weighted_X, 1 / prior_sd, X_csc.T.dot(omega * y))
+    return beta
+
+
+def generate_gaussian(X_csc, D, v):
+    """
+    Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
+       Sigma^{-1} = X' X + D^2, mu = Sigma * v
+    where D is assumed to be diagonal.
+
+    Param:
+    ------
+        D : vector
+    """
+
+    p = X_csc.shape[1] - 1
+
+    Phi_diag = D ** 2 + np.squeeze(np.asarray(
+        X_csc.power(2).sum(axis=0)
+    ))
+    precond_scale = 1 / np.sqrt(Phi_diag)
+    precond_scale_mat = \
+        sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
+    X_scaled = X_csc.dot(precond_scale_mat)
+
+    Phi_scaled = X_scaled.T.dot(X_scaled).toarray() \
+          + np.diag((precond_scale * D) ** 2)
+    Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
+    mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * v)
+    beta_scaled = mu + sp.linalg.solve_triangular(
+        Phi_scaled_chol, np.random.randn(p + 1), lower=False
+    )
+
+    beta = precond_scale * beta_scaled
+    return beta
+
+
+def update_global_shrinkage(tau, beta, global_scale):
+    """ Update the global shrinkage parameter with slice sampling. """
+
+    n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
+
+    # Initialize a gamma distribution object.
+    shape = beta.size + 1
+    scale = 1 / np.sum(np.abs(beta))
+    gamma_rv = sp.stats.gamma(shape, scale=scale)
+
+    # Slice sample phi = 1 / tau.
+    phi = 1 / tau
+    for i in range(n_update):
+        u = np.random.uniform() / (1 + (global_scale * phi) ** 2)
+        upper = np.sqrt(1 / u - 1) / global_scale  # Invert the half-Cauchy density.
+        phi = gamma_rv.ppf(gamma_rv.cdf(upper) * np.random.uniform())
+    tau = 1 / phi
+
+    return tau
+
+
+def generate_gaussian_with_weight(y, X_csr, omega, D):
+    """
+    Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
+       Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma X' (omega * y)
+    where D is assumed to be diagonal.
+
+    Param:
+    ------
+        omega : vector
+        D : vector
+    """
+
+    n = X_csr.shape[0]
+    p = X_csr.shape[1] - 1
+
+    omega_sqrt = omega ** (1 / 2)
+    omega_sqrt_mat = sp.sparse.dia_matrix((omega_sqrt, 0), (n, n))
+    weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
+    Phi_diag = D ** 2 + np.squeeze(np.asarray(
+        weighted_X.power(2).sum(axis=0)
+    ))
+    precond_scale = 1 / np.sqrt(Phi_diag)
+    precond_scale_mat = \
+        sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
+
+    weighted_X_scaled = weighted_X.dot(precond_scale_mat)
+    Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled).toarray() \
+          + np.diag((precond_scale * D) ** 2)
+    Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
+    mu = sp.linalg.cho_solve((Phi_scaled_chol, False),
+                             weighted_X_scaled.T.dot(omega_sqrt * y))
+    beta_scaled = mu + sp.linalg.solve_triangular(
+        Phi_scaled_chol, np.random.randn(p + 1), lower=False
+    )
+    beta = precond_scale * beta_scaled
+    return beta
+
+
+def generate_gaussian_alla_anirban(y, X, D, A=None, is_chol=False):
     """
     Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
        Sigma = (X'X + D^{-1})^{-1}, mu = Sigma X' y
@@ -166,22 +273,3 @@ def generate_gaussian(y, X, D, A=None, is_chol=False):
         x = u + D * np.dot(X.T, w)
     return x
 
-def update_global_shrinkage(tau, beta, global_scale):
-    """ Update the global shrinkage parameter with slice sampling. """
-
-    n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
-
-    # Initialize a gamma distribution object.
-    shape = beta.size + 1
-    scale = 1 / np.sum(np.abs(beta))
-    gamma_rv = sp.stats.gamma(shape, scale=scale)
-
-    # Slice sample phi = 1 / tau.
-    phi = 1 / tau
-    for i in range(n_update):
-        u = np.random.uniform() / (1 + (global_scale * phi) ** 2)
-        upper = np.sqrt(1 / u - 1) / global_scale  # Invert the half-Cauchy density.
-        phi = gamma_rv.ppf(gamma_rv.cdf(upper) * np.random.uniform())
-    tau = 1 / phi
-
-    return tau
