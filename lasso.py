@@ -44,9 +44,19 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     global_scale = 1 # scale of the half-Cauchy prior on 'tau'
 
     # Initial state of the Markov chain
-    beta = np.zeros(p + 1)
-    sigma_sq = 1
-    if link == 'logit':
+    if 'beta' in init:
+        beta = init['beta']
+    else:
+        beta = np.zeros(p + 1)
+        if 'intercept' in init:
+            beta[0] = init['intercept']
+    if 'sigma' in init:
+        sigma_sq = init['sigma'] ** 2
+    else:
+        sigma_sq = 1
+    if 'omega' in init:
+        omega = init['omega']
+    elif link == 'logit':
         omega = n_trial / 2
     if 'lambda' in init:
         lam = init['lambda']
@@ -56,8 +66,6 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         tau = init['tau']
     else:
         tau = 1
-    if 'intercept' in init:
-        beta[0] = init['intercept']
 
     # Pre-allocate
     samples = {
