@@ -55,7 +55,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     else:
         sigma_sq = 1
     if 'omega' in init:
-        omega = init['omega']
+        omega = np.ascontiguousarray(np.init['omega'])
+            # Cython requires a C-contiguous array.
     elif link == 'logit':
         omega = n_trial / 2
     if 'lambda' in init:
