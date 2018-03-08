@@ -35,7 +35,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     n, p = np.shape(X)
     if link == 'logit':
         n_trial = np.ones(n)
-        kappa = y - n_trial / 2
+    else:
+        n_trial = None
     X = sp.sparse.hstack((np.ones((n, 1)), X))  # Add an intercept term.
     X_csr = X.tocsr()
     X_csc = X.tocsc()
@@ -44,29 +45,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     global_scale = 1 # scale of the half-Cauchy prior on 'tau'
 
     # Initial state of the Markov chain
-    if 'beta' in init:
-        beta = init['beta']
-    else:
-        beta = np.zeros(p + 1)
-        if 'intercept' in init:
-            beta[0] = init['intercept']
-    if 'sigma' in init:
-        sigma_sq = init['sigma'] ** 2
-    else:
-        sigma_sq = 1
-    if 'omega' in init:
-        omega = np.ascontiguousarray(np.init['omega'])
-            # Cython requires a C-contiguous array.
-    elif link == 'logit':
-        omega = n_trial / 2
-    if 'lambda' in init:
-        lam = init['lambda']
-    else:
-        lam = np.ones(p)
-    if 'tau' in init:
-        tau = init['tau']
-    else:
-        tau = 1
+    beta, sigma_sq, omega, lam, tau  = \
+        initialize_chain(init, p, link, n_trial)
 
     # Pre-allocate
     samples = {
@@ -91,7 +71,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
             pg.pgdrawv(n_trial, X_csr.dot(beta), omega)
-            beta = update_beta(kappa / omega, X_csr, X_csc, omega, tau, lam)
+            beta = update_beta((y - n_trial / 2) / omega, X_csr, X_csc,
+                               omega, tau, lam)
         else:
             raise NotImplementedError(
                 'The specified link function is not supported.')
@@ -114,6 +95,43 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
                 samples['omega'][:, index] = omega
 
     return samples
+
+
+def initialize_chain(init, p, link, n_trial):
+    # Choose the user-specified state if provided, the default ones otherwise.
+
+    if 'beta' in init:
+        beta = init['beta']
+    else:
+        beta = np.zeros(p + 1)
+        if 'intercept' in init:
+            beta[0] = init['intercept']
+
+    if 'sigma' in init:
+        sigma_sq = init['sigma'] ** 2
+    else:
+        sigma_sq = 1
+
+    if 'omega' in init:
+        omega = np.ascontiguousarray(np.init['omega'])
+            # Cython requires a C-contiguous array.
+    elif link == 'logit':
+        omega = n_trial / 2
+    else:
+        omega = None
+
+    if 'lambda' in init:
+        lam = init['lambda']
+    else:
+        lam = np.ones(p)
+        
+    if 'tau' in init:
+        tau = init['tau']
+    else:
+        tau = 1
+        
+    return beta, sigma_sq, omega, lam, tau
+
 
 def sample_gaussian_posterior(y, X_csr, X_csc, prior_sd, omega):
     """
