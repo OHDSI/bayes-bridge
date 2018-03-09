@@ -179,6 +179,89 @@ def generate_gaussian_with_weight(X_csr, omega, D, v, precond_by='diag'):
     return beta
 
 
+def pcg_gaussian_sampler(y, X_csr, X_csc, omega, D, beta_init_1=None,
+                         beta_init_2=None,
+                         precond_by='diag', maxiter=None, tol=10e-6, seed=None,
+                         include_intercept=True):
+    """
+    Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
+       Sigma^{-1} = X' Omega X + D^2, mu = Sigma X' Omega y
+    where D is assumed to be diagonal. For numerical stability, the code first sample
+    from the scaled parameter beta / precond_scale.
+
+    Param:
+    ------
+        D : vector
+    """
+
+    X = X_csr
+    X_T = X_csc.T
+    n = X.shape[0]
+    p = X.shape[1] - 1
+
+    # Compute the diagonal (sqrt) preconditioner.
+    if precond_by == 'prior':
+        precond_scale = D ** -1
+        if include_intercept:
+            precond_scale[0] = np.sum(omega) ** (- 1 / 2)
+    elif precond_by == 'diag':
+        omega_mat = sp.sparse.dia_matrix((omega, 0), (n, n))
+        diag = D ** 2 + np.squeeze(np.asarray(
+            omega_mat.dot(X_csr.power(2)).sum(axis=0)
+        ))
+        precond_scale = 1 / np.sqrt(diag)
+    elif precond_by is None:
+        precond_scale = np.ones(p + 1)
+    else:
+        NotImplementedError()
+
+    # Define a preconditioned linear operator.
+    D_scaled_sq = (precond_scale * D) ** 2
+
+    def Phi(x):
+        Phi_x = D_scaled_sq * x \
+                + precond_scale * X_T.dot(omega * X.dot(precond_scale * x))
+        return Phi_x
+
+    A = sp.sparse.linalg.LinearOperator((p + 1, p + 1), matvec=Phi)
+
+    np.random.seed(seed)
+    v = X_T.dot(omega ** (1 / 2) * np.random.randn(n)) \
+        + D * np.random.randn(p + 1)
+    b = precond_scale * (X_T.dot(omega * y) + v)
+
+    # Choose the best linear combination of the two candidates for CG.
+    if beta_init_1 is not None:
+        beta_init_1 = beta_init_1.copy() / precond_scale
+    if beta_init_2 is not None:
+        beta_init_2 = beta_init_2.copy() / precond_scale
+    beta_scaled_init = optimize_cg_objective(A, b, beta_init_1, beta_init_2)
+
+    beta_scaled, info = sp.sparse.linalg.cg(A, b, x0=beta_scaled_init,
+                                            maxiter=maxiter, tol=tol)
+    beta = precond_scale * beta_scaled
+    beta_init = precond_scale * beta_scaled_init
+
+    return beta, info, beta_init, A, b, precond_scale
+
+
+def optimize_cg_objective(A, b, x1, x2=None):
+    # Minimize the function f(x) = x'Ax / 2 - x'b along the line connecting
+    # x1 and x2.
+    if x2 is None:
+        x = x1
+    else:
+        v = x2 - x1
+        Av = A(v)
+        denom = v.dot(Av)
+        if denom == 0:
+            t_argmin = 0
+        else:
+            t_argmin = (x1.dot(Av) - b.dot(v)) / denom
+        x = x1 - t_argmin * v
+    return x
+
+
 def choose_preconditioner(D, omega, X_csr, precond_by='diag'):
     # Compute the diagonal (sqrt) preconditioner.
 
