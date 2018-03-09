@@ -31,7 +31,6 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     """
 
     n_iter = n_burnin + n_post_burnin
-    n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
     n, p = np.shape(X)
     if link == 'logit':
         n_trial = np.ones(n)
@@ -49,15 +48,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         initialize_chain(init, p, link, n_trial)
 
     # Pre-allocate
-    samples = {
-        'beta': np.zeros((p + 1, n_sample)),
-        'lambda': np.zeros((p, n_sample)),
-        'tau': np.zeros(n_sample)
-    }
-    if link == 'gaussian':
-        samples['sigma_sq'] = np.zeros(n_sample)
-    elif link == 'logit':
-        samples['omega'] = np.zeros((n, n_sample))
+    samples = {}
+    pre_allocate(samples, n, p, n_post_burnin, thin, link)
 
     # Start Gibbs sampling
     for i in range(1, n_iter + 1):
@@ -84,18 +76,24 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         lam_sq = 1 / np.random.wald(mean=np.abs(tau / beta[1:]), scale=1)
         lam = np.sqrt(lam_sq)
 
-        if i > n_burnin and (i - n_burnin) % thin == 0:
-            index = math.floor((i - n_burnin) / thin) - 1
-            samples['beta'][:, index] = beta
-            samples['lambda'][:, index] = lam
-            samples['tau'][index] = tau
-            if link == 'gaussian':
-                samples['sigma_sq'][index] = sigma_sq
-            elif link == 'logit':
-                samples['omega'][:, index] = omega
+        store_current_state(samples, i, n_burnin, thin, link,
+                            beta, lam, tau, sigma_sq, omega)
 
     return samples
 
+
+def pre_allocate(samples, n, p, n_post_burnin, thin, link):
+
+    n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
+    samples['beta'] = np.zeros((p + 1, n_sample))
+    samples['lambda'] =  np.zeros((p, n_sample))
+    samples['tau'] = np.zeros(n_sample)
+    if link == 'gaussian':
+        samples['sigma_sq'] = np.zeros(n_sample)
+    elif link == 'logit':
+        samples['omega'] = np.zeros((n, n_sample))
+
+    return
 
 def initialize_chain(init, p, link, n_trial):
     # Choose the user-specified state if provided, the default ones otherwise.
@@ -230,6 +228,22 @@ def update_global_shrinkage(tau, beta, global_scale):
     tau = 1 / phi
 
     return tau
+
+
+def store_current_state(samples, mcmc_iter, n_burnin, thin, link,
+                        beta, lam, tau, sigma_sq, omega):
+
+    if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
+        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
+        samples['beta'][:, index] = beta
+        samples['lambda'][:, index] = lam
+        samples['tau'][index] = tau
+        if link == 'gaussian':
+            samples['sigma_sq'][index] = sigma_sq
+        elif link == 'logit':
+            samples['omega'][:, index] = omega
+
+    return
 
 
 def generate_gaussian_alla_anirban(y, X, D, A=None, is_chol=False):
