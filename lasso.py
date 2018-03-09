@@ -124,7 +124,7 @@ def initialize_chain(init, p, link, n_trial):
         lam = init['lambda']
     else:
         lam = np.ones(p)
-        
+
     if 'tau' in init:
         tau = init['tau']
     else:
@@ -133,80 +133,82 @@ def initialize_chain(init, p, link, n_trial):
     return beta, sigma_sq, omega, lam, tau
 
 
-def sample_gaussian_posterior(y, X_csr, X_csc, prior_sd, omega):
-    """
-    Sample from a Gaussian with a precision Phi and mean mu such that
-        Phi = X.T * diag(omega) * X + diag(0, prior_sd) ** -2
-        mu = inv(Phi) * X.T * omega * y
-    For numerical stability, the code first sample from the scaled parameter
-    beta / precond_scale.
-    """
-
-    X = X_csr
-    XT = X_csc.T
-    n = X.shape[0]
-    p = X.shape[1] - 1 #
-    precond_scale = np.concatenate(([np.sum(omega) ** (- 1 / 2)], prior_sd))
-    precond_scale_mat = sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
-    omega_mat = sp.sparse.dia_matrix((omega, 0), (n, n))
-    X_scaled = X.dot(precond_scale_mat)
-    XT_scaled = precond_scale_mat.dot(XT)
-    Phi_scaled = XT_scaled.dot(omega_mat.dot(X_scaled)).toarray() \
-            + np.diag(np.concatenate(([0], np.ones(p))))
-    Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
-    mu = sp.linalg.cho_solve((Phi_scaled_chol, False),
-                             XT_scaled.dot(omega * y))
-    beta_scaled = mu \
-        + sp.linalg.solve_triangular(Phi_scaled_chol, np.random.randn(p + 1), lower=False)
-    beta = precond_scale * beta_scaled
-
-    return beta
-
 def update_beta(y, X_csr, X_csc, omega, tau, lam):
 
     n = X_csr.shape[0]
 
     prior_sd = np.concatenate(([float('inf')], tau * lam))
         # Flat prior for intercept
-    omega_sqrt = omega ** (1 / 2)
-    omega_sqrt_mat = sp.sparse.dia_matrix((omega_sqrt, 0), (n, n))
-    weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
+    v = X_csc.T.dot(omega * y)
+    prec_sqrt = 1 / prior_sd
+    beta = generate_gaussian_with_weight(y, X_csr, omega, prec_sqrt, v)
 
-    beta = generate_gaussian(weighted_X, 1 / prior_sd, X_csc.T.dot(omega * y))
     return beta
 
 
-def generate_gaussian(X_csc, D, v):
+def generate_gaussian_with_weight(y, X_csr, omega, D, v, precond_by='diag'):
     """
     Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-       Sigma^{-1} = X' X + D^2, mu = Sigma * v
+       Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma v
     where D is assumed to be diagonal.
 
     Param:
     ------
+        omega : vector
         D : vector
     """
 
-    p = X_csc.shape[1] - 1
+    n = X_csr.shape[0]
+    p = X_csr.shape[1] - 1
 
-    Phi_diag = D ** 2 + np.squeeze(np.asarray(
-        X_csc.power(2).sum(axis=0)
-    ))
-    precond_scale = 1 / np.sqrt(Phi_diag)
+    omega_sqrt = omega ** (1 / 2)
+    omega_sqrt_mat = sp.sparse.dia_matrix((omega_sqrt, 0), (n, n))
+    weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
+
+    precond_scale = choose_preconditioner(D, omega, X_csr, precond_by)
     precond_scale_mat = \
         sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
-    X_scaled = X_csc.dot(precond_scale_mat)
 
-    Phi_scaled = X_scaled.T.dot(X_scaled).toarray() \
+    weighted_X_scaled = weighted_X.dot(precond_scale_mat)
+    Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled).toarray() \
           + np.diag((precond_scale * D) ** 2)
     Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
     mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * v)
     beta_scaled = mu + sp.linalg.solve_triangular(
         Phi_scaled_chol, np.random.randn(p + 1), lower=False
     )
-
     beta = precond_scale * beta_scaled
     return beta
+
+
+def choose_preconditioner(D, omega, X_csr, precond_by='diag'):
+    # Compute the diagonal (sqrt) preconditioner.
+
+    include_intercept = True
+        # In case we want to change the behavior in the future
+
+    n = X_csr.shape[0]
+    p = X_csr.shape[1] - 1
+
+    if precond_by == 'prior':
+        precond_scale = D ** -1
+        if include_intercept:
+            precond_scale[0] = np.sum(omega) ** (- 1 / 2)
+
+    elif precond_by == 'diag':
+        omega_mat = sp.sparse.dia_matrix((omega, 0), (n, n))
+        diag = D ** 2 + np.squeeze(np.asarray(
+            omega_mat.dot(X_csr.power(2)).sum(axis=0)
+        ))
+        precond_scale = 1 / np.sqrt(diag)
+
+    elif precond_by is None:
+        precond_scale = np.ones(p + 1)
+
+    else:
+        NotImplementedError()
+
+    return precond_scale
 
 
 def update_global_shrinkage(tau, beta, global_scale):
@@ -228,44 +230,6 @@ def update_global_shrinkage(tau, beta, global_scale):
     tau = 1 / phi
 
     return tau
-
-
-def generate_gaussian_with_weight(y, X_csr, omega, D):
-    """
-    Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-       Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma X' (omega * y)
-    where D is assumed to be diagonal.
-
-    Param:
-    ------
-        omega : vector
-        D : vector
-    """
-
-    n = X_csr.shape[0]
-    p = X_csr.shape[1] - 1
-
-    omega_sqrt = omega ** (1 / 2)
-    omega_sqrt_mat = sp.sparse.dia_matrix((omega_sqrt, 0), (n, n))
-    weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
-    Phi_diag = D ** 2 + np.squeeze(np.asarray(
-        weighted_X.power(2).sum(axis=0)
-    ))
-    precond_scale = 1 / np.sqrt(Phi_diag)
-    precond_scale_mat = \
-        sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
-
-    weighted_X_scaled = weighted_X.dot(precond_scale_mat)
-    Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled).toarray() \
-          + np.diag((precond_scale * D) ** 2)
-    Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
-    mu = sp.linalg.cho_solve((Phi_scaled_chol, False),
-                             weighted_X_scaled.T.dot(omega_sqrt * y))
-    beta_scaled = mu + sp.linalg.solve_triangular(
-        Phi_scaled_chol, np.random.randn(p + 1), lower=False
-    )
-    beta = precond_scale * beta_scaled
-    return beta
 
 
 def generate_gaussian_alla_anirban(y, X, D, A=None, is_chol=False):
