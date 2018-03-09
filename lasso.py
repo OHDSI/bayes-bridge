@@ -139,12 +139,12 @@ def update_beta(y, X_csr, X_csc, omega, tau, lam):
         # Flat prior for intercept
     v = X_csc.T.dot(omega * y)
     prec_sqrt = 1 / prior_sd
-    beta = generate_gaussian_with_weight(y, X_csr, omega, prec_sqrt, v)
+    beta = generate_gaussian_with_weight(X_csr, omega, prec_sqrt, v)
 
     return beta
 
 
-def generate_gaussian_with_weight(y, X_csr, omega, D, v, precond_by='diag'):
+def generate_gaussian_with_weight(X_csr, omega, D, v, precond_by='diag'):
     """
     Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
        Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma v
