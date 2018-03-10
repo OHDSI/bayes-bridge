@@ -5,6 +5,7 @@ import scipy.linalg
 import scipy.sparse
 import math
 import warnings
+import pdb
 from pypolyagamma import PyPolyaGamma
 pg = PyPolyaGamma()
 
@@ -41,13 +42,15 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     X_csr = X.tocsr()
     X_csc = X.tocsc()
 
-    # Hyper-parameters
+    # Hyper & tuning parameters
     global_scale = 1 # scale of the half-Cauchy prior on 'tau'
+    n_averaged = 0
 
     # Initial state of the Markov chain
     beta, sigma_sq, omega, lam, tau  = \
         initialize_chain(init, p, link, n_trial)
     beta_runmean = beta
+    beta_scaled_runmean = None
 
     # Pre-allocate
     samples = {}
@@ -82,8 +85,20 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         store_current_state(samples, i, n_burnin, thin, link,
                             beta, lam, tau, sigma_sq, omega)
-        beta_runmean = compute_scaled_runmean(samples, i)
 
+        # Compute the running mean of
+        #     beta[1:, iter] / tau[iter - 1] / lam[:, iter - 1]
+        if i == 1:
+            beta_runmean = beta.copy()
+            beta_apriori_scale = tau * lam
+        else:
+            beta_scaled_runmean = \
+                compute_scaled_runmean(beta, beta_apriori_scale,
+                                       beta_scaled_runmean, n_averaged)
+            n_averaged += 1
+            beta_apriori_scale = tau * lam
+            beta_runmean = beta_scaled_runmean.copy()
+            beta_runmean[1:] *= beta_apriori_scale
 
     return samples
 
@@ -354,22 +369,21 @@ def update_global_shrinkage(tau, beta, global_scale):
     return tau
 
 
-def compute_scaled_runmean(samples, iter):
+def compute_scaled_runmean(beta, beta_apriori_scale,
+                           prev_scaled_runmean, n_averaged):
     # Computes the running mean of beta / (tau * lam) and rescale it with the
     # current values of tau and lam.
 
-    if iter == 1:
-        beta_mean = samples['beta'][:, 0]
+    beta_scaled = beta.copy()
+    beta_scaled[1:] *= 1 / beta_apriori_scale
+    if n_averaged == 0:
+        beta_scaled_runmean = beta_scaled
     else:
-        beta_scaled_samples = samples['beta'].copy()
-        prior_sd_samples = \
-            samples['lambda'][:, :(iter - 1)] * \
-            samples['tau'][np.newaxis, :(iter - 1)]
-        beta_scaled_samples[1:, 1:iter] /= prior_sd_samples
-        beta_mean = np.mean(beta_scaled_samples[:, 1:iter], 1)
-        beta_mean[1:] *= prior_sd_samples[:, iter - 2]
+        weight = 1 / (1 + n_averaged)
+        beta_scaled_runmean = \
+            weight * beta_scaled + (1 - weight) * prev_scaled_runmean
 
-    return beta_mean
+    return beta_scaled_runmean
 
 def store_current_state(samples, mcmc_iter, n_burnin, thin, link,
                         beta, lam, tau, sigma_sq, omega):
