@@ -156,6 +156,8 @@ def update_beta(y, X_csr, X_csc, omega, tau, lam, beta_init=None,
         beta = generate_gaussian_with_weight(X_csr, omega, prec_sqrt, v)
 
     elif method == 'pcg':
+        # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
+        # control the error in the MCMC output.
         beta = pcg_gaussian_sampler(
             X_csr, X_csc, omega, prec_sqrt, v,
             beta_init_1=beta_init, beta_init_2=None,
