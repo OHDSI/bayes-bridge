@@ -47,6 +47,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     # Initial state of the Markov chain
     beta, sigma_sq, omega, lam, tau  = \
         initialize_chain(init, p, link, n_trial)
+    beta_runmean = beta
 
     # Pre-allocate
     samples = {}
@@ -64,8 +65,10 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
             pg.pgdrawv(n_trial, X_csr.dot(beta), omega)
-            beta = update_beta((y - n_trial / 2) / omega, X_csr, X_csc,
-                               omega, tau, lam, beta, mvnorm_method)
+            beta = update_beta(
+                (y - n_trial / 2) / omega, X_csr, X_csc, omega, tau, lam,
+                beta_runmean, mvnorm_method
+            )
         else:
             raise NotImplementedError(
                 'The specified link function is not supported.')
@@ -79,6 +82,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         store_current_state(samples, i, n_burnin, thin, link,
                             beta, lam, tau, sigma_sq, omega)
+        beta_runmean = compute_scaled_runmean(samples, i)
+
 
     return samples
 
@@ -348,6 +353,23 @@ def update_global_shrinkage(tau, beta, global_scale):
 
     return tau
 
+
+def compute_scaled_runmean(samples, iter):
+    # Computes the running mean of beta / (tau * lam) and rescale it with the
+    # current values of tau and lam.
+
+    if iter == 1:
+        beta_mean = samples['beta'][:, 0]
+    else:
+        beta_scaled_samples = samples['beta'].copy()
+        prior_sd_samples = \
+            samples['lambda'][:, :(iter - 1)] * \
+            samples['tau'][np.newaxis, :(iter - 1)]
+        beta_scaled_samples[1:, 1:iter] /= prior_sd_samples
+        beta_mean = np.mean(beta_scaled_samples[:, 1:iter], 1)
+        beta_mean[1:] *= prior_sd_samples[:, iter - 2]
+
+    return beta_mean
 
 def store_current_state(samples, mcmc_iter, n_burnin, thin, link,
                         beta, lam, tau, sigma_sq, omega):
