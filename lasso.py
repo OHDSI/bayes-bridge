@@ -10,7 +10,7 @@ pg = PyPolyaGamma()
 
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
-          init={}, link='gaussian'):
+          init={}, link='gaussian', mvnorm_method='pcg'):
     """
     MCMC implementation for the Bayesian lasso.
 
@@ -27,7 +27,8 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
            n_post_burnin = number of posterior draws to be saved
            thin = thinning parameter of the chain
            tau_fixed = if true, the penalty parameter will not be updated.
-           tau0 = the initial value for MCMC
+           mvnorm_method = {'dense', 'pcg'}
+
     """
 
     n_iter = n_burnin + n_post_burnin
@@ -57,14 +58,14 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         # Update beta and related parameters.
         if link == 'gaussian':
             omega = np.ones(n) / sigma_sq
-            beta = update_beta(y, X_csr, X_csc, omega, tau, lam)
+            beta = update_beta(y, X_csr, X_csc, omega, tau, lam, beta)
             resid = y - X_csr.dot(beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / np.random.gamma(n / 2, 1)
         elif link == 'logit':
             pg.pgdrawv(n_trial, X_csr.dot(beta), omega)
             beta = update_beta((y - n_trial / 2) / omega, X_csr, X_csc,
-                               omega, tau, lam)
+                               omega, tau, lam, beta, mvnorm_method)
         else:
             raise NotImplementedError(
                 'The specified link function is not supported.')
@@ -131,23 +132,45 @@ def initialize_chain(init, p, link, n_trial):
     return beta, sigma_sq, omega, lam, tau
 
 
-def update_beta(y, X_csr, X_csc, omega, tau, lam):
+def update_beta(y, X_csr, X_csc, omega, tau, lam, beta_init=None,
+                method='pcg'):
+    """
+    Param:
+    ------
+        beta_init: vector
+            Used when when method == 'pcg' as the starting value of the
+            preconditioned conjugate gradient algorithm.
+        method: {'dense', 'pcg'}
+            If 'dense', a sample is generated using a direct method based on the
+            dense linear algebra. If 'pcg', the preconditioned conjugate gradient
+            sampler is used.
 
-    n = X_csr.shape[0]
+    """
 
     prior_sd = np.concatenate(([float('inf')], tau * lam))
         # Flat prior for intercept
     v = X_csc.T.dot(omega * y)
     prec_sqrt = 1 / prior_sd
-    beta = generate_gaussian_with_weight(X_csr, omega, prec_sqrt, v)
+
+    if method == 'dense':
+        beta = generate_gaussian_with_weight(X_csr, omega, prec_sqrt, v)
+
+    elif method == 'pcg':
+        beta = pcg_gaussian_sampler(
+            X_csr, X_csc, omega, prec_sqrt, v,
+            beta_init_1=beta_init, beta_init_2=None,
+            precond_by='prior', maxiter=500, atol=10e-4
+        )
+    else:
+        NotImplementedError()
 
     return beta
 
 
-def generate_gaussian_with_weight(X_csr, omega, D, v, precond_by='diag'):
+def generate_gaussian_with_weight(X_csr, omega, D, z, precond_by='diag'):
     """
     Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-       Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma v
+       Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma z
     where D is assumed to be diagonal.
 
     Param:
@@ -171,7 +194,7 @@ def generate_gaussian_with_weight(X_csr, omega, D, v, precond_by='diag'):
     Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled).toarray() \
           + np.diag((precond_scale * D) ** 2)
     Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
-    mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * v)
+    mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * z)
     beta_scaled = mu + sp.linalg.solve_triangular(
         Phi_scaled_chol, np.random.randn(p + 1), lower=False
     )
@@ -179,25 +202,31 @@ def generate_gaussian_with_weight(X_csr, omega, D, v, precond_by='diag'):
     return beta
 
 
-def pcg_gaussian_sampler(y, X_csr, X_csc, omega, D, beta_init_1=None,
-                         beta_init_2=None,
-                         precond_by='diag', maxiter=None, tol=10e-6, seed=None,
-                         include_intercept=True):
+def pcg_gaussian_sampler(X_csr, X_csc, omega, D, z,
+                         beta_init_1=None, beta_init_2=None,
+                         precond_by='diag', maxiter=None, atol=10e-6,
+                         seed=None, include_intercept=True):
     """
     Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-       Sigma^{-1} = X' Omega X + D^2, mu = Sigma X' Omega y
+       Sigma^{-1} = X' Omega X + D^2, mu = Sigma v
     where D is assumed to be diagonal. For numerical stability, the code first sample
     from the scaled parameter beta / precond_scale.
 
     Param:
     ------
         D : vector
+        atol : float
+            The absolute tolerance on the residual norm at the termination
+            of CG iterations.
     """
 
     X = X_csr
     X_T = X_csc.T
     n = X.shape[0]
     p = X.shape[1] - 1
+
+    if seed is not None:
+        np.random.seed(seed)
 
     # Compute the diagonal (sqrt) preconditioner.
     if precond_by == 'prior':
@@ -217,18 +246,16 @@ def pcg_gaussian_sampler(y, X_csr, X_csc, omega, D, beta_init_1=None,
 
     # Define a preconditioned linear operator.
     D_scaled_sq = (precond_scale * D) ** 2
-
     def Phi(x):
         Phi_x = D_scaled_sq * x \
                 + precond_scale * X_T.dot(omega * X.dot(precond_scale * x))
         return Phi_x
-
     A = sp.sparse.linalg.LinearOperator((p + 1, p + 1), matvec=Phi)
 
-    np.random.seed(seed)
+    # Draw a target vector.
     v = X_T.dot(omega ** (1 / 2) * np.random.randn(n)) \
         + D * np.random.randn(p + 1)
-    b = precond_scale * (X_T.dot(omega * y) + v)
+    b = precond_scale * (z + v)
 
     # Choose the best linear combination of the two candidates for CG.
     if beta_init_1 is not None:
@@ -237,12 +264,19 @@ def pcg_gaussian_sampler(y, X_csr, X_csc, omega, D, beta_init_1=None,
         beta_init_2 = beta_init_2.copy() / precond_scale
     beta_scaled_init = optimize_cg_objective(A, b, beta_init_1, beta_init_2)
 
+    rtol = atol / np.linalg.norm(b)
     beta_scaled, info = sp.sparse.linalg.cg(A, b, x0=beta_scaled_init,
-                                            maxiter=maxiter, tol=tol)
+                                            maxiter=maxiter, tol=rtol)
+    if info != 0:
+        warnings.warn(
+            "The conjugate gradient algorithm did not achieve the requested " +
+            "tolerance level. You may increase the maxiter or use the dense " +
+            "linear algebra instead."
+        )
     beta = precond_scale * beta_scaled
-    beta_init = precond_scale * beta_scaled_init
+    # beta_init = precond_scale * beta_scaled_init
 
-    return beta, info, beta_init, A, b, precond_scale
+    return beta # , info, beta_init, A, b, precond_scale
 
 
 def optimize_cg_objective(A, b, x1, x2=None):
