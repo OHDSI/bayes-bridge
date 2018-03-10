@@ -112,7 +112,7 @@ def initialize_chain(init, p, link, n_trial):
         sigma_sq = 1
 
     if 'omega' in init:
-        omega = np.ascontiguousarray(np.init['omega'])
+        omega = np.ascontiguousarray(init['omega'])
             # Cython requires a C-contiguous array.
     elif link == 'logit':
         omega = n_trial / 2
