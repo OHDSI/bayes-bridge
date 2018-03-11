@@ -80,8 +80,14 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         if not tau_fixed:
             tau = update_global_shrinkage(tau, beta[1:], global_scale)
 
-        lam_sq = 1 / np.random.wald(mean=np.abs(tau / beta[1:]), scale=1)
-        lam = np.sqrt(lam_sq)
+        lam = 1 / np.sqrt(np.random.wald(mean=np.abs(tau / beta[1:]), scale=1))
+        # TODO: Pick the lower and upper bound more carefully.
+        if np.any(lam == 0):
+            warnings.warn("Local shrinkage parameter under-flowed. Replacing with a small number.")
+            lam[lam == 0] = 10e-16
+        elif np.isinf(lam):
+            warnings.warn("Local shrinkage parameter under-flowed. Replacing with a large number.")
+            lam[np.isinf(lam)] = 2.0 / tau
 
         store_current_state(samples, i, n_burnin, thin, link,
                             beta, lam, tau, sigma_sq, omega)
