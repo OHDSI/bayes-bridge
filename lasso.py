@@ -85,7 +85,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         if np.any(lam == 0):
             warnings.warn("Local shrinkage parameter under-flowed. Replacing with a small number.")
             lam[lam == 0] = 10e-16
-        elif np.isinf(lam):
+        elif np.any(np.isinf(lam)):
             warnings.warn("Local shrinkage parameter under-flowed. Replacing with a large number.")
             lam[np.isinf(lam)] = 2.0 / tau
 
@@ -260,7 +260,9 @@ def pcg_gaussian_sampler(X_csr, X_csc, omega, D, z,
     if precond_by == 'prior':
         precond_scale = D ** -1
         if include_intercept:
-            precond_scale[0] = np.sum(omega) ** (- 1 / 2)
+            # TODO: Consider a better preconditioner for the intercept such
+            # as a posterior standard deviation.
+            precond_scale[0] = 1 # np.sum(omega) ** (- 1 / 2)
     elif precond_by == 'diag':
         omega_mat = sp.sparse.dia_matrix((omega, 0), (n, n))
         diag = D ** 2 + np.squeeze(np.asarray(
