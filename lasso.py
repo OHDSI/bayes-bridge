@@ -90,7 +90,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             lam[np.isinf(lam)] = 2.0 / tau
 
         store_current_state(samples, i, n_burnin, thin, link,
-                            beta, lam, tau, sigma_sq, omega)
+                            beta, lam, tau, sigma_sq, omega, beta_runmean)
 
         # Compute the running mean of
         #     beta[1:, iter] / tau[iter - 1] / lam[:, iter - 1]
@@ -119,6 +119,7 @@ def pre_allocate(samples, n, p, n_post_burnin, thin, link):
         samples['sigma_sq'] = np.zeros(n_sample)
     elif link == 'logit':
         samples['omega'] = np.zeros((n, n_sample))
+    samples['beta_runmean'] = np.zeros((p + 1, n_sample))
 
     return
 
@@ -394,7 +395,7 @@ def compute_scaled_runmean(beta, beta_apriori_scale,
     return beta_scaled_runmean
 
 def store_current_state(samples, mcmc_iter, n_burnin, thin, link,
-                        beta, lam, tau, sigma_sq, omega):
+                        beta, lam, tau, sigma_sq, omega, beta_runmean):
 
     if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
         index = math.floor((mcmc_iter - n_burnin) / thin) - 1
@@ -405,6 +406,7 @@ def store_current_state(samples, mcmc_iter, n_burnin, thin, link,
             samples['sigma_sq'][index] = sigma_sq
         elif link == 'logit':
             samples['omega'][:, index] = omega
+        samples['beta_runmean'][:, index] = beta_runmean
 
     return
 
