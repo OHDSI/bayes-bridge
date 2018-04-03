@@ -11,7 +11,7 @@ pg = PyPolyaGamma()
 
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
-          init={}, link='gaussian', mvnorm_method='pcg', include_intercept=True):
+          init={}, link='gaussian', mvnorm_method='pcg'):
     """
     MCMC implementation for the Bayesian lasso.
 
@@ -38,8 +38,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
         n_trial = np.ones(n)
     else:
         n_trial = None
-    if include_intercept:
-        X = sp.sparse.hstack((np.ones((n, 1)), X))  # Add an intercept term.
+    X = sp.sparse.hstack((np.ones((n, 1)), X))  # Add an intercept term.
     X_csr = X.tocsr()
     X_csc = X.tocsc()
 
@@ -55,7 +54,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     # Pre-allocate
     samples = {}
-    pre_allocate(samples, n, p, X, n_post_burnin, thin, link)
+    pre_allocate(samples, n, p, n_post_burnin, thin, link)
 
     # Start Gibbs sampling
     for i in range(1, n_iter + 1):
@@ -71,7 +70,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             pg.pgdrawv(n_trial, X_csr.dot(beta), omega)
             beta = update_beta(
                 (y - n_trial / 2) / omega, X_csr, X_csc, omega, tau, lam,
-                beta_runmean, mvnorm_method, include_intercept
+                beta_runmean, mvnorm_method
             )
         else:
             raise NotImplementedError(
@@ -110,10 +109,10 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     return samples
 
 
-def pre_allocate(samples, n, p, X, n_post_burnin, thin, link):
+def pre_allocate(samples, n, p, n_post_burnin, thin, link):
 
     n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
-    samples['beta'] = np.zeros((X.shape[1], n_sample))
+    samples['beta'] = np.zeros((p + 1, n_sample))
     samples['lambda'] =  np.zeros((p, n_sample))
     samples['tau'] = np.zeros(n_sample)
     if link == 'gaussian':
@@ -131,7 +130,7 @@ def initialize_chain(init, X, p, link, n_trial):
         if not len(beta) == X.shape[1]:
             raise ValueError('An invalid initial state.')
     else:
-        beta = np.zeros(X.shape[1])
+        beta = np.zeros(p + 1)
         if 'intercept' in init:
             beta[0] = init['intercept']
 
@@ -166,7 +165,7 @@ def initialize_chain(init, X, p, link, n_trial):
 
 
 def update_beta(y, X_csr, X_csc, omega, tau, lam, beta_init=None,
-                method='pcg', include_intercept=True):
+                method='pcg'):
     """
     Param:
     ------
@@ -180,16 +179,13 @@ def update_beta(y, X_csr, X_csc, omega, tau, lam, beta_init=None,
 
     """
 
-    prior_sd = tau * lam
-    if include_intercept:
+    prior_sd = np.concatenate(([float('inf')], tau * lam))
         # Flat prior for intercept
-        prior_sd = np.concatenate(([float('inf')], prior_sd))
-
     v = X_csc.T.dot(omega * y)
     prec_sqrt = 1 / prior_sd
 
     if method == 'dense':
-        beta = generate_gaussian_with_weight(X_csr, omega, prec_sqrt, v, include_intercept)
+        beta = generate_gaussian_with_weight(X_csr, omega, prec_sqrt, v)
 
     elif method == 'pcg':
         # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
@@ -197,8 +193,7 @@ def update_beta(y, X_csr, X_csc, omega, tau, lam, beta_init=None,
         beta = pcg_gaussian_sampler(
             X_csr, X_csc, omega, prec_sqrt, v,
             beta_init_1=beta_init, beta_init_2=None,
-            precond_by='prior', maxiter=500, atol=10e-4,
-            include_intercept=include_intercept
+            precond_by='prior', maxiter=500, atol=10e-4
         )
     else:
         raise NotImplementedError()
@@ -206,8 +201,7 @@ def update_beta(y, X_csr, X_csc, omega, tau, lam, beta_init=None,
     return beta
 
 
-def generate_gaussian_with_weight(X_csr, omega, D, z, precond_by='diag',
-                                  include_intercept=True):
+def generate_gaussian_with_weight(X_csr, omega, D, z, precond_by='diag'):
     """
     Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
        Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma z
@@ -226,7 +220,7 @@ def generate_gaussian_with_weight(X_csr, omega, D, z, precond_by='diag',
     omega_sqrt_mat = sp.sparse.dia_matrix((omega_sqrt, 0), (n, n))
     weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
 
-    precond_scale = choose_preconditioner(D, omega, X_csr, precond_by, include_intercept)
+    precond_scale = choose_preconditioner(D, omega, X_csr, precond_by)
     precond_scale_mat = \
         sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
 
