@@ -201,7 +201,7 @@ def update_beta(y, X_csr, X_csc, omega, tau, lam, beta_init=None,
             include_intercept=include_intercept
         )
     else:
-        NotImplementedError()
+        raise NotImplementedError()
 
     return beta
 
@@ -284,7 +284,7 @@ def pcg_gaussian_sampler(X_csr, X_csc, omega, D, z,
     elif precond_by is None:
         precond_scale = np.ones(p + 1)
     else:
-        NotImplementedError()
+        raise NotImplementedError()
 
     # Define a preconditioned linear operator.
     D_scaled_sq = (precond_scale * D) ** 2
@@ -363,7 +363,7 @@ def choose_preconditioner(D, omega, X_csr, precond_by='diag'):
         precond_scale = np.ones(p + 1)
 
     else:
-        NotImplementedError()
+        raise NotImplementedError()
 
     return precond_scale
 
