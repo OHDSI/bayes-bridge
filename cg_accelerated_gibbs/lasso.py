@@ -49,7 +49,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     # Initial state of the Markov chain
     beta, sigma_sq, omega, lam, tau  = \
-        initialize_chain(init, p, link, n_trial)
+        initialize_chain(init, X, p, link, n_trial)
     beta_runmean = beta
     beta_scaled_runmean = None
 
@@ -123,11 +123,13 @@ def pre_allocate(samples, n, p, X, n_post_burnin, thin, link):
 
     return
 
-def initialize_chain(init, p, link, n_trial):
+def initialize_chain(init, X, p, link, n_trial):
     # Choose the user-specified state if provided, the default ones otherwise.
 
     if 'beta' in init:
         beta = init['beta']
+        if not len(beta) == X.shape[1]:
+            raise ValueError('An invalid initial state.')
     else:
         beta = np.zeros(X.shape[1])
         if 'intercept' in init:
@@ -141,6 +143,8 @@ def initialize_chain(init, p, link, n_trial):
     if 'omega' in init:
         omega = np.ascontiguousarray(init['omega'])
             # Cython requires a C-contiguous array.
+        if not len(omega) == X.shape[0]:
+            raise ValueError('An invalid initial state.')
     elif link == 'logit':
         omega = n_trial / 2
     else:
@@ -148,6 +152,8 @@ def initialize_chain(init, p, link, n_trial):
 
     if 'lambda' in init:
         lam = init['lambda']
+        if not len(lam) == p:
+            raise ValueError('An invalid initial state.')
     else:
         lam = np.ones(p)
 
