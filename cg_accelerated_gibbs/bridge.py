@@ -16,14 +16,16 @@ copula = rpackages.importr('copula')
 def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
           init={}, link='gaussian', mvnorm_method='pcg'):
     """
-    MCMC implementation for the Bayesian lasso.
+    MCMC implementation for the Bayesian bridge.
 
     Model: y = X\beta + \epslion, \epsilon \sim N(0, \sigma^2) 
            \beta_j \sim N(0, \sigma^2 \lambda_j^2 \tau^2)
-           \lambda_j^2 \sim Exp(2),
+           positive alpha-stable random variable with index of stability α/2
+           \lambda_j^{-2} \sim \lambda_j^{-1} g(\lambda_j^{-2})
+               where g is the density of positive alpha-stable random variable
+               with index of stability alpha / 2
            \tau \sim Half-Cauchy(0, global_scale^2),
            \pi(\sigma^2) \sim 1 / \sigma^2
-
 
     Input: y = response, a n * 1 vector
            X = matrix of covariates, dimension n * p
@@ -35,7 +37,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     """
 
-    reg_exponent = 1.0
+    reg_exponent = 0.5
         # Exponent of the prior density for the regression coefficients.
     n_iter = n_burnin + n_post_burnin
     n, p = np.shape(X)
@@ -48,7 +50,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
     X_csc = X.tocsc()
 
     # Hyper & tuning parameters
-    global_scale = 1 # scale of the half-Cauchy prior on 'tau'
+    global_scale = 1.0 # scale of the half-Cauchy prior on 'tau'
     n_averaged = 0
 
     # Initial state of the Markov chain
@@ -83,7 +85,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
         # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
         if not tau_fixed:
-            tau = update_global_shrinkage(tau, beta[1:], global_scale)
+            tau = update_global_shrinkage(tau, beta[1:], global_scale, reg_exponent)
 
         lam = update_local_shrinkage(tau, beta, reg_exponent)
         # TODO: Pick the lower and upper bound more carefully.
@@ -367,23 +369,25 @@ def choose_preconditioner(D, omega, X_csr, precond_by='diag'):
     return precond_scale
 
 
-def update_global_shrinkage(tau, beta, global_scale):
+def update_global_shrinkage(tau, beta, global_scale, reg_exponent):
     """ Update the global shrinkage parameter with slice sampling. """
 
     n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
 
     # Initialize a gamma distribution object.
-    shape = beta.size + 1
-    scale = 1 / np.sum(np.abs(beta))
+    shape = (beta.size + 1) / reg_exponent
+    scale = 1 / np.sum(np.abs(beta) ** reg_exponent)
     gamma_rv = sp.stats.gamma(shape, scale=scale)
 
-    # Slice sample phi = 1 / tau.
+    # Slice sample phi = 1 / tau ** reg_exponent.
     phi = 1 / tau
     for i in range(n_update):
-        u = np.random.uniform() / (1 + (global_scale * phi) ** 2)
-        upper = np.sqrt(1 / u - 1) / global_scale  # Invert the half-Cauchy density.
+        u = np.random.uniform() \
+            / (1 + (global_scale * phi ** (1 / reg_exponent)) ** 2)
+        upper = (np.sqrt(1 / u - 1) / global_scale) ** reg_exponent
+            # Invert the half-Cauchy density.
         phi = gamma_rv.ppf(gamma_rv.cdf(upper) * np.random.uniform())
-    tau = 1 / phi
+    tau = 1 / phi ** (1 / reg_exponent)
 
     return tau
 
