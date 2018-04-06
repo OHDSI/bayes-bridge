@@ -88,13 +88,6 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
             tau = update_global_shrinkage(tau, beta[1:], global_scale, reg_exponent)
 
         lam = update_local_shrinkage(tau, beta, reg_exponent)
-        # TODO: Pick the lower and upper bound more carefully.
-        if np.any(lam == 0):
-            warnings.warn("Local shrinkage parameter under-flowed. Replacing with a small number.")
-            lam[lam == 0] = 10e-16
-        elif np.any(np.isinf(lam)):
-            warnings.warn("Local shrinkage parameter under-flowed. Replacing with a large number.")
-            lam[np.isinf(lam)] = 2.0 / tau
 
         store_current_state(samples, i, n_burnin, thin, link,
                             beta, lam, tau, sigma_sq, omega)
@@ -393,6 +386,7 @@ def update_global_shrinkage(tau, beta, global_scale, reg_exponent):
 
 
 def update_local_shrinkage(tau, beta, reg_exponent):
+
     # TODO: Wrap the sampler for exponentially tilted alpha-stable process
     # so that we do not have to call the R function.
     v0 = 1.0
@@ -402,7 +396,19 @@ def update_local_shrinkage(tau, beta, reg_exponent):
     ])
     lam = np.sqrt(lam_sq)
     # lam = 1 / np.sqrt(np.random.wald(mean=np.abs(tau / beta[1:]), scale=1))
+
+    # TODO: Pick the lower and upper bound more carefully.
+    if np.any(lam == 0):
+        warnings.warn(
+            "Local shrinkage parameter under-flowed. Replacing with a small number.")
+        lam[lam == 0] = 10e-16
+    elif np.any(np.isinf(lam)):
+        warnings.warn(
+            "Local shrinkage parameter under-flowed. Replacing with a large number.")
+        lam[np.isinf(lam)] = 2.0 / tau
+
     return lam
+
 
 def compute_scaled_runmean(beta, beta_apriori_scale,
                            prev_scaled_runmean, n_averaged):
