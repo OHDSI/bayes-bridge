@@ -76,11 +76,11 @@ class ExpTiltedStableDist():
             a3 = z / a
             s = a1 + delta + a3
             V_ = self.unif_rv()
-            N_ = 0.
+            N = 0.
             E_ = 0.
             if V_ < a1 / s:
-                N_ = self.normal_rv(0, 1)
-                X = m - delta * abs(N_)
+                N = self.normal_rv(0, 1)
+                X = m - delta * abs(N)
             else:
                 if V_ < (a1 + delta) / s:
                     X = m + delta * self.unif_rv()
@@ -92,7 +92,7 @@ class ExpTiltedStableDist():
                 c = a * (X - m) + exp((1 / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1)
                     #/**< Marius Hofert: numerically more stable for small alpha */
                 if X < m:
-                    c -= N_ * N_ / 2.
+                    c -= N * N / 2.
                 elif X > m + delta:
                     c -= E_
             accepted = (X >= 0 and c <= E)
