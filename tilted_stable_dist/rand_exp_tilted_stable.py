@@ -21,23 +21,19 @@ class ExpTiltedStableDist():
         (The density p(x) is tilted by exp(-lam * x).)
         """
 
-        Ialpha = 1. - alpha
-        b = Ialpha / alpha
-        lambda_alpha = lam ** alpha
-        M_PI = math.pi
-        M_SQRT_PI = sqrt(math.pi)
-        M_SQRT2 = sqrt(2.)
 
-        gamma = lambda_alpha * alpha * Ialpha
-        sgamma = sqrt(gamma)
-        c1 = sqrt(M_PI / 2)
+        b = (1 - alpha) / alpha
+        lam_alpha = lam ** alpha
+        gamma = lam_alpha * alpha * (1 - alpha)
+        sqrt_gamma = sqrt(gamma)
+        c1 = sqrt(math.pi / 2)
         c2 = 2. + c1
-        c3 = c2 * sgamma
-        xi = (1. + M_SQRT2 * c3) / M_PI
-        psi = c3 * exp(-gamma * M_PI * M_PI / 8.) / M_SQRT_PI
-        w1 = c1 * xi / sgamma
-        w2 = 2. * M_SQRT_PI * psi
-        w3 = xi * M_PI
+        c3 = c2 * sqrt_gamma
+        xi = (1. + sqrt(2.) * c3) / math.pi
+        psi = c3 * exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
+        w1 = c1 * xi / sqrt_gamma
+        w2 = 2. * sqrt(math.pi) * psi
+        w3 = xi * math.pi
 
         accepted = False
         aug_accepted = False
@@ -47,34 +43,34 @@ class ExpTiltedStableDist():
                 V = self.unif_rv()
                 if gamma >= 1:
                     if V < w1 / (w1 + w2):
-                        U = abs(self.normal_rv(0, 1)) / sgamma
+                        U = abs(self.normal_rv(0, 1)) / sqrt_gamma
                     else:
                         W_ = self.unif_rv()
-                        U = M_PI * (1. - W_ * W_)
+                        U = math.pi * (1. - W_ * W_)
                 else:
                     W_ = self.unif_rv()
                     if V < w3 / (w2 + w3):
-                        U = M_PI * W_
+                        U = math.pi * W_
                     else:
-                        U = M_PI * (1. - W_ * W_)
+                        U = math.pi * (1. - W_ * W_)
                 W = self.unif_rv()
                 zeta = sqrt(self.BdB0(U, alpha))
-                z = 1 / (1. - pow(1 + alpha * zeta / sgamma, -1 / alpha))
-                rho = M_PI * exp(-lambda_alpha * (1. - 1. / (zeta * zeta))) \
-                    / ((1. + c1) * sgamma / zeta + z)
+                z = 1 / (1. - pow(1 + alpha * zeta / sqrt_gamma, -1 / alpha))
+                rho = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
+                    / ((1. + c1) * sqrt_gamma / zeta + z)
                 d = 0.
                 if U >= 0 and gamma >= 1:
                     d += xi * exp(-gamma * U * U / 2.)
-                if U > 0 and U < M_PI:
-                    d += psi / sqrt(M_PI - U)
-                if U >= 0 and U <= M_PI and gamma < 1:
+                if U > 0 and U < math.pi:
+                    d += psi / sqrt(math.pi - U)
+                if U >= 0 and U <= math.pi and gamma < 1:
                     d += xi
                 rho *= d
                 Z = W * rho
-                aug_accepted = (U < M_PI and Z <= 1.)
+                aug_accepted = (U < math.pi and Z <= 1.)
 
-            a = pow(self.A_3(U,alpha, Ialpha), 1. / Ialpha)
-            m = pow(b / a, alpha) * lambda_alpha
+            a = pow(self.A_3(U, alpha), 1. / (1 - alpha))
+            m = pow(b / a, alpha) * lam_alpha
             delta = sqrt(m * alpha / a)
             a1 = delta * c1
             a3 = z / a
@@ -93,7 +89,7 @@ class ExpTiltedStableDist():
                     X = m + delta + E_ * a3
             if X > 0:
                 E = -log(Z)
-                c = a * (X - m) + exp((1 / alpha) * log(lambda_alpha) - b * log(m)) * (pow(m / X, b) - 1)
+                c = a * (X - m) + exp((1 / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1)
                     #/**< Marius Hofert: numerically more stable for small alpha */
                 if X < m:
                     c -= N_ * N_ / 2.
@@ -109,9 +105,9 @@ class ExpTiltedStableDist():
         numerator = self.sinc(x)
         return numerator / denominator
 
-    def A_3(self, _x, _alpha_, _I_alpha):
-        return pow(_I_alpha * self.sinc(_I_alpha * _x), _I_alpha) * \
-            pow(_alpha_ * self.sinc(_alpha_ * _x), _alpha_) / self.sinc(_x)
+    def A_3(self, x, alpha):
+        return pow((1. - alpha) * self.sinc((1. - alpha) * x), (1. - alpha)) * \
+               pow(alpha * self.sinc(alpha * x), alpha) / self.sinc(x)
 
     def sinc(self, x):
         ax = abs(x)
