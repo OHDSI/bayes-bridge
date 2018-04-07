@@ -1,4 +1,3 @@
-#import cython_random.cython_random as crandom
 import math
 from math import sqrt, log, pow, sin
 from numpy import exp # For handling over & underflow
@@ -7,9 +6,6 @@ import numpy as np
 class ExpTiltedStableDist():
 
     def __init__(self, seed=None):
-        # crandom.py_seed_random(seed)
-        # self.unif_rv = crandom.py_uniform_rv
-        # self.normal_rv = crandom.py_normal_rv
         np.random.seed(seed)
         self.unif_rv = np.random.uniform
         self.normal_rv = np.random.normal
@@ -24,19 +20,6 @@ class ExpTiltedStableDist():
             exponential tilting = lam
         (The density p(x) is tilted by exp(-lam * x).)
         """
-
-        # b = (1 - alpha) / alpha
-        # lam_alpha = lam ** alpha
-        # gamma = lam_alpha * alpha * (1 - alpha)
-        # sqrt_gamma = sqrt(gamma)
-        # sqrt_pi = sqrt(math.pi)
-        #
-        # c1 = sqrt(math.pi / 2)
-        # c2 = 2 + c1
-        # c3 = sqrt_gamma * c2
-        #
-        # xi = (1 + sqrt(2) * c3) / math.pi
-        # psi = c3
 
         Ialpha = 1. - alpha
         b = Ialpha / alpha
@@ -140,4 +123,3 @@ class ExpTiltedStableDist():
                  return 1. - x2/6.;
             return 1. - x2/6 * (1 - x2/20);
         return sin(x) / x
-        # return np.sinc(x / math.pi)
