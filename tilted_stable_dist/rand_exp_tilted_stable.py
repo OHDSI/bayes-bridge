@@ -40,20 +40,20 @@ class ExpTiltedStableDist():
         while not accepted:
 
             while not aug_accepted:
-                V = self.unif_rv()
+                V1 = self.unif_rv()
                 if gamma >= 1:
-                    if V < w1 / (w1 + w2):
+                    if V1 < w1 / (w1 + w2):
                         U = abs(self.normal_rv(0, 1)) / sqrt_gamma
                     else:
-                        W_ = self.unif_rv()
-                        U = math.pi * (1. - W_ * W_)
+                        W1 = self.unif_rv()
+                        U = math.pi * (1. - W1 * W1)
                 else:
-                    W_ = self.unif_rv()
-                    if V < w3 / (w2 + w3):
-                        U = math.pi * W_
+                    W1 = self.unif_rv()
+                    if V1 < w3 / (w2 + w3):
+                        U = math.pi * W1
                     else:
-                        U = math.pi * (1. - W_ * W_)
-                W = self.unif_rv()
+                        U = math.pi * (1. - W1 * W1)
+                W2 = self.unif_rv()
                 zeta = sqrt(self.BdB0(U, alpha))
                 z = 1 / (1. - pow(1 + alpha * zeta / sqrt_gamma, -1 / alpha))
                 rho = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
@@ -66,7 +66,7 @@ class ExpTiltedStableDist():
                 if U >= 0 and U <= math.pi and gamma < 1:
                     d += xi
                 rho *= d
-                Z = W * rho
+                Z = W2 * rho
                 aug_accepted = (U < math.pi and Z <= 1.)
 
             a = pow(self.A_3(U, alpha), 1. / (1 - alpha))
@@ -75,27 +75,27 @@ class ExpTiltedStableDist():
             a1 = delta * c1
             a3 = z / a
             s = a1 + delta + a3
-            V_ = self.unif_rv()
+            V2 = self.unif_rv()
             N = 0.
-            E_ = 0.
-            if V_ < a1 / s:
+            E1 = 0.
+            if V2 < a1 / s:
                 N = self.normal_rv(0, 1)
                 X = m - delta * abs(N)
             else:
-                if V_ < (a1 + delta) / s:
+                if V2 < (a1 + delta) / s:
                     X = m + delta * self.unif_rv()
                 else:
-                    E_ = - log(self.unif_rv())
-                    X = m + delta + E_ * a3
+                    E1 = - log(self.unif_rv())
+                    X = m + delta + E1 * a3
             if X > 0:
-                E = -log(Z)
+                E2 = -log(Z)
                 c = a * (X - m) + exp((1 / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1)
                     #/**< Marius Hofert: numerically more stable for small alpha */
                 if X < m:
                     c -= N * N / 2.
                 elif X > m + delta:
-                    c -= E_
-            accepted = (X >= 0 and c <= E)
+                    c -= E1
+            accepted = (X >= 0 and c <= E2)
 
         return pow(X, -b)
 
