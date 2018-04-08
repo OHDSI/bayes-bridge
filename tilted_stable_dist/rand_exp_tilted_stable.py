@@ -30,28 +30,13 @@ class ExpTiltedStableDist():
         c3 = c2 * sqrt_gamma
         xi = (1. + sqrt(2.) * c3) / math.pi
         psi = c3 * exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
-        w1 = c1 * xi / sqrt_gamma
-        w2 = 2. * sqrt(math.pi) * psi
-        w3 = xi * math.pi
 
         accepted = False
         aug_accepted = False
         while not accepted:
 
             while not aug_accepted:
-                V1 = self.unif_rv()
-                if gamma >= 1:
-                    if V1 < w1 / (w1 + w2):
-                        U = abs(self.normal_rv(0., 1.)) / sqrt_gamma
-                    else:
-                        W1 = self.unif_rv()
-                        U = math.pi * (1. - W1 * W1)
-                else:
-                    W1 = self.unif_rv()
-                    if V1 < w3 / (w2 + w3):
-                        U = math.pi * W1
-                    else:
-                        U = math.pi * (1. - W1 * W1)
+                U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
                 W2 = self.unif_rv()
                 zeta = sqrt(self.BdB0(U, alpha))
                 z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1 / alpha))
@@ -97,6 +82,33 @@ class ExpTiltedStableDist():
             accepted = (X >= 0. and c <= E2)
 
         return pow(X, -b)
+
+    def sample_aux2_rv(self, c1, xi, psi, gamma, sqrt_gamma):
+        """
+        Sample the 2nd level auxiliary random variable (i.e. the additional
+        auxiliary random variable used to sample the auxilary variable for
+        double-rejection algorithm.)
+        """
+
+        w1 = c1 * xi / sqrt_gamma
+        w2 = 2. * sqrt(math.pi) * psi
+        w3 = xi * math.pi
+        V = self.unif_rv()
+        if gamma >= 1:
+            if V < w1 / (w1 + w2):
+                U = abs(self.normal_rv(0., 1.)) / sqrt_gamma
+            else:
+                W = self.unif_rv()
+                U = math.pi * (1. - W * W)
+        else:
+            W = self.unif_rv()
+            if V < w3 / (w2 + w3):
+                U = math.pi * W
+            else:
+                U = math.pi * (1. - W * W)
+
+        return U
+
 
     def BdB0(self, x, alpha):
         denominator = pow(self.sinc(alpha * x), alpha) \
