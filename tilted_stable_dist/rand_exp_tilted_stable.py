@@ -109,12 +109,13 @@ class ExpTiltedStableDist():
                pow(alpha * self.sinc(alpha * x), alpha) / self.sinc(x)
 
     def sinc(self, x):
-        ax = abs(x)
-        if ax < 0.006:
-            if x == 0.:
-                return 1.
-            x2 = x * x
-            if ax < 2e-4:
-                 return 1. - x2 / 6.
-            return 1. - x2 / 6. * (1 - x2 / 20.)
-        return sin(x) / x
+        if x == 0.:
+            val = 1.
+        elif abs(x) < 2e-4:
+            val = 1. - pow(x, 2) / 6.
+        elif abs(x) < 0.006:
+            x_sq = pow(x, 2)
+            val = 1. - x_sq / 6. * (1 - x_sq / 20.)
+        else:
+            val = sin(x) / x
+        return val
