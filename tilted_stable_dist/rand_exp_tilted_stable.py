@@ -22,7 +22,7 @@ class ExpTiltedStableDist():
         """
 
         b = (1. - alpha) / alpha
-        lam_alpha = lam ** alpha
+        lam_alpha = pow(lam, alpha)
         gamma = lam_alpha * alpha * (1. - alpha)
         sqrt_gamma = sqrt(gamma)
         c1 = sqrt(math.pi / 2.)
