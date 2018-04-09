@@ -36,19 +36,9 @@ class ExpTiltedStableDist():
             U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha)
             X, N, E, a, m, delta = \
                 self.sample_reference_rv(U, alpha, lam_alpha, b, c1, z)
-
-            if X < 0:
-                accepted = False
-            else:
-                log_accept_prob = - (
-                    a * (X - m)
-                    + exp((1. / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
-                )
-                if X < m:
-                    log_accept_prob += N * N / 2.
-                elif X > m + delta:
-                    log_accept_prob += E
-                accepted = (log_accept_prob > log(Z))
+            log_accept_prob = \
+                self.compute_log_accept_prob(X, N, E, a, m, alpha, lam_alpha, b, delta)
+            accepted = (log_accept_prob > log(Z))
 
         return pow(X, -b)
 
@@ -114,6 +104,16 @@ class ExpTiltedStableDist():
         return accept_prob
 
     def sample_reference_rv(self, U, alpha, lam_alpha, b, c1, z):
+        """
+        Generate a sample from the reference (augmented) distribution conditional
+        on U for the double-rejection algorithm
+
+        Returns:
+        --------
+            X : random variable from the reference distribution
+            N, E : random variables used later for computing the acceptance prob
+            a, m, delta: scalar quantities used later
+        """
         a = pow(self.A_3(U, alpha), 1. / (1. - alpha))
         m = pow(b / a, alpha) * lam_alpha
         delta = sqrt(m * alpha / a)
@@ -133,6 +133,21 @@ class ExpTiltedStableDist():
             X = m + delta + E * a3
         return X, N, E, a, m, delta
 
+    def compute_log_accept_prob(self, X, N, E, a, m, alpha, lam_alpha, b, delta):
+
+        if X < 0:
+            log_accept_prob = - math.inf
+        else:
+            log_accept_prob = - (
+                a * (X - m)
+                + exp((1. / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
+            )
+            if X < m:
+                log_accept_prob += N * N / 2.
+            elif X > m + delta:
+                log_accept_prob += E
+                
+        return log_accept_prob
 
     def BdB0(self, x, alpha):
         denominator = pow(self.sinc(alpha * x), alpha) \
