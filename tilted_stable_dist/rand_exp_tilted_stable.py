@@ -34,23 +34,8 @@ class ExpTiltedStableDist():
         accepted = False
         while not accepted:
             U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha)
-            a = pow(self.A_3(U, alpha), 1. / (1. - alpha))
-            m = pow(b / a, alpha) * lam_alpha
-            delta = sqrt(m * alpha / a)
-            a1 = delta * c1
-            a3 = z / a
-            s = a1 + delta + a3
-            V2 = self.unif_rv()
-            N = 0.
-            E1 = 0.
-            if V2 < a1 / s:
-                N = self.normal_rv(0., 1.)
-                X = m - delta * abs(N)
-            elif V2 < (a1 + delta) / s:
-                    X = m + delta * self.unif_rv()
-            else:
-                E1 = - log(self.unif_rv())
-                X = m + delta + E1 * a3
+            X, N, E, a, m, delta = \
+                self.sample_reference_rv(U, alpha, lam_alpha, b, c1, z)
 
             if X < 0:
                 accepted = False
@@ -62,7 +47,7 @@ class ExpTiltedStableDist():
                 if X < m:
                     log_accept_prob += N * N / 2.
                 elif X > m + delta:
-                    log_accept_prob += E1
+                    log_accept_prob += E
                 accepted = (log_accept_prob > log(Z))
 
         return pow(X, -b)
@@ -127,6 +112,26 @@ class ExpTiltedStableDist():
         inverse_accept_prob *= d
         accept_prob = 1 / inverse_accept_prob
         return accept_prob
+
+    def sample_reference_rv(self, U, alpha, lam_alpha, b, c1, z):
+        a = pow(self.A_3(U, alpha), 1. / (1. - alpha))
+        m = pow(b / a, alpha) * lam_alpha
+        delta = sqrt(m * alpha / a)
+        a1 = delta * c1
+        a3 = z / a
+        s = a1 + delta + a3
+        V2 = self.unif_rv()
+        N = 0.
+        E = 0.
+        if V2 < a1 / s:
+            N = self.normal_rv(0., 1.)
+            X = m - delta * abs(N)
+        elif V2 < (a1 + delta) / s:
+            X = m + delta * self.unif_rv()
+        else:
+            E = - log(self.unif_rv())
+            X = m + delta + E * a3
+        return X, N, E, a, m, delta
 
 
     def BdB0(self, x, alpha):
