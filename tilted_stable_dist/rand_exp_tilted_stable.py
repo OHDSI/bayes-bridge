@@ -1,14 +1,14 @@
 import math
 from math import sqrt, log, pow
 from .custom_math import exp, sinc
-import numpy as np
+import random
 
 class ExpTiltedStableDist():
 
     def __init__(self, seed=None):
-        np.random.seed(seed)
-        self.unif_rv = np.random.uniform
-        self.normal_rv = np.random.normal
+        random.seed(seed)
+        self.unif_rv = random.random
+        self.normal_rv = random.normalvariate
 
     def rv(self, alpha, lam):
         """
