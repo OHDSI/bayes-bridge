@@ -42,6 +42,32 @@ class ExpTiltedStableDist():
 
         return pow(X, -b)
 
+    def rv_hofert(self, alpha, lam):
+
+        X = 0.
+        m = max(1, math.floor(pow(lam, alpha)))
+        c = pow(1. / m, 1. / alpha)
+        for i in range(m):
+            X += self.sample_divided_rv(alpha, lam, c)
+
+        return X
+
+    def sample_divided_rv(self, alpha, lam, c):
+        accepted = False
+        while not accepted:
+            S = c * self.sample_non_tilted_rv(alpha)
+            accept_prob = exp(- lam * S)
+            accepted = (self.unif_rv() < accept_prob)
+        return S
+
+    def sample_non_tilted_rv(self, alpha):
+        V = self.unif_rv()
+        E = - log(self.unif_rv())
+        S = pow(
+            self.zolotarev_function(math.pi * V, alpha) / E
+        , (1. - alpha) / alpha)
+        return S
+
     def sample_aux_rv(self, c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha):
         """
         Samples an auxiliary random variable for the double-rejection algorithm.
