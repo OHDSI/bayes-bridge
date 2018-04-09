@@ -1,6 +1,5 @@
 import math
 from math import sqrt, log, pow, sin
-from numpy import exp # For handling over & underflow
 import numpy as np
 
 class ExpTiltedStableDist():
@@ -29,7 +28,7 @@ class ExpTiltedStableDist():
         c2 = 2. + c1
         c3 = c2 * sqrt_gamma
         xi = (1. + sqrt(2.) * c3) / math.pi
-        psi = c3 * exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
+        psi = c3 * self.exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
 
         accepted = False
         while not accepted:
@@ -58,8 +57,11 @@ class ExpTiltedStableDist():
             z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1. / alpha))
             accept_prob = self.compute_aux2_accept_prob(
                 U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
-            Z = self.unif_rv() / accept_prob
-            accepted = (U < math.pi and Z <= 1.)
+            if accept_prob == 0.:
+                accepted = False
+            else:
+                Z = self.unif_rv() / accept_prob
+                accepted = (U < math.pi and Z <= 1.)
 
         return U, Z, z
 
@@ -90,11 +92,11 @@ class ExpTiltedStableDist():
         return U
 
     def compute_aux2_accept_prob(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
-        inverse_accept_prob = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
+        inverse_accept_prob = math.pi * self.exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
               / ((1. + c1) * sqrt_gamma / zeta + z)
         d = 0.
         if U >= 0. and gamma >= 1:
-            d += xi * exp(-gamma * U * U / 2.)
+            d += xi * self.exp(-gamma * U * U / 2.)
         if U > 0. and U < math.pi:
             d += psi / sqrt(math.pi - U)
         if U >= 0. and U <= math.pi and gamma < 1.:
@@ -140,7 +142,7 @@ class ExpTiltedStableDist():
         else:
             log_accept_prob = - (
                 a * (X - m)
-                + exp((1. / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
+                + self.exp((1. / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
             )
             if X < m:
                 log_accept_prob += N * N / 2.
@@ -164,6 +166,16 @@ class ExpTiltedStableDist():
             * pow(alpha * self.sinc(alpha * x), alpha)
             / self.sinc(x)
         , 1. / (1. - alpha))
+        return val
+
+    def exp(self, x):
+        max_exponent = 709 # ~ log(2 ** 1024)
+        if x > max_exponent:
+            val = math.inf
+        elif x < - max_exponent:
+            val = 0.
+        else:
+            val = math.exp(x)
         return val
 
     def sinc(self, x):
