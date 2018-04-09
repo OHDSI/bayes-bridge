@@ -51,7 +51,10 @@ class ExpTiltedStableDist():
             else:
                 E1 = - log(self.unif_rv())
                 X = m + delta + E1 * a3
-            if X > 0:
+
+            if X < 0:
+                accepted = False
+            else:
                 log_accept_prob = - (
                     a * (X - m)
                     + exp((1. / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
@@ -60,7 +63,7 @@ class ExpTiltedStableDist():
                     log_accept_prob += N * N / 2.
                 elif X > m + delta:
                     log_accept_prob += E1
-            accepted = (X >= 0. and log_accept_prob > log(Z))
+                accepted = (log_accept_prob > log(Z))
 
         return pow(X, -b)
 
