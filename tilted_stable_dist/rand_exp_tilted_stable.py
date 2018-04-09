@@ -37,12 +37,11 @@ class ExpTiltedStableDist():
 
             while not aug_accepted:
                 U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
-                W2 = self.unif_rv()
                 zeta = sqrt(self.BdB0(U, alpha))
                 z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1 / alpha))
-                rho = self.compute_aux_density_ratio(
+                rho = self.compute_aux_accept_prob(
                     U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
-                Z = W2 * rho
+                Z = self.unif_rv() * rho
                 aug_accepted = (U < math.pi and Z <= 1.)
 
             a = pow(self.A_3(U, alpha), 1. / (1. - alpha))
@@ -101,7 +100,7 @@ class ExpTiltedStableDist():
 
         return U
 
-    def compute_aux_density_ratio(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
+    def compute_aux_accept_prob(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
         rho = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
               / ((1. + c1) * sqrt_gamma / zeta + z)
         d = 0.
