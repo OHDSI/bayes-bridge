@@ -40,16 +40,8 @@ class ExpTiltedStableDist():
                 W2 = self.unif_rv()
                 zeta = sqrt(self.BdB0(U, alpha))
                 z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1 / alpha))
-                rho = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
-                    / ((1. + c1) * sqrt_gamma / zeta + z)
-                d = 0.
-                if U >= 0. and gamma >= 1:
-                    d += xi * exp(-gamma * U * U / 2.)
-                if U > 0. and U < math.pi:
-                    d += psi / sqrt(math.pi - U)
-                if U >= 0. and U <= math.pi and gamma < 1.:
-                    d += xi
-                rho *= d
+                rho = self.compute_aux_density_ratio(
+                    U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
                 Z = W2 * rho
                 aug_accepted = (U < math.pi and Z <= 1.)
 
@@ -108,6 +100,19 @@ class ExpTiltedStableDist():
                 U = math.pi * (1. - W * W)
 
         return U
+
+    def compute_aux_density_ratio(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
+        rho = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
+              / ((1. + c1) * sqrt_gamma / zeta + z)
+        d = 0.
+        if U >= 0. and gamma >= 1:
+            d += xi * exp(-gamma * U * U / 2.)
+        if U > 0. and U < math.pi:
+            d += psi / sqrt(math.pi - U)
+        if U >= 0. and U <= math.pi and gamma < 1.:
+            d += xi
+        rho *= d
+        return rho
 
 
     def BdB0(self, x, alpha):
