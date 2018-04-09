@@ -78,7 +78,7 @@ class ExpTiltedStableDist():
             U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
             zeta = sqrt(self.BdB0(U, alpha))
             z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1. / alpha))
-            rho = self.compute_aux_accept_prob(
+            rho = self.compute_aux2_accept_prob(
                 U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
             Z = self.unif_rv() * rho
             accepted = (U < math.pi and Z <= 1.)
@@ -111,7 +111,7 @@ class ExpTiltedStableDist():
 
         return U
 
-    def compute_aux_accept_prob(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
+    def compute_aux2_accept_prob(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
         rho = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
               / ((1. + c1) * sqrt_gamma / zeta + z)
         d = 0.
