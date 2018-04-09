@@ -33,17 +33,7 @@ class ExpTiltedStableDist():
 
         accepted = False
         while not accepted:
-
-            aug_accepted = False
-            while not aug_accepted:
-                U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
-                zeta = sqrt(self.BdB0(U, alpha))
-                z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1 / alpha))
-                rho = self.compute_aux_accept_prob(
-                    U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
-                Z = self.unif_rv() * rho
-                aug_accepted = (U < math.pi and Z <= 1.)
-
+            U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha)
             a = pow(self.A_3(U, alpha), 1. / (1. - alpha))
             m = pow(b / a, alpha) * lam_alpha
             delta = sqrt(m * alpha / a)
@@ -73,6 +63,27 @@ class ExpTiltedStableDist():
             accepted = (X >= 0. and c <= E2)
 
         return pow(X, -b)
+
+    def sample_aux_rv(self, c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha):
+        """
+        Samples an auxiliary random variable for the double-rejection algorithm.
+        Returns:
+            U : auxiliary random variable for the double-rejection algorithm
+            Z : uniform random variable independent of U, X
+            z : scalar quantity used later
+        """
+
+        accepted = False
+        while not accepted:
+            U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
+            zeta = sqrt(self.BdB0(U, alpha))
+            z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1. / alpha))
+            rho = self.compute_aux_accept_prob(
+                U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
+            Z = self.unif_rv() * rho
+            accepted = (U < math.pi and Z <= 1.)
+
+        return U, Z, z
 
     def sample_aux2_rv(self, c1, xi, psi, gamma, sqrt_gamma):
         """
