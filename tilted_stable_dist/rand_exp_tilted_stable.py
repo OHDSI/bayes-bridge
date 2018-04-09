@@ -32,9 +32,9 @@ class ExpTiltedStableDist():
         psi = c3 * exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
 
         accepted = False
-        aug_accepted = False
         while not accepted:
 
+            aug_accepted = False
             while not aug_accepted:
                 U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
                 zeta = sqrt(self.BdB0(U, alpha))
