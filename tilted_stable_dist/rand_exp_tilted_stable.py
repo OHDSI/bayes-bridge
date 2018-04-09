@@ -114,7 +114,7 @@ class ExpTiltedStableDist():
             N, E : random variables used later for computing the acceptance prob
             a, m, delta: scalar quantities used later
         """
-        a = pow(self.A_3(U, alpha), 1. / (1. - alpha))
+        a = self.zolotarev_function(U, alpha)
         m = pow(b / a, alpha) * lam_alpha
         delta = sqrt(m * alpha / a)
         a1 = delta * c1
@@ -155,9 +155,13 @@ class ExpTiltedStableDist():
         numerator = self.sinc(x)
         return numerator / denominator
 
-    def A_3(self, x, alpha):
-        return pow((1. - alpha) * self.sinc((1. - alpha) * x), (1. - alpha)) * \
-               pow(alpha * self.sinc(alpha * x), alpha) / self.sinc(x)
+    def zolotarev_function(self, x, alpha):
+        val = pow(
+            pow((1. - alpha) * self.sinc((1. - alpha) * x), (1. - alpha))
+            * pow(alpha * self.sinc(alpha * x), alpha)
+            / self.sinc(x)
+        , 1. / (1. - alpha))
+        return val
 
     def sinc(self, x):
         if x == 0.:
