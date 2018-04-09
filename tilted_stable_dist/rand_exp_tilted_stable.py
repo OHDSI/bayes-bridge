@@ -46,12 +46,11 @@ class ExpTiltedStableDist():
             if V2 < a1 / s:
                 N = self.normal_rv(0., 1.)
                 X = m - delta * abs(N)
-            else:
-                if V2 < (a1 + delta) / s:
+            elif V2 < (a1 + delta) / s:
                     X = m + delta * self.unif_rv()
-                else:
-                    E1 = - log(self.unif_rv())
-                    X = m + delta + E1 * a3
+            else:
+                E1 = - log(self.unif_rv())
+                X = m + delta + E1 * a3
             if X > 0:
                 E2 = -log(Z)
                 c = a * (X - m) + exp((1. / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
