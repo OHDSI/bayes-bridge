@@ -54,7 +54,7 @@ class ExpTiltedStableDist():
         accepted = False
         while not accepted:
             U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
-            zeta = sqrt(self.BdB0(U, alpha))
+            zeta = sqrt(self.zolotarev_pdf_exponentiated(U, alpha))
             z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1. / alpha))
             accept_prob = self.compute_aux2_accept_prob(
                 U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
@@ -149,7 +149,10 @@ class ExpTiltedStableDist():
                 
         return log_accept_prob
 
-    def BdB0(self, x, alpha):
+    def zolotarev_pdf_exponentiated(self, x, alpha):
+        """
+        Evaluates a function proportional to a power of the Zolotarev density.
+        """
         denominator = pow(self.sinc(alpha * x), alpha) \
                       * pow(self.sinc((1. - alpha) * x), (1. - alpha))
         numerator = self.sinc(x)
