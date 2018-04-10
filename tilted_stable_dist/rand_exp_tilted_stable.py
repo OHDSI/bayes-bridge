@@ -10,7 +10,7 @@ class ExpTiltedStableDist():
         self.unif_rv = random.random
         self.normal_rv = random.normalvariate
 
-    def rv(self, alpha, lam):
+    def rv(self, alpha, lam, method=None):
         """
         Generate a random variable from a stable distribution with
             characteristic exponent =  alpha < 1
@@ -19,37 +19,37 @@ class ExpTiltedStableDist():
             location = 0
             exponential tilting = lam
         (The density p(x) is tilted by exp(-lam * x).)
+
+        The cost of the divide-conquer algorithm increases as a function of
+        'lam ** alpha', while the cost of double-rejection algorithm is bounded.
+        The threshold for preferring one over the other, however, is
+        implementation and architecture dependent.
         """
 
-        b = (1. - alpha) / alpha
-        lam_alpha = pow(lam, alpha)
-        gamma = lam_alpha * alpha * (1. - alpha)
-        sqrt_gamma = sqrt(gamma)
-        c1 = sqrt(math.pi / 2.)
-        c2 = 2. + c1
-        c3 = c2 * sqrt_gamma
-        xi = (1. + sqrt(2.) * c3) / math.pi
-        psi = c3 * exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
+        if method is None:
+            # Choose a likely faster method.
+            tilt_magnitude = pow(lam, alpha)
+            thresh = 5.0
+            if tilt_magnitude < thresh:
+                method = 'divide-conquer'
+            else:
+                method = 'double-rejection'
 
-        accepted = False
-        while not accepted:
-            U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha)
-            X, N, E, a, m, delta = \
-                self.sample_reference_rv(U, alpha, lam_alpha, b, c1, z)
-            log_accept_prob = \
-                self.compute_log_accept_prob(X, N, E, a, m, alpha, lam_alpha, b, delta)
-            accepted = (log_accept_prob > log(Z))
+        if method == 'divide-conquer':
+            X = self.sample_by_divide_and_conquer(alpha, lam)
+        elif method == 'double-rejection':
+            X = self.sample_by_double_rejection(alpha, lam)
+        else:
+            raise NotImplementedError()
 
-        return pow(X, -b)
+        return X
 
-    def rv_hofert(self, alpha, lam):
-
+    def sample_by_divide_and_conquer(self, alpha, lam):
         X = 0.
         m = max(1, math.floor(pow(lam, alpha)))
         c = pow(1. / m, 1. / alpha)
         for i in range(m):
             X += self.sample_divided_rv(alpha, lam, c)
-
         return X
 
     def sample_divided_rv(self, alpha, lam, c):
@@ -67,6 +67,31 @@ class ExpTiltedStableDist():
             self.zolotarev_function(math.pi * V, alpha) / E
         , (1. - alpha) / alpha)
         return S
+
+    def sample_by_double_rejection(self, alpha, lam):
+
+        # Pre-compute a bunch of quantities.
+        b = (1. - alpha) / alpha
+        lam_alpha = pow(lam, alpha)
+        gamma = lam_alpha * alpha * (1. - alpha)
+        sqrt_gamma = sqrt(gamma)
+        c1 = sqrt(math.pi / 2.)
+        c2 = 2. + c1
+        c3 = c2 * sqrt_gamma
+        xi = (1. + sqrt(2.) * c3) / math.pi
+        psi = c3 * exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
+
+        # Start double-rejection sampling.
+        accepted = False
+        while not accepted:
+            U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha)
+            X, N, E, a, m, delta = \
+                self.sample_reference_rv(U, alpha, lam_alpha, b, c1, z)
+            log_accept_prob = \
+                self.compute_log_accept_prob(X, N, E, a, m, alpha, lam_alpha, b, delta)
+            accepted = (log_accept_prob > log(Z))
+
+        return pow(X, -b)
 
     def sample_aux_rv(self, c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha):
         """
