@@ -7,10 +7,9 @@ import math
 import warnings
 import pdb
 from pypolyagamma import PyPolyaGamma
-import rpy2.robjects as robjects
-import rpy2.robjects.packages as rpackages
+from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
 pg = PyPolyaGamma()
-copula = rpackages.importr('copula')
+tilted_stable = ExpTiltedStableDist()
 
 
 def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
@@ -387,15 +386,11 @@ def update_global_shrinkage(tau, beta, global_scale, reg_exponent):
 
 def update_local_shrinkage(tau, beta, reg_exponent):
 
-    # TODO: Wrap the sampler for exponentially tilted alpha-stable process
-    # so that we do not have to call the R function.
-    v0 = 1.0
     lam_sq = 1 / np.array([
-        2 * copula.retstable(reg_exponent / 2, v0, (beta_j / tau) ** 2)[0]
+        2 * tilted_stable.rv(reg_exponent / 2, (beta_j / tau) ** 2)
         for beta_j in beta[1:]
     ])
     lam = np.sqrt(lam_sq)
-    # lam = 1 / np.sqrt(np.random.wald(mean=np.abs(tau / beta[1:]), scale=1))
 
     # TODO: Pick the lower and upper bound more carefully.
     if np.any(lam == 0):
