@@ -8,21 +8,20 @@ import warnings
 import pdb
 from pypolyagamma import PyPolyaGamma
 from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
-pg = PyPolyaGamma()
-tilted_stable = ExpTiltedStableDist()
+pg = PyPolyaGamma(seed=0)
+tilted_stable = ExpTiltedStableDist(seed=0)
 
 
-def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
-          init={}, link='gaussian', mvnorm_method='pcg'):
+def gibbs(y, X, n_burnin, n_post_burnin, thin,
+          tau_fixed=False, init={}, link='gaussian', mvnorm_method='pcg'):
     """
     MCMC implementation for the Bayesian bridge.
 
-    Model: y = X\beta + \epslion, \epsilon \sim N(0, \sigma^2) 
+    Model: y = X \beta + \epslion, \epsilon \sim N(0, \sigma^2)
            \beta_j \sim N(0, \sigma^2 \lambda_j^2 \tau^2)
-           positive alpha-stable random variable with index of stability α/2
            \lambda_j^{-2} \sim \lambda_j^{-1} g(\lambda_j^{-2})
                where g is the density of positive alpha-stable random variable
-               with index of stability alpha / 2
+               with index of stability reg_exponent / 2
            \tau \sim Half-Cauchy(0, global_scale^2),
            \pi(\sigma^2) \sim 1 / \sigma^2
 
@@ -36,8 +35,7 @@ def gibbs(y, X, n_burnin, n_post_burnin, thin, tau_fixed=False,
 
     """
 
-    reg_exponent = 0.5
-        # Exponent of the prior density for the regression coefficients.
+    reg_exponent = .5
     n_iter = n_burnin + n_post_burnin
     n, p = np.shape(X)
     if link == 'logit':
