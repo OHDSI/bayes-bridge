@@ -46,9 +46,9 @@ class ExpTiltedStableDist():
 
     def sample_by_divide_and_conquer(self, alpha, lam):
         X = 0.
-        m = max(1, math.floor(pow(lam, alpha)))
-        c = pow(1. / m, 1. / alpha)
-        for i in range(m):
+        partition_size = max(1, math.floor(pow(lam, alpha)))
+        c = pow(1. / partition_size, 1. / alpha)
+        for i in range(partition_size):
             X += self.sample_divided_rv(alpha, lam, c)
         return X
 
