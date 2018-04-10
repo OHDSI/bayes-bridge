@@ -13,11 +13,36 @@ tilted_stable = ExpTiltedStableDist(seed=0)
 
 class BayesBridge():
 
-    def __init__(self, y, X, link='gaussian', reg_exponent=.5):
-        self.y = y
-        self.X = sp.sparse.hstack((np.ones((X.shape[0], 1)), X))
+    def __init__(self, y, X, n_trial=None, link='gaussian', reg_exponent=.5,
+                 n_without_reg=0, add_intercept=True):
+        """
+
+        Params
+        ------
+        n_without_reg : int
+            The number of predictors whose coefficients are to be estimated
+            without any regularization.
+        """
+
+        if add_intercept:
+            X = sp.sparse.hstack((np.ones((X.shape[0], 1)), X))
+            n_without_reg += 1
+        self.n_pred_wo_reg = n_without_reg
         self.reg_exponent = reg_exponent
         self.link = link
+        self.y = y
+        if link == 'logit':
+            if n_trial is None:
+                self.n_trial = np.ones(len(y))
+                warnings.warn(
+                    "The numbers of trials were not specified. The binary "
+                    "outcome is assumed."
+                )
+            else:
+                self.n_trial = n_trial
+        self.X = X
+        self.n_obs = X.shape[0]
+        self.n_pred = X.shape[1]
 
     #     if sp.sparse.issparse(X):
     #         self.X_format = 'sparse'
@@ -56,12 +81,6 @@ class BayesBridge():
         """
 
         n_iter = n_burnin + n_post_burnin
-        n, p = np.shape(self.X)
-        p += -1
-        if self.link == 'logit':
-            n_trial = np.ones(n)
-        else:
-            n_trial = None
         y = self.y
             # Add an intercept term.
         X_csr = self.X.tocsr()
@@ -73,27 +92,27 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         beta, sigma_sq, omega, lam, tau  = \
-            self.initialize_chain(init, self.X, p, self.link, n_trial)
+            self.initialize_chain(init)
         beta_runmean = beta
         beta_scaled_runmean = None
 
         # Pre-allocate
         samples = {}
-        self.pre_allocate(samples, n, p, n_post_burnin, thin, self.link)
+        self.pre_allocate(samples, n_post_burnin, thin)
 
         # Start Gibbs sampling
         for i in range(1, n_iter + 1):
 
             # Update beta and related parameters.
             if self.link == 'gaussian':
-                omega = np.ones(n) / sigma_sq
+                omega = np.ones(self.n_obs) / sigma_sq
                 beta = self.update_beta(y, X_csr, X_csc, omega, tau, lam, beta)
                 resid = y - X_csr.dot(beta)
                 scale = np.sum(resid ** 2) / 2
-                sigma_sq = scale / np.random.gamma(n / 2, 1)
+                sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
             elif self.link == 'logit':
-                pg.pgdrawv(n_trial, X_csr.dot(beta), omega)
-                y_latent = (y - n_trial / 2) / omega
+                pg.pgdrawv(self.n_trial, X_csr.dot(beta), omega)
+                y_latent = (y - self.n_trial / 2) / omega
                 beta = self.update_beta(
                     y_latent, X_csr, X_csc, omega, tau, lam,
                     beta_runmean, mvnorm_method
@@ -104,12 +123,12 @@ class BayesBridge():
 
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
             if not tau_fixed:
-                tau = self.update_global_shrinkage(tau, beta[1:], global_scale,
-                                              self.reg_exponent)
+                tau = self.update_global_shrinkage(
+                    tau, beta[1:], global_scale, self.reg_exponent)
 
             lam = self.update_local_shrinkage(tau, beta, self.reg_exponent)
 
-            self.store_current_state(samples, i, n_burnin, thin, self.link,
+            self.store_current_state(samples, i, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega)
 
             # Compute the running mean of
@@ -119,8 +138,8 @@ class BayesBridge():
                 beta_apriori_scale = tau * lam
             else:
                 beta_scaled_runmean = \
-                    self.compute_scaled_runmean(beta, beta_apriori_scale,
-                                           beta_scaled_runmean, n_averaged)
+                    self.compute_scaled_runmean(
+                        beta, beta_apriori_scale, beta_scaled_runmean, n_averaged)
                 n_averaged += 1
                 beta_apriori_scale = tau * lam
                 beta_runmean = beta_scaled_runmean.copy()
@@ -129,28 +148,28 @@ class BayesBridge():
         return samples
 
 
-    def pre_allocate(self, samples, n, p, n_post_burnin, thin, link):
+    def pre_allocate(self, samples, n_post_burnin, thin):
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
-        samples['beta'] = np.zeros((p + 1, n_sample))
-        samples['lambda'] =  np.zeros((p, n_sample))
+        samples['beta'] = np.zeros((self.n_pred, n_sample))
+        samples['lambda'] = np.zeros((self.n_pred - self.n_pred_wo_reg, n_sample))
         samples['tau'] = np.zeros(n_sample)
-        if link == 'gaussian':
+        if self.link == 'gaussian':
             samples['sigma_sq'] = np.zeros(n_sample)
-        elif link == 'logit':
-            samples['omega'] = np.zeros((n, n_sample))
+        elif self.link == 'logit':
+            samples['omega'] = np.zeros((self.n_obs, n_sample))
 
         return
 
-    def initialize_chain(self, init, X, p, link, n_trial):
+    def initialize_chain(self, init):
         # Choose the user-specified state if provided, the default ones otherwise.
 
         if 'beta' in init:
             beta = init['beta']
-            if not len(beta) == X.shape[1]:
+            if not len(beta) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         else:
-            beta = np.zeros(p + 1)
+            beta = np.zeros(self.n_pred)
             if 'intercept' in init:
                 beta[0] = init['intercept']
 
@@ -162,19 +181,19 @@ class BayesBridge():
         if 'omega' in init:
             omega = np.ascontiguousarray(init['omega'])
                 # Cython requires a C-contiguous array.
-            if not len(omega) == X.shape[0]:
+            if not len(omega) == self.n_obs:
                 raise ValueError('An invalid initial state.')
-        elif link == 'logit':
-            omega = n_trial / 2
+        elif self.link == 'logit':
+            omega = self.n_trial / 2
         else:
             omega = None
 
         if 'lambda' in init:
             lam = init['lambda']
-            if not len(lam) == p:
+            if not len(lam) == (self.n_pred - self.n_pred_wo_reg):
                 raise ValueError('An invalid initial state.')
         else:
-            lam = np.ones(p)
+            lam = np.ones(self.n_pred - self.n_pred_wo_reg)
 
         if 'tau' in init:
             tau = init['tau']
@@ -235,16 +254,14 @@ class BayesBridge():
             D : vector
         """
 
-        n = X_csr.shape[0]
-        p = X_csr.shape[1] - 1
-
         omega_sqrt = omega ** (1 / 2)
-        omega_sqrt_mat = sp.sparse.dia_matrix((omega_sqrt, 0), (n, n))
+        omega_sqrt_mat = \
+            sp.sparse.dia_matrix((omega_sqrt, 0), (self.n_pred, self.n_pred))
         weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
 
         precond_scale = choose_preconditioner(D, omega, X_csr, precond_by)
         precond_scale_mat = \
-            sp.sparse.dia_matrix((precond_scale, 0), (p + 1, p + 1))
+            sp.sparse.dia_matrix((precond_scale, 0), (self.n_pred, self.n_pred))
 
         weighted_X_scaled = weighted_X.dot(precond_scale_mat)
         Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled).toarray() \
@@ -252,7 +269,7 @@ class BayesBridge():
         Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
         mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * z)
         beta_scaled = mu + sp.linalg.solve_triangular(
-            Phi_scaled_chol, np.random.randn(p + 1), lower=False
+            Phi_scaled_chol, np.random.randn(self.n_pred), lower=False
         )
         beta = precond_scale * beta_scaled
         return beta
@@ -278,8 +295,6 @@ class BayesBridge():
 
         X = X_csr
         X_T = X_csc.T
-        n = X.shape[0]
-        p = X.shape[1] - 1
 
         if seed is not None:
             np.random.seed(seed)
@@ -292,13 +307,13 @@ class BayesBridge():
                 # as a posterior standard deviation.
                 precond_scale[0] = 1 # np.sum(omega) ** (- 1 / 2)
         elif precond_by == 'diag':
-            omega_mat = sp.sparse.dia_matrix((omega, 0), (n, n))
+            omega_mat = sp.sparse.dia_matrix((omega, 0), (self.n_obs, self.n_obs))
             diag = D ** 2 + np.squeeze(np.asarray(
                 omega_mat.dot(X_csr.power(2)).sum(axis=0)
             ))
             precond_scale = 1 / np.sqrt(diag)
         elif precond_by is None:
-            precond_scale = np.ones(p + 1)
+            precond_scale = np.ones(self.n_pred)
         else:
             raise NotImplementedError()
 
@@ -308,11 +323,11 @@ class BayesBridge():
             Phi_x = D_scaled_sq * x \
                     + precond_scale * X_T.dot(omega * X.dot(precond_scale * x))
             return Phi_x
-        A = sp.sparse.linalg.LinearOperator((p + 1, p + 1), matvec=Phi)
+        A = sp.sparse.linalg.LinearOperator((self.n_pred, self.n_pred), matvec=Phi)
 
         # Draw a target vector.
-        v = X_T.dot(omega ** (1 / 2) * np.random.randn(n)) \
-            + D * np.random.randn(p + 1)
+        v = X_T.dot(omega ** (1 / 2) * np.random.randn(self.n_obs)) \
+            + D * np.random.randn(self.n_pred)
         b = precond_scale * (z + v)
 
         # Choose the best linear combination of the two candidates for CG.
@@ -361,23 +376,21 @@ class BayesBridge():
         include_intercept = True
             # In case we want to change the behavior in the future
 
-        n = X_csr.shape[0]
-        p = X_csr.shape[1] - 1
-
         if precond_by == 'prior':
             precond_scale = D ** -1
             if include_intercept:
                 precond_scale[0] = np.sum(omega) ** (- 1 / 2)
 
         elif precond_by == 'diag':
-            omega_mat = sp.sparse.dia_matrix((omega, 0), (n, n))
+            omega_mat = \
+                sp.sparse.dia_matrix((omega, 0), (self.n_obs, self.n_obs))
             diag = D ** 2 + np.squeeze(np.asarray(
                 omega_mat.dot(X_csr.power(2)).sum(axis=0)
             ))
             precond_scale = 1 / np.sqrt(diag)
 
         elif precond_by is None:
-            precond_scale = np.ones(p + 1)
+            precond_scale = np.ones(self.n_pred)
 
         else:
             raise NotImplementedError()
@@ -445,7 +458,7 @@ class BayesBridge():
 
         return beta_scaled_runmean
 
-    def store_current_state(self, samples, mcmc_iter, n_burnin, thin, link,
+    def store_current_state(self, samples, mcmc_iter, n_burnin, thin,
                             beta, lam, tau, sigma_sq, omega):
 
         if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
@@ -453,9 +466,9 @@ class BayesBridge():
             samples['beta'][:, index] = beta
             samples['lambda'][:, index] = lam
             samples['tau'][index] = tau
-            if link == 'gaussian':
+            if self.link == 'gaussian':
                 samples['sigma_sq'][index] = sigma_sq
-            elif link == 'logit':
+            elif self.link == 'logit':
                 samples['omega'][:, index] = omega
 
         return
