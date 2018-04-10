@@ -105,10 +105,13 @@ class ExpTiltedStableDist():
         accepted = False
         while not accepted:
             U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
-            zeta = sqrt(self.zolotarev_pdf_exponentiated(U, alpha))
-            z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1. / alpha))
-            accept_prob = self.compute_aux2_accept_prob(
-                U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
+            if U > math.pi:
+                accept_prob = 0.
+            else:
+                zeta = sqrt(self.zolotarev_pdf_exponentiated(U, alpha))
+                z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1. / alpha))
+                accept_prob = self.compute_aux2_accept_prob(
+                    U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
             if accept_prob == 0.:
                 accepted = False
             else:
