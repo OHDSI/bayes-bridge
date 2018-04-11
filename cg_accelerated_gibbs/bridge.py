@@ -473,36 +473,3 @@ class BayesBridge():
 
         return
 
-
-    def generate_gaussian_alla_anirban(self, y, X, D, A=None, is_chol=False):
-        """
-        Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-           Sigma = (X'X + D^{-1})^{-1}, mu = Sigma X' y
-        where D is assumed to be diagonal.
-
-        Param:
-        ------
-            A : matrix
-                Equals the matrix (XDX' + I) or, if is_chol == true, its cholesky decomposition
-            D : vector
-        """
-
-        n, p = np.shape(X)
-        if n > p:
-            Phi = np.dot(X.T, X) + np.diag(D ** -1)
-            Phi_chol = sp.linalg.cholesky(Phi)
-            mu = sp.linalg.cho_solve((Phi_chol, False), np.dot(X.T, y))
-            x = mu + sp.linalg.solve_triangular(Phi_chol, np.random.randn(p),
-                                                lower=False)
-        else:
-            if A is None:
-                A = np.dot(X, D[:, np.newaxis] * X.T) + np.eye(n)
-            u = np.sqrt(D) * np.random.randn(p)
-            v = np.dot(X, u) + np.random.randn(n)
-            if is_chol:
-                w = sp.linalg.cho_solve((A, False), y - v)
-            else:
-                w = sp.linalg.solve(A, y - v, sym_pos=True)
-            x = u + D * np.dot(X.T, w)
-        return x
-
