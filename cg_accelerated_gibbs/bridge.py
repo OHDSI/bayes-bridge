@@ -252,7 +252,7 @@ class BayesBridge():
             sp.sparse.dia_matrix((omega_sqrt, 0), (self.n_pred, self.n_pred))
         weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
 
-        precond_scale = choose_preconditioner(D, omega, X_csr, precond_by)
+        precond_scale = self.choose_preconditioner(D, omega, X_csr, precond_by)
         precond_scale_mat = \
             sp.sparse.dia_matrix((precond_scale, 0), (self.n_pred, self.n_pred))
 
@@ -293,22 +293,7 @@ class BayesBridge():
             np.random.seed(seed)
 
         # Compute the diagonal (sqrt) preconditioner.
-        if precond_by == 'prior':
-            precond_scale = D ** -1
-            if include_intercept:
-                # TODO: Consider a better preconditioner for the intercept such
-                # as a posterior standard deviation.
-                precond_scale[0] = 1 # np.sum(omega) ** (- 1 / 2)
-        elif precond_by == 'diag':
-            omega_mat = sp.sparse.dia_matrix((omega, 0), (self.n_obs, self.n_obs))
-            diag = D ** 2 + np.squeeze(np.asarray(
-                omega_mat.dot(X_csr.power(2)).sum(axis=0)
-            ))
-            precond_scale = 1 / np.sqrt(diag)
-        elif precond_by is None:
-            precond_scale = np.ones(self.n_pred)
-        else:
-            raise NotImplementedError()
+        precond_scale = self.choose_preconditioner(D, omega, X_csr, precond_by)
 
         # Define a preconditioned linear operator.
         D_scaled_sq = (precond_scale * D) ** 2
@@ -372,7 +357,9 @@ class BayesBridge():
         if precond_by == 'prior':
             precond_scale = D ** -1
             if include_intercept:
-                precond_scale[0] = np.sum(omega) ** (- 1 / 2)
+                # TODO: Consider a better preconditioner for the intercept such
+                # as a posterior standard deviation.
+                precond_scale[0] = 1  # np.sum(omega) ** (- 1 / 2)
 
         elif precond_by == 'diag':
             omega_mat = \
