@@ -191,7 +191,7 @@ class BayesBridge():
 
         if 'beta' in init:
             beta = init['beta']
-            if not len(beta) == self.n_obs:
+            if not len(beta) == self.n_pred:
                 raise ValueError('An invalid initial state.')
         else:
             beta = np.zeros(self.n_pred)
