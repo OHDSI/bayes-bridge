@@ -17,7 +17,6 @@ class BayesBridge():
     def __init__(self, y, X, n_trial=None, link='gaussian', reg_exponent=.5,
                  n_without_reg=0, add_intercept=True):
         """
-
         Params
         ------
         n_without_reg : int
@@ -435,6 +434,11 @@ class BayesBridge():
             upper = (np.sqrt(1 / u - 1) / global_scale) ** reg_exponent
                 # Invert the half-Cauchy density.
             phi = gamma_rv.ppf(gamma_rv.cdf(upper) * np.random.uniform())
+            if np.isnan(phi):
+                # Inverse CDF method can fail if the current conditional
+                # distribution is drastically different from the previous one.
+                # In this case, ignore the prior and just sample from a Gamma.
+                phi = gamma_rv.rvs()
         tau = 1 / phi ** (1 / reg_exponent)
 
         return tau
