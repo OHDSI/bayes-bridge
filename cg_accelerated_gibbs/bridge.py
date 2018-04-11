@@ -5,6 +5,7 @@ import scipy.linalg
 import scipy.sparse
 import math
 import warnings
+from inspect import currentframe, getframeinfo
 import pdb
 from pypolyagamma import PyPolyaGamma
 from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
@@ -34,7 +35,7 @@ class BayesBridge():
         if link == 'logit':
             if n_trial is None:
                 self.n_trial = np.ones(len(y))
-                warnings.warn(
+                self.warn_message_only(
                     "The numbers of trials were not specified. The binary "
                     "outcome is assumed."
                 )
@@ -56,6 +57,12 @@ class BayesBridge():
     #         D = np.diag(v)
     #     return D
 
+    def warn_message_only(self, message, category=UserWarning):
+        frameinfo = getframeinfo(currentframe())
+        warnings.showwarning(
+            message, category, frameinfo.filename, frameinfo.lineno,
+            file=None, line=''
+        ) # line='' supresses printing the line from codes.
 
     def gibbs(self, n_burnin, n_post_burnin, thin, tau_fixed=False, init={},
               mvnorm_method='pcg'):
@@ -320,7 +327,7 @@ class BayesBridge():
         beta_scaled, info = sp.sparse.linalg.cg(A, b, x0=beta_scaled_init,
                                                 maxiter=maxiter, tol=rtol)
         if info != 0:
-            warnings.warn(
+            self.warn_message_only(
                 "The conjugate gradient algorithm did not achieve the requested " +
                 "tolerance level. You may increase the maxiter or use the dense " +
                 "linear algebra instead."
@@ -411,11 +418,11 @@ class BayesBridge():
 
         # TODO: Pick the lower and upper bound more carefully.
         if np.any(lam == 0):
-            warnings.warn(
+            self.warn_message_only(
                 "Local shrinkage parameter under-flowed. Replacing with a small number.")
             lam[lam == 0] = 10e-16
         elif np.any(np.isinf(lam)):
-            warnings.warn(
+            self.warn_message_only(
                 "Local shrinkage parameter under-flowed. Replacing with a large number.")
             lam[np.isinf(lam)] = 2.0 / tau
 
