@@ -95,6 +95,7 @@ class BayesBridge():
         n_averaged = 0
         beta_runmean = beta
         beta_scaled_runmean = None
+        beta_shrinkage_scale = None
 
         # Pre-allocate
         samples = {}
@@ -132,19 +133,10 @@ class BayesBridge():
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega)
 
-            # Compute the running mean of
-            #     beta[1:, iter] / tau[iter - 1] / lam[:, iter - 1]
-            if mcmc_iter == 1:
-                beta_runmean = beta.copy()
-                beta_shrinkage_scale = tau * lam
-            else:
-                beta_scaled_runmean = \
-                    self.compute_scaled_runmean(
-                        beta, beta_shrinkage_scale, beta_scaled_runmean, n_averaged)
-                n_averaged += 1
-                beta_shrinkage_scale = tau * lam
-                beta_runmean = beta_scaled_runmean.copy()
-                beta_runmean[1:] *= beta_shrinkage_scale
+            beta_runmean, beta_scaled_runmean, beta_shrinkage_scale, n_averaged \
+                = self.update_beta_runmean(
+                beta, tau, lam, beta_scaled_runmean, beta_shrinkage_scale, n_averaged
+            )
 
         return samples
 
@@ -442,6 +434,21 @@ class BayesBridge():
 
         return lam
 
+    def update_beta_runmean(self, beta, tau, lam, beta_scaled_runmean,
+                            beta_shrinkage_scale, n_averaged):
+        if n_averaged == 0:
+            beta_runmean = beta.copy()
+            beta_shrinkage_scale = tau * lam
+        else:
+            beta_scaled_runmean = \
+                self.compute_scaled_runmean(
+                    beta, beta_shrinkage_scale, beta_scaled_runmean, n_averaged)
+            n_averaged += 1
+            beta_shrinkage_scale = tau * lam
+            beta_runmean = beta_scaled_runmean.copy()
+            beta_runmean[1:] *= beta_shrinkage_scale
+
+        return beta_runmean, beta_scaled_runmean, beta_shrinkage_scale, n_averaged
 
     def compute_scaled_runmean(self, beta, beta_shrinkage_scale,
                                prev_scaled_runmean, n_averaged):
