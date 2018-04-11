@@ -86,11 +86,13 @@ class BayesBridge():
 
         # Hyper & tuning parameters
         global_scale = 1.0 # scale of the half-Cauchy prior on 'tau'
-        n_averaged = 0
 
         # Initial state of the Markov chain
         beta, sigma_sq, omega, lam, tau  = \
             self.initialize_chain(init)
+
+        # Variables for sequentially updating the running average of 'beta'.
+        n_averaged = 0
         beta_runmean = beta
         beta_scaled_runmean = None
 
@@ -99,7 +101,7 @@ class BayesBridge():
         self.pre_allocate(samples, n_post_burnin, thin)
 
         # Start Gibbs sampling
-        for i in range(1, n_iter + 1):
+        for mcmc_iter in range(1, n_iter + 1):
 
             # Update beta and related parameters.
             if self.link == 'gaussian':
@@ -127,22 +129,22 @@ class BayesBridge():
 
             lam = self.update_local_shrinkage(tau, beta, self.reg_exponent)
 
-            self.store_current_state(samples, i, n_burnin, thin,
+            self.store_current_state(samples, mcmc_iter, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega)
 
             # Compute the running mean of
             #     beta[1:, iter] / tau[iter - 1] / lam[:, iter - 1]
-            if i == 1:
+            if mcmc_iter == 1:
                 beta_runmean = beta.copy()
-                beta_apriori_scale = tau * lam
+                beta_shrinkage_scale = tau * lam
             else:
                 beta_scaled_runmean = \
                     self.compute_scaled_runmean(
-                        beta, beta_apriori_scale, beta_scaled_runmean, n_averaged)
+                        beta, beta_shrinkage_scale, beta_scaled_runmean, n_averaged)
                 n_averaged += 1
-                beta_apriori_scale = tau * lam
+                beta_shrinkage_scale = tau * lam
                 beta_runmean = beta_scaled_runmean.copy()
-                beta_runmean[1:] *= beta_apriori_scale
+                beta_runmean[1:] *= beta_shrinkage_scale
 
         return samples
 
@@ -441,13 +443,13 @@ class BayesBridge():
         return lam
 
 
-    def compute_scaled_runmean(self, beta, beta_apriori_scale,
+    def compute_scaled_runmean(self, beta, beta_shrinkage_scale,
                                prev_scaled_runmean, n_averaged):
         # Computes the running mean of beta / (tau * lam) and rescale it with the
         # current values of tau and lam.
 
         beta_scaled = beta.copy()
-        beta_scaled[1:] *= 1 / beta_apriori_scale
+        beta_scaled[1:] *= 1 / beta_shrinkage_scale
         if n_averaged == 0:
             beta_scaled_runmean = beta_scaled
         else:
