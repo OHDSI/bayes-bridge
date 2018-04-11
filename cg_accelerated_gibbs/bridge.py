@@ -15,13 +15,13 @@ tilted_stable = ExpTiltedStableDist(seed=0)
 class BayesBridge():
 
     def __init__(self, y, X, n_trial=None, link='gaussian', reg_exponent=.5,
-                 n_without_reg=0, add_intercept=True):
+                 n_coef_without_shrinkage=0, add_intercept=True):
         """
         Params
         ------
-        n_without_reg : int
+        n_coef_without_shrinkage : int
             The number of predictors whose coefficients are to be estimated
-            without any regularization.
+            without any shrinkage (a.k.a. regularization).
         """
 
         if add_intercept:
@@ -30,7 +30,7 @@ class BayesBridge():
             else:
                 hstack = np.hstack
             X = hstack((np.ones((X.shape[0], 1)), X))
-            n_without_reg += 1
+            n_coef_without_shrinkage += 1
 
         if sp.sparse.issparse(X):
             X = X.tocsr()
@@ -45,7 +45,7 @@ class BayesBridge():
             else:
                 self.n_trial = n_trial
 
-        self.n_pred_wo_reg = n_without_reg
+        self.n_coef_wo_shrinkage = n_coef_without_shrinkage
         self.reg_exponent = reg_exponent
         self.link = link
         self.y = y
@@ -157,9 +157,10 @@ class BayesBridge():
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
             if not tau_fixed:
                 tau = self.update_global_shrinkage(
-                    tau, beta[1:], global_scale, self.reg_exponent)
+                    tau, beta[self.n_coef_wo_shrinkage:], global_scale, self.reg_exponent)
 
-            lam = self.update_local_shrinkage(tau, beta, self.reg_exponent)
+            lam = self.update_local_shrinkage(
+                tau, beta[self.n_coef_wo_shrinkage:], self.reg_exponent)
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega)
@@ -176,7 +177,7 @@ class BayesBridge():
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
         samples['beta'] = np.zeros((self.n_pred, n_sample))
-        samples['lambda'] = np.zeros((self.n_pred - self.n_pred_wo_reg, n_sample))
+        samples['lambda'] = np.zeros((self.n_pred - self.n_coef_wo_shrinkage, n_sample))
         samples['tau'] = np.zeros(n_sample)
         if self.link == 'gaussian':
             samples['sigma_sq'] = np.zeros(n_sample)
@@ -214,10 +215,10 @@ class BayesBridge():
 
         if 'lambda' in init:
             lam = init['lambda']
-            if not len(lam) == (self.n_pred - self.n_pred_wo_reg):
+            if not len(lam) == (self.n_pred - self.n_coef_wo_shrinkage):
                 raise ValueError('An invalid initial state.')
         else:
-            lam = np.ones(self.n_pred - self.n_pred_wo_reg)
+            lam = np.ones(self.n_pred - self.n_coef_wo_shrinkage)
 
         if 'tau' in init:
             tau = init['tau']
@@ -416,14 +417,14 @@ class BayesBridge():
         return precond_scale
 
 
-    def update_global_shrinkage(self, tau, beta, global_scale, reg_exponent):
+    def update_global_shrinkage(self, tau, beta_with_shrinkage, global_scale, reg_exponent):
         """ Update the global shrinkage parameter with slice sampling. """
 
         n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
 
         # Initialize a gamma distribution object.
-        shape = (beta.size + 1) / reg_exponent
-        scale = 1 / np.sum(np.abs(beta) ** reg_exponent)
+        shape = (beta_with_shrinkage.size + 1) / reg_exponent
+        scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
         gamma_rv = sp.stats.gamma(shape, scale=scale)
 
         # Slice sample phi = 1 / tau ** reg_exponent.
@@ -444,11 +445,11 @@ class BayesBridge():
         return tau
 
 
-    def update_local_shrinkage(self, tau, beta, reg_exponent):
+    def update_local_shrinkage(self, tau, beta_with_shrinkage, reg_exponent):
 
         lam_sq = 1 / np.array([
             2 * tilted_stable.rv(reg_exponent / 2, (beta_j / tau) ** 2)
-            for beta_j in beta[1:]
+            for beta_j in beta_with_shrinkage
         ])
         lam = np.sqrt(lam_sq)
 
@@ -476,7 +477,7 @@ class BayesBridge():
             n_averaged += 1
             beta_shrinkage_scale = tau * lam
             beta_runmean = beta_scaled_runmean.copy()
-            beta_runmean[1:] *= beta_shrinkage_scale
+            beta_runmean[self.n_coef_wo_shrinkage:] *= beta_shrinkage_scale
 
         return beta_runmean, beta_scaled_runmean, beta_shrinkage_scale, n_averaged
 
@@ -486,7 +487,7 @@ class BayesBridge():
         # current values of tau and lam.
 
         beta_scaled = beta.copy()
-        beta_scaled[1:] *= 1 / beta_shrinkage_scale
+        beta_scaled[self.n_coef_wo_shrinkage:] *= 1 / beta_shrinkage_scale
         if n_averaged == 0:
             beta_scaled_runmean = beta_scaled
         else:
