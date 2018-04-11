@@ -26,12 +26,16 @@ class BayesBridge():
         """
 
         if add_intercept:
-            X = sp.sparse.hstack((np.ones((X.shape[0], 1)), X))
+            if sp.sparse.issparse(X):
+                hstack = sp.sparse.hstack
+            else:
+                hstack = np.hstack
+            X = hstack((np.ones((X.shape[0], 1)), X))
             n_without_reg += 1
-        self.n_pred_wo_reg = n_without_reg
-        self.reg_exponent = reg_exponent
-        self.link = link
-        self.y = y
+
+        if sp.sparse.issparse(X):
+            X = X.tocsr()
+
         if link == 'logit':
             if n_trial is None:
                 self.n_trial = np.ones(len(y))
@@ -41,21 +45,43 @@ class BayesBridge():
                 )
             else:
                 self.n_trial = n_trial
+
+        self.n_pred_wo_reg = n_without_reg
+        self.reg_exponent = reg_exponent
+        self.link = link
+        self.y = y
+        if sp.sparse.issparse(X):
+            X = X.tocsr()
+            self.X_col_major = X.tocsc()
+        else:
+            self.X_col_major = None
+        self.X_row_major = X
         self.X = X
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
 
-    #     if sp.sparse.issparse(X):
-    #         self.X_format = 'sparse'
-    #     else:
-    #         self.X_format = 'dense'
-    #
-    # def construct_diag_mat(self, v):
-    #     if self.X_format == 'sparse':
-    #         D = sp.sparse.dia_matrix((v, 0), (len(v), len(v)))
-    #     else:
-    #         D = np.diag(v)
-    #     return D
+    def elemwise_power(self, X, exponent):
+        """ Wrapper function that works with both dense and sparse matrices. """
+        if sp.sparse.issparse(X):
+            return X.power(exponent)
+        else:
+            return X ** exponent
+
+    def left_matmul_by_diag(self, v, A):
+        """ Computes dot(diag(v), A) for a vector 'v' and matrix 'A'. """
+        if sp.sparse.issparse(A):
+            v_mat = sp.sparse.dia_matrix((v, 0), (len(v), len(v)))
+            return v_mat.dot(A)
+        else:
+            return v[:, np.newaxis] * A
+
+    def right_matmul_by_diag(self, A, v):
+        """ Computes dot(A, diag(v)) for a matrix 'A' and vector 'v'. """
+        if sp.sparse.issparse(A):
+            v_mat = sp.sparse.dia_matrix((v, 0), (len(v), len(v)))
+            return A.dot(v_mat)
+        else:
+            return A * v[np.newaxis, :]
 
     def warn_message_only(self, message, category=UserWarning):
         frameinfo = getframeinfo(currentframe())
@@ -88,8 +114,6 @@ class BayesBridge():
         """
 
         n_iter = n_burnin + n_post_burnin
-        X_csr = self.X.tocsr()
-        X_csc = self.X.tocsc()
 
         # Hyper & tuning parameters
         global_scale = 1.0 # scale of the half-Cauchy prior on 'tau'
@@ -114,16 +138,17 @@ class BayesBridge():
             # Update beta and related parameters.
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
-                beta = self.update_beta(self.y, X_csr, X_csc, omega, tau, lam,
-                                        beta)
-                resid = self.y - X_csr.dot(beta)
+                beta = self.update_beta(
+                    self.y, self.X_row_major, self.X_col_major, omega, tau, lam, beta
+                )
+                resid = self.y - self.X.dot(beta)
                 scale = np.sum(resid ** 2) / 2
                 sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
             elif self.link == 'logit':
-                pg.pgdrawv(self.n_trial, X_csr.dot(beta), omega)
+                pg.pgdrawv(self.n_trial, self.X.dot(beta), omega)
                 y_latent = (self.y - self.n_trial / 2) / omega
                 beta = self.update_beta(
-                    y_latent, X_csr, X_csc, omega, tau, lam,
+                    y_latent, self.X_row_major, self.X_col_major, omega, tau, lam,
                     beta_runmean, mvnorm_method
                 )
             else:
@@ -202,12 +227,12 @@ class BayesBridge():
 
         return beta, sigma_sq, omega, lam, tau
 
-
-    def update_beta(self, y, X_csr, X_csc, omega, tau, lam, beta_init=None,
-                    method='pcg'):
+    def update_beta(self, y, X_row_major, X_col_major, omega, tau, lam,
+                    beta_init=None, method='pcg'):
         """
         Param:
         ------
+            X_col_major: None if X is dense, sparse csc matrix otherwise
             beta_init: vector
                 Used when when method == 'pcg' as the starting value of the
                 preconditioned conjugate gradient algorithm.
@@ -220,18 +245,22 @@ class BayesBridge():
 
         prior_sd = np.concatenate(([float('inf')], tau * lam))
             # Flat prior for intercept
-        v = X_csc.T.dot(omega * y)
+        if X_col_major is not None:
+            X_T = X_col_major.T
+        else:
+            X_T = X_row_major.T
+        v = X_T.dot(omega * y)
         prec_sqrt = 1 / prior_sd
 
         if method == 'dense':
             beta = self.generate_gaussian_with_weight(
-                X_csr, omega, prec_sqrt, v)
+                X_row_major, omega, prec_sqrt, v)
 
         elif method == 'pcg':
             # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
             # control the error in the MCMC output.
             beta = self.pcg_gaussian_sampler(
-                X_csr, X_csc, omega, prec_sqrt, v,
+                X_row_major, X_col_major, omega, prec_sqrt, v,
                 beta_init_1=beta_init, beta_init_2=None,
                 precond_by='prior', maxiter=500, atol=10e-4
             )
@@ -241,7 +270,7 @@ class BayesBridge():
         return beta
 
 
-    def generate_gaussian_with_weight(self, X_csr, omega, D, z,
+    def generate_gaussian_with_weight(self, X_row_major, omega, D, z,
                                       precond_by='diag'):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
@@ -255,17 +284,17 @@ class BayesBridge():
         """
 
         omega_sqrt = omega ** (1 / 2)
-        omega_sqrt_mat = \
-            sp.sparse.dia_matrix((omega_sqrt, 0), (self.n_pred, self.n_pred))
-        weighted_X = omega_sqrt_mat.dot(X_csr).tocsc()
+        weighted_X = self.left_matmul_by_diag(omega_sqrt, X_row_major)
+        if sp.sparse.issparse(X_row_major):
+            weighted_X = weighted_X.tocsc()
 
-        precond_scale = self.choose_preconditioner(D, omega, X_csr, precond_by)
-        precond_scale_mat = \
-            sp.sparse.dia_matrix((precond_scale, 0), (self.n_pred, self.n_pred))
+        precond_scale = self.choose_preconditioner(D, omega, X_row_major, precond_by)
+        weighted_X_scaled = self.right_matmul_by_diag(weighted_X, precond_scale)
 
-        weighted_X_scaled = weighted_X.dot(precond_scale_mat)
-        Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled).toarray() \
-              + np.diag((precond_scale * D) ** 2)
+        Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled)
+        if sp.sparse.issparse(X_row_major):
+            Phi_scaled = Phi_scaled.toarray()
+        Phi_scaled += np.diag((precond_scale * D) ** 2)
         Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
         mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * z)
         beta_scaled = mu + sp.linalg.solve_triangular(
@@ -275,7 +304,7 @@ class BayesBridge():
         return beta
 
 
-    def pcg_gaussian_sampler(self, X_csr, X_csc, omega, D, z,
+    def pcg_gaussian_sampler(self, X_row_major, X_col_major, omega, D, z,
                              beta_init_1=None, beta_init_2=None,
                              precond_by='diag', maxiter=None, atol=10e-6,
                              seed=None, include_intercept=True):
@@ -293,14 +322,17 @@ class BayesBridge():
                 of CG iterations.
         """
 
-        X = X_csr
-        X_T = X_csc.T
+        X = X_row_major
+        if X_col_major is not None:
+            X_T = X_col_major.T
+        else:
+            X_T = X_row_major.T
 
         if seed is not None:
             np.random.seed(seed)
 
         # Compute the diagonal (sqrt) preconditioner.
-        precond_scale = self.choose_preconditioner(D, omega, X_csr, precond_by)
+        precond_scale = self.choose_preconditioner(D, omega, X_row_major, precond_by)
 
         # Define a preconditioned linear operator.
         D_scaled_sq = (precond_scale * D) ** 2
@@ -355,7 +387,7 @@ class BayesBridge():
         return x
 
 
-    def choose_preconditioner(self, D, omega, X_csr, precond_by='diag'):
+    def choose_preconditioner(self, D, omega, X_row_major, precond_by='diag'):
         # Compute the diagonal (sqrt) preconditioner.
 
         include_intercept = True
@@ -369,10 +401,10 @@ class BayesBridge():
                 precond_scale[0] = 1  # np.sum(omega) ** (- 1 / 2)
 
         elif precond_by == 'diag':
-            omega_mat = \
-                sp.sparse.dia_matrix((omega, 0), (self.n_obs, self.n_obs))
             diag = D ** 2 + np.squeeze(np.asarray(
-                omega_mat.dot(X_csr.power(2)).sum(axis=0)
+                self.left_matmul_by_diag(
+                    omega, self.elemwise_power(X_row_major, 2)
+                ).sum(axis=0)
             ))
             precond_scale = 1 / np.sqrt(diag)
 
