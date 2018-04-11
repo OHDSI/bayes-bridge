@@ -14,7 +14,7 @@ tilted_stable = ExpTiltedStableDist(seed=0)
 
 class BayesBridge():
 
-    def __init__(self, y, X, n_trial=None, link='gaussian', reg_exponent=.5,
+    def __init__(self, y, X, n_trial=None, link='gaussian',
                  n_coef_without_shrinkage=0, add_intercept=True):
         """
         Params
@@ -46,7 +46,6 @@ class BayesBridge():
                 self.n_trial = n_trial
 
         self.n_coef_wo_shrinkage = n_coef_without_shrinkage
-        self.reg_exponent = reg_exponent
         self.link = link
         self.y = y
         if sp.sparse.issparse(X):
@@ -89,8 +88,8 @@ class BayesBridge():
             file=None, line=''
         ) # line='' supresses printing the line from codes.
 
-    def gibbs(self, n_burnin, n_post_burnin, thin, tau_fixed=False, init={},
-              mvnorm_method='pcg'):
+    def gibbs(self, n_burnin, n_post_burnin, thin, reg_exponent=.5,
+              tau_fixed=False, init={}, mvnorm_method='pcg'):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -157,10 +156,10 @@ class BayesBridge():
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
             if not tau_fixed:
                 tau = self.update_global_shrinkage(
-                    tau, beta[self.n_coef_wo_shrinkage:], global_scale, self.reg_exponent)
+                    tau, beta[self.n_coef_wo_shrinkage:], global_scale, reg_exponent)
 
             lam = self.update_local_shrinkage(
-                tau, beta[self.n_coef_wo_shrinkage:], self.reg_exponent)
+                tau, beta[self.n_coef_wo_shrinkage:], reg_exponent)
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega)
