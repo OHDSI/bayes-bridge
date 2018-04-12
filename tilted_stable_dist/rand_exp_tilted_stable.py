@@ -24,6 +24,15 @@ class ExpTiltedStableDist():
         'tilt ** alpha'. While the cost of double-rejection algorithm is
         bounded, the divide-conquer algorithm is simpler and faster for small
         'tilt ** alpha'.
+
+        References:
+        -----------
+        Implementation is mostly based on the algorithm descriptions in
+            'Sampling Exponentially Tilted Stable Distributions' by Hofert (2011)
+        Ideas behind and details on the double-rejection sampling is better
+        described in
+            'Random variate generation for exponentially and polynomially tilted
+            stable distributions' by Devroye (2009)
         """
 
         if method is None:
