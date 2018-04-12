@@ -10,35 +10,36 @@ class ExpTiltedStableDist():
         self.unif_rv = random.random
         self.normal_rv = random.normalvariate
 
-    def rv(self, alpha, lam, method=None):
+    def rv(self, char_exponent, tilt, method=None):
         """
         Generate a random variable from a stable distribution with
-            characteristic exponent =  alpha < 1
+            characteristic exponent =  char_exponent < 1
             skewness = 1
-            scale = cos(alpha * pi / 2) ** (1 / alpha)
+            scale = cos(char_exponent * pi / 2) ** (1 / char_exponent)
             location = 0
-            exponential tilting = lam
-        (The density p(x) is tilted by exp(-lam * x).)
+            exponential tilting = tilt
+        (The density p(x) is tilted by exp(- tilt * x).)
 
         The cost of the divide-conquer algorithm increases as a function of
-        'lam ** alpha', while the cost of double-rejection algorithm is bounded.
-        The threshold for preferring one over the other, however, is
-        implementation and architecture dependent.
+        'tilt ** alpha'. While the cost of double-rejection algorithm is
+        bounded, the divide-conquer algorithm is simpler and faster for small
+        'tilt ** alpha'.
         """
 
         if method is None:
             # Choose a likely faster method.
-            tilt_magnitude = pow(lam, alpha)
-            thresh = 5.0
-            if tilt_magnitude < thresh:
+            divide_conquer_cost = pow(tilt, char_exponent)
+            double_rejection_cost = 5.0
+                # The relative costs are implementation & architecture dependent.
+            if divide_conquer_cost < double_rejection_cost:
                 method = 'divide-conquer'
             else:
                 method = 'double-rejection'
 
         if method == 'divide-conquer':
-            X = self.sample_by_divide_and_conquer(alpha, lam)
+            X = self.sample_by_divide_and_conquer(char_exponent, tilt)
         elif method == 'double-rejection':
-            X = self.sample_by_double_rejection(alpha, lam)
+            X = self.sample_by_double_rejection(char_exponent, tilt)
         else:
             raise NotImplementedError()
 
