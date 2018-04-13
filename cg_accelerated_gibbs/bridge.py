@@ -300,7 +300,7 @@ class BayesBridge():
         Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
         mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * z)
         beta_scaled = mu + sp.linalg.solve_triangular(
-            Phi_scaled_chol, np.random.randn(self.n_pred), lower=False
+            Phi_scaled_chol, np.random.randn(X_row_major.shape[1]), lower=False
         )
         beta = precond_scale * beta_scaled
         return beta
@@ -342,11 +342,11 @@ class BayesBridge():
             Phi_x = D_scaled_sq * x \
                     + precond_scale * X_T.dot(omega * X.dot(precond_scale * x))
             return Phi_x
-        A = sp.sparse.linalg.LinearOperator((self.n_pred, self.n_pred), matvec=Phi)
+        A = sp.sparse.linalg.LinearOperator((X.shape[1], X.shape[1]), matvec=Phi)
 
         # Draw a target vector.
-        v = X_T.dot(omega ** (1 / 2) * np.random.randn(self.n_obs)) \
-            + D * np.random.randn(self.n_pred)
+        v = X_T.dot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
+            + D * np.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
         # Choose the best linear combination of the two candidates for CG.
