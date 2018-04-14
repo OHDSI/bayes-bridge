@@ -111,6 +111,9 @@ class BayesBridge():
 
         """
 
+        if self.link not in ('gaussian', 'logit'):
+            raise NotImplementedError()
+
         n_iter = n_burnin + n_post_burnin
 
         # Hyper & tuning parameters
@@ -133,25 +136,10 @@ class BayesBridge():
         # Start Gibbs sampling
         for mcmc_iter in range(1, n_iter + 1):
 
-            # Update beta and related parameters.
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
-                beta = self.update_beta(
-                    self.y, self.X_row_major, self.X_col_major, omega, tau, lam, beta
-                )
-                resid = self.y - self.X.dot(beta)
-                scale = np.sum(resid ** 2) / 2
-                sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
-            elif self.link == 'logit':
-                y_latent = (self.y - self.n_trial / 2) / omega
-                beta = self.update_beta(
-                    y_latent, self.X_row_major, self.X_col_major, omega, tau, lam,
-                    beta_runmean, mvnorm_method
-                )
-                pg.pgdrawv(self.n_trial, self.X.dot(beta), omega)
-            else:
-                raise NotImplementedError(
-                    'The specified link function is not supported.')
+            beta = self.update_beta(omega, tau, lam, beta_runmean, mvnorm_method)
+            omega, sigma_sq = self.update_obs_precision(beta, omega)
 
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
             if not tau_fixed:
@@ -226,7 +214,20 @@ class BayesBridge():
 
         return beta, sigma_sq, omega, lam, tau
 
-    def update_beta(self, y, X_row_major, X_col_major, omega, tau, lam,
+    def update_beta(self, omega, tau, lam, beta_runmean, mvnorm_method):
+
+        if self.link == 'gaussian':
+            y_gaussian = self.y
+        elif self.link == 'logit':
+            y_gaussian = (self.y - self.n_trial / 2) / omega
+
+        beta = self.sample_gaussian_posterior(
+            y_gaussian, self.X_row_major, self.X_col_major, omega, tau, lam,
+            beta_runmean, mvnorm_method
+        )
+        return beta
+
+    def sample_gaussian_posterior(self, y, X_row_major, X_col_major, omega, tau, lam,
                     beta_init=None, method='pcg'):
         """
         Param:
@@ -241,6 +242,7 @@ class BayesBridge():
                 sampler is used.
 
         """
+        #TODO: Comment on the form of the posterior.
 
         prior_sd = np.concatenate((
             [float('inf')] * self.n_coef_wo_shrinkage,
@@ -271,6 +273,17 @@ class BayesBridge():
 
         return beta
 
+    def update_obs_precision(self, beta, omega):
+
+        sigma_sq = None
+        if self.link == 'gaussian':
+            resid = self.y - self.X_row_major.dot(beta)
+            scale = np.sum(resid ** 2) / 2
+            sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
+        elif self.link == 'logit':
+            pg.pgdrawv(self.n_trial, self.X_row_major.dot(beta), omega)
+
+        return omega, sigma_sq
 
     def generate_gaussian_with_weight(self, X_row_major, omega, D, z,
                                       precond_by='diag'):
