@@ -143,12 +143,12 @@ class BayesBridge():
                 scale = np.sum(resid ** 2) / 2
                 sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
             elif self.link == 'logit':
-                pg.pgdrawv(self.n_trial, self.X.dot(beta), omega)
                 y_latent = (self.y - self.n_trial / 2) / omega
                 beta = self.update_beta(
                     y_latent, self.X_row_major, self.X_col_major, omega, tau, lam,
                     beta_runmean, mvnorm_method
                 )
+                pg.pgdrawv(self.n_trial, self.X.dot(beta), omega)
             else:
                 raise NotImplementedError(
                     'The specified link function is not supported.')
