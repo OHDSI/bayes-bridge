@@ -9,8 +9,6 @@ from inspect import currentframe, getframeinfo
 import pdb
 from pypolyagamma import PyPolyaGamma
 from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
-pg = PyPolyaGamma(seed=0)
-tilted_stable = ExpTiltedStableDist(seed=0)
 
 class BayesBridge():
 
@@ -60,6 +58,8 @@ class BayesBridge():
         self.prior_type = {}
         self.prior_param = {}
         self.set_default_priors(self.prior_type, self.prior_param)
+        self.pg = None
+        self.tilted_stable = None
 
     def set_default_priors(self, prior_type, prior_param):
         prior_type['tau'] = 'jeffreys'
@@ -98,7 +98,7 @@ class BayesBridge():
         ) # line='' supresses printing the line from codes.
 
     def gibbs(self, n_burnin, n_post_burnin, thin, reg_exponent=.5,
-              tau_fixed=False, init={}, mvnorm_method='pcg'):
+              tau_fixed=False, init={}, mvnorm_method='pcg', seed=None):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -119,6 +119,8 @@ class BayesBridge():
                mvnorm_method = {'dense', 'pcg'}
 
         """
+
+        self.set_seed(seed)
 
         if self.link not in ('gaussian', 'logit'):
             raise NotImplementedError()
@@ -165,6 +167,12 @@ class BayesBridge():
 
         return samples
 
+    def set_seed(self, seed):
+        np.random.seed(seed)
+        pg_seed = np.random.random_integers(np.iinfo(np.uint32).max)
+        ts_seed = np.random.random_integers(np.iinfo(np.uint32).max)
+        self.pg = PyPolyaGamma(seed=pg_seed)
+        self.tilted_stable = ExpTiltedStableDist(seed=ts_seed)
 
     def pre_allocate(self, samples, n_post_burnin, thin):
 
@@ -289,7 +297,7 @@ class BayesBridge():
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
         elif self.link == 'logit':
-            pg.pgdrawv(self.n_trial, self.X_row_major.dot(beta), omega)
+            self.pg.pgdrawv(self.n_trial, self.X_row_major.dot(beta), omega)
 
         return omega, sigma_sq
 
@@ -488,7 +496,7 @@ class BayesBridge():
     def update_local_shrinkage(self, tau, beta_with_shrinkage, reg_exponent):
 
         lam_sq = 1 / np.array([
-            2 * tilted_stable.rv(reg_exponent / 2, (beta_j / tau) ** 2)
+            2 * self.tilted_stable.rv(reg_exponent / 2, (beta_j / tau) ** 2)
             for beta_j in beta_with_shrinkage
         ])
         lam = np.sqrt(lam_sq)
