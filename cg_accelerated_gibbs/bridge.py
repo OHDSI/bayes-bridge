@@ -223,14 +223,19 @@ class BayesBridge():
         elif self.link == 'logit':
             y_gaussian = (self.y - self.n_trial / 2) / omega
 
+        prior_sd = np.concatenate((
+            [float('inf')] * self.n_coef_wo_shrinkage,
+            tau * lam
+        ))
         beta = self.sample_gaussian_posterior(
-            y_gaussian, self.X_row_major, self.X_col_major, omega, tau, lam,
+            y_gaussian, self.X_row_major, self.X_col_major, omega, prior_sd,
             beta_runmean, mvnorm_method
         )
         return beta
 
-    def sample_gaussian_posterior(self, y, X_row_major, X_col_major, omega, tau, lam,
-                    beta_init=None, method='pcg'):
+    def sample_gaussian_posterior(
+            self, y, X_row_major, X_col_major, omega, prior_sd, beta_init=None,
+            method='pcg'):
         """
         Param:
         ------
@@ -246,11 +251,6 @@ class BayesBridge():
         """
         #TODO: Comment on the form of the posterior.
 
-        prior_sd = np.concatenate((
-            [float('inf')] * self.n_coef_wo_shrinkage,
-            tau * lam
-        ))
-            # Flat prior for intercept
         if X_col_major is not None:
             X_T = X_col_major.T
         else:
