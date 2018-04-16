@@ -452,7 +452,8 @@ class BayesBridge():
             if np.isnan(phi):
                 # Inverse CDF method can fail if the current conditional
                 # distribution is drastically different from the previous one.
-                # In this case, ignore the prior and just sample from a Gamma.
+                # In this case, ignore the slicing variable and just sample from
+                # a Gamma.
                 phi = gamma_rv.rvs()
         tau = 1 / phi ** (1 / reg_exponent)
 
