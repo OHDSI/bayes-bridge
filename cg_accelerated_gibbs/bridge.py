@@ -243,7 +243,10 @@ class BayesBridge():
 
         """
 
-        prior_sd = np.concatenate(([float('inf')], tau * lam))
+        prior_sd = np.concatenate((
+            [float('inf')] * self.n_coef_wo_shrinkage,
+            tau * lam
+        ))
             # Flat prior for intercept
         if X_col_major is not None:
             X_T = X_col_major.T
@@ -307,7 +310,7 @@ class BayesBridge():
     def pcg_gaussian_sampler(self, X_row_major, X_col_major, omega, D, z,
                              beta_init_1=None, beta_init_2=None,
                              precond_by='diag', maxiter=None, atol=10e-6,
-                             seed=None, include_intercept=True):
+                             seed=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
            Sigma^{-1} = X' Omega X + D^2, mu = Sigma v
@@ -390,15 +393,12 @@ class BayesBridge():
     def choose_preconditioner(self, D, omega, X_row_major, precond_by='diag'):
         # Compute the diagonal (sqrt) preconditioner.
 
-        include_intercept = True
-            # In case we want to change the behavior in the future
-
         if precond_by == 'prior':
             precond_scale = D ** -1
-            if include_intercept:
+            if self.n_coef_wo_shrinkage > 0:
                 # TODO: Consider a better preconditioner for the intercept such
                 # as a posterior standard deviation.
-                precond_scale[0] = 1  # np.sum(omega) ** (- 1 / 2)
+                precond_scale[:self.n_coef_wo_shrinkage] = 1  # np.sum(omega) ** (- 1 / 2)
 
         elif precond_by == 'diag':
             diag = D ** 2 + np.squeeze(np.asarray(
