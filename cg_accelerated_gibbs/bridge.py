@@ -188,7 +188,7 @@ class BayesBridge():
         if 'sigma' in init:
             sigma_sq = init['sigma'] ** 2
         else:
-            sigma_sq = 1
+            sigma_sq = np.mean((self.y - self.X.dot(beta)) ** 2)
 
         if 'omega' in init:
             omega = np.ascontiguousarray(init['omega'])
@@ -196,7 +196,9 @@ class BayesBridge():
             if not len(omega) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         elif self.link == 'logit':
-            omega = self.n_trial / 2
+            predicted_prob = 1 / (1 + np.exp( - self.X.dot(beta)))
+            hess_neg_loglik = self.n_trial * predicted_prob * (1 - predicted_prob)
+            omega = hess_neg_loglik
         else:
             omega = None
 
