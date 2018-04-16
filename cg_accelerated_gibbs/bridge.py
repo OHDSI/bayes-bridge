@@ -57,6 +57,15 @@ class BayesBridge():
         self.X = X
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
+        self.prior_type = {}
+        self.prior_param = {}
+        self.set_default_priors(self.prior_type, self.prior_param)
+
+    def set_default_priors(self, prior_type, prior_param):
+        prior_type['tau'] = 'jeffreys'
+        # prior_type['tau'] = 'half-cauchy'
+        # prior_param['tau'] = {'scale': 1.0}
+        return prior_type, prior_param
 
     def elemwise_power(self, X, exponent):
         """ Wrapper function that works with both dense and sparse matrices. """
@@ -116,9 +125,6 @@ class BayesBridge():
 
         n_iter = n_burnin + n_post_burnin
 
-        # Hyper & tuning parameters
-        global_scale = 1.0 # scale of the half-Cauchy prior on 'tau'
-
         # Initial state of the Markov chain
         beta, sigma_sq, omega, lam, tau  = \
             self.initialize_chain(init)
@@ -144,7 +150,7 @@ class BayesBridge():
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
             if not tau_fixed:
                 tau = self.update_global_shrinkage(
-                    tau, beta[self.n_coef_wo_shrinkage:], global_scale, reg_exponent)
+                    tau, beta[self.n_coef_wo_shrinkage:], reg_exponent)
 
             lam = self.update_local_shrinkage(
                 tau, beta[self.n_coef_wo_shrinkage:], reg_exponent)
@@ -430,9 +436,29 @@ class BayesBridge():
 
         return precond_scale
 
+    def update_global_shrinkage(self, tau, beta_with_shrinkage, reg_exponent):
 
-    def update_global_shrinkage(self, tau, beta_with_shrinkage, global_scale, reg_exponent):
-        """ Update the global shrinkage parameter with slice sampling. """
+        if self.prior_type['tau'] == 'jeffreys':
+
+            # Conjugate update for phi = 1 / tau ** reg_exponent
+            shape = beta_with_shrinkage.size / reg_exponent
+            scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
+            phi = np.random.gamma(shape, scale=scale)
+            tau = 1 / phi ** (1 / reg_exponent)
+
+        elif self.prior_type['tau'] == 'half-cauchy':
+
+            tau = self.slice_sample_global_shrinkage(
+                tau, beta_with_shrinkage, self.prior_param['tau']['scale'], reg_exponent
+            )
+        else:
+            raise NotImplementedError()
+
+        return tau
+
+    def slice_sample_global_shrinkage(
+            self, tau, beta_with_shrinkage, global_scale, reg_exponent):
+        """ Slice sample phi = 1 / tau ** reg_exponent. """
 
         n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
 
@@ -441,7 +467,6 @@ class BayesBridge():
         scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
         gamma_rv = sp.stats.gamma(shape, scale=scale)
 
-        # Slice sample phi = 1 / tau ** reg_exponent.
         phi = 1 / tau
         for i in range(n_update):
             u = np.random.uniform() \
