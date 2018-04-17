@@ -279,7 +279,7 @@ class BayesBridge():
         elif method == 'pcg':
             # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
             # control the error in the MCMC output.
-            beta = self.pcg_gaussian_sampler(
+            beta, cg_info = self.pcg_gaussian_sampler(
                 X_row_major, X_col_major, omega, prec_sqrt, v,
                 beta_init_1=beta_init, beta_init_2=None,
                 precond_by='prior', maxiter=500, atol=10e-4
@@ -386,19 +386,30 @@ class BayesBridge():
         beta_scaled_init = self.optimize_cg_objective(
             A, b, beta_init_1, beta_init_2)
 
+        # Callback function to count the number of PCG iterations.
+        cg_info = {'n_iter': 0}
+        def cg_callback(x): cg_info['n_iter'] += 1
+
+        # Run PCG.
         rtol = atol / np.linalg.norm(b)
-        beta_scaled, info = sp.sparse.linalg.cg(A, b, x0=beta_scaled_init,
-                                                maxiter=maxiter, tol=rtol)
+        beta_scaled, info = sp.sparse.linalg.cg(
+            A, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
+            callback=cg_callback
+        )
+
         if info != 0:
             self.warn_message_only(
                 "The conjugate gradient algorithm did not achieve the requested " +
                 "tolerance level. You may increase the maxiter or use the dense " +
                 "linear algebra instead."
             )
+
         beta = precond_scale * beta_scaled
         # beta_init = precond_scale * beta_scaled_init
+        cg_info['valid_input'] = (info >= 0)
+        cg_info['converged'] = (info == 0)
 
-        return beta # , info, beta_init, A, b, precond_scale
+        return beta, cg_info # , info, beta_init, A, b, precond_scale
 
 
     def optimize_cg_objective(self, A, b, x1, x2=None):
