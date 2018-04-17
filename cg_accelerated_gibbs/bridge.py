@@ -141,6 +141,9 @@ class BayesBridge():
         samples = {}
         self.pre_allocate(samples, n_post_burnin, thin)
 
+        # Outputs of the algorim useful for research purposes; a user does not need to see this.
+        self.cg_iter = []
+
         # Start Gibbs sampling
         for mcmc_iter in range(1, n_iter + 1):
 
@@ -284,6 +287,7 @@ class BayesBridge():
                 beta_init_1=beta_init, beta_init_2=None,
                 precond_by='prior', maxiter=500, atol=10e-4
             )
+            self.cg_iter.append(cg_info['n_iter'])
         else:
             raise NotImplementedError()
 
