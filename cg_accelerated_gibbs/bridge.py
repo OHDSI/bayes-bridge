@@ -293,18 +293,6 @@ class BayesBridge():
 
         return beta
 
-    def update_obs_precision(self, beta, omega):
-
-        sigma_sq = None
-        if self.link == 'gaussian':
-            resid = self.y - self.X_row_major.dot(beta)
-            scale = np.sum(resid ** 2) / 2
-            sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
-        elif self.link == 'logit':
-            self.pg.pgdrawv(self.n_trial, self.X_row_major.dot(beta), omega)
-
-        return omega, sigma_sq
-
     def generate_gaussian_with_weight(self, X_row_major, omega, D, z,
                                       precond_by='diag'):
         """
@@ -337,7 +325,6 @@ class BayesBridge():
         )
         beta = precond_scale * beta_scaled
         return beta
-
 
     def pcg_gaussian_sampler(self, X_row_major, X_col_major, omega, D, z,
                              beta_init_1=None, beta_init_2=None,
@@ -415,7 +402,6 @@ class BayesBridge():
 
         return beta, cg_info # , info, beta_init, A, b, precond_scale
 
-
     def optimize_cg_objective(self, A, b, x1, x2=None):
         # Minimize the function f(x) = x'Ax / 2 - x'b along the line connecting
         # x1 and x2.
@@ -431,7 +417,6 @@ class BayesBridge():
                 t_argmin = (x1.dot(Av) - b.dot(v)) / denom
             x = x1 - t_argmin * v
         return x
-
 
     def choose_preconditioner(self, D, omega, X_row_major, precond_by='diag'):
         # Compute the diagonal (sqrt) preconditioner.
@@ -458,6 +443,18 @@ class BayesBridge():
             raise NotImplementedError()
 
         return precond_scale
+
+    def update_obs_precision(self, beta, omega):
+
+        sigma_sq = None
+        if self.link == 'gaussian':
+            resid = self.y - self.X_row_major.dot(beta)
+            scale = np.sum(resid ** 2) / 2
+            sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
+        elif self.link == 'logit':
+            self.pg.pgdrawv(self.n_trial, self.X_row_major.dot(beta), omega)
+
+        return omega, sigma_sq
 
     def update_global_shrinkage(self, tau, beta_with_shrinkage, reg_exponent):
 
