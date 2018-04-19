@@ -311,7 +311,7 @@ class BayesBridge():
         if sp.sparse.issparse(X_row_major):
             weighted_X = weighted_X.tocsc()
 
-        precond_scale = self.choose_preconditioner(D, omega, X_row_major, precond_by)
+        precond_scale = self.choose_diag_preconditioner(D, omega, X_row_major, precond_by)
         weighted_X_scaled = self.right_matmul_by_diag(weighted_X, precond_scale)
 
         Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled)
@@ -328,8 +328,8 @@ class BayesBridge():
 
     def pcg_gaussian_sampler(self, X_row_major, X_col_major, omega, D, z,
                              beta_init_1=None, beta_init_2=None,
-                             precond_by='diag', maxiter=None, atol=10e-6,
-                             seed=None):
+                             precond_by='diag', precond_blocksize=0, maxiter=None, atol=10e-6,
+                             seed=None, iter_list=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
            Sigma^{-1} = X' Omega X + D^2, mu = Sigma v
@@ -353,8 +353,10 @@ class BayesBridge():
         if seed is not None:
             np.random.seed(seed)
 
-        # Compute the diagonal (sqrt) preconditioner.
-        precond_scale = self.choose_preconditioner(D, omega, X_row_major, precond_by)
+        # Compute the preconditioner.
+        precond_scale, block_precond_op = self.choose_preconditioner(
+            D, omega, X_row_major, X_col_major, precond_by, precond_blocksize
+        )
 
         # Define a preconditioned linear operator.
         D_scaled_sq = (precond_scale * D) ** 2
@@ -385,7 +387,7 @@ class BayesBridge():
         rtol = atol / np.linalg.norm(b)
         beta_scaled, info = sp.sparse.linalg.cg(
             A, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
-            callback=cg_callback
+            M=block_precond_op, callback=cg_callback
         )
 
         if info != 0:
@@ -418,10 +420,25 @@ class BayesBridge():
             x = x1 - t_argmin * v
         return x
 
-    def choose_preconditioner(self, D, omega, X_row_major, precond_by='diag'):
+    def choose_preconditioner(self, D, omega, X_row_major, X_col_major,
+                              precond_by, precond_blocksize):
+
+        precond_scale = self.choose_diag_preconditioner(D, omega, X_row_major, precond_by)
+
+        block_precond_op = None
+        if precond_by == 'prior+block' and precond_blocksize > 0:
+            pred_importance = precond_scale
+            subset_indices = np.argsort(pred_importance)[-precond_blocksize:]
+            block_precond_op = self.compute_block_preconditioner(
+                omega, X_col_major, D, precond_scale, subset_indices
+            )
+
+        return precond_scale, block_precond_op
+
+    def choose_diag_preconditioner(self, D, omega, X_row_major, precond_by='diag'):
         # Compute the diagonal (sqrt) preconditioner.
 
-        if precond_by == 'prior':
+        if precond_by in ('prior', 'prior+block'):
             precond_scale = D ** -1
             if self.n_coef_wo_shrinkage > 0:
                 # TODO: Consider a better preconditioner for the intercept such
@@ -443,6 +460,29 @@ class BayesBridge():
             raise NotImplementedError()
 
         return precond_scale
+
+    def compute_block_preconditioner(
+            self, omega, X_col_major, D, precond_scale, indices):
+
+        weighted_X_subset = \
+            self.left_matmul_by_diag(omega ** (1 / 2), X_col_major[:, indices])
+        if sp.sparse.issparse(weighted_X_subset):
+            weighted_X_subset = weighted_X_subset.tocsc()
+
+        weighted_X_subset_scaled = self.right_matmul_by_diag(weighted_X_subset, precond_scale[indices])
+        B = weighted_X_subset_scaled.T.dot(weighted_X_subset_scaled) \
+            + (D[indices] * precond_scale[indices]) ** 2
+
+        B_cho_factor = sp.linalg.cho_factor(B)
+        def B_inv_on_indices(x):
+            x = x.copy() # TODO: Check if a shallow copy is OK.
+            x[indices] = sp.linalg.cho_solve(B_cho_factor, x[indices])
+            return x
+        block_preconditioner_op = sp.sparse.linalg.LinearOperator(
+            (X_col_major.shape[1], X_col_major.shape[1]), matvec=B_inv_on_indices
+        )
+
+        return block_preconditioner_op
 
     def update_obs_precision(self, beta, omega):
 
