@@ -437,7 +437,7 @@ class BayesBridge():
             precond_scale = 1 / np.sqrt(diag)
 
         elif precond_by is None:
-            precond_scale = np.ones(self.n_pred)
+            precond_scale = np.ones(X_row_major.shape[1])
 
         else:
             raise NotImplementedError()
