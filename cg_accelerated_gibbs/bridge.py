@@ -430,7 +430,7 @@ class BayesBridge():
             pred_importance = precond_scale
             subset_indices = np.argsort(pred_importance)[-precond_blocksize:]
             block_precond_op = self.compute_block_preconditioner(
-                omega, X_col_major, D, precond_scale, subset_indices
+                omega, X_row_major, X_col_major, D, precond_scale, subset_indices
             )
 
         return precond_scale, block_precond_op
@@ -462,10 +462,15 @@ class BayesBridge():
         return precond_scale
 
     def compute_block_preconditioner(
-            self, omega, X_col_major, D, precond_scale, indices):
+            self, omega, X_row_major, X_col_major, D, precond_scale, indices):
+
+        if X_col_major is not None:
+            X = X_col_major
+        else:
+            X = X_row_major
 
         weighted_X_subset = \
-            self.left_matmul_by_diag(omega ** (1 / 2), X_col_major[:, indices])
+            self.left_matmul_by_diag(omega ** (1 / 2), X[:, indices])
         if sp.sparse.issparse(weighted_X_subset):
             weighted_X_subset = weighted_X_subset.tocsc()
 
@@ -479,7 +484,7 @@ class BayesBridge():
             x[indices] = sp.linalg.cho_solve(B_cho_factor, x[indices])
             return x
         block_preconditioner_op = sp.sparse.linalg.LinearOperator(
-            (X_col_major.shape[1], X_col_major.shape[1]), matvec=B_inv_on_indices
+            (X.shape[1], X.shape[1]), matvec=B_inv_on_indices
         )
 
         return block_preconditioner_op
