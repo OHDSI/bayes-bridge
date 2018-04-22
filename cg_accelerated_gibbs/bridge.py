@@ -364,13 +364,10 @@ class BayesBridge():
             + D * np.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
-        # Choose the best linear combination of the two candidates for CG.
-        if beta_init_1 is not None:
-            beta_init_1 = beta_init_1.copy() / precond_scale
-        if beta_init_2 is not None:
-            beta_init_2 = beta_init_2.copy() / precond_scale
-        beta_scaled_init = self.optimize_cg_objective(
-            Phi_precond_op, b, beta_init_1, beta_init_2)
+        # Pick the initial vector for CG iteration
+        beta_scaled_init = self.choose_best_linear_comb(
+            beta_init_1, beta_init_2, Phi_precond_op, precond_scale, b
+        )
 
         # Callback function to count the number of PCG iterations.
         cg_info = {'n_iter': 0}
@@ -412,6 +409,18 @@ class BayesBridge():
                 t_argmin = (x1.dot(Av) - b.dot(v)) / denom
             x = x1 - t_argmin * v
         return x
+
+    def choose_best_linear_comb(
+            self, beta_init_1, beta_init_2, Phi_precond_op, precond_scale, b):
+
+        if beta_init_1 is not None:
+            beta_init_1 = beta_init_1.copy() / precond_scale
+        if beta_init_2 is not None:
+            beta_init_2 = beta_init_2.copy() / precond_scale
+        beta_scaled_init = self.optimize_cg_objective(
+            Phi_precond_op, b, beta_init_1, beta_init_2)
+
+        return beta_scaled_init
 
     def precondition_linear_system(
             self, D, omega, X_row_major, X_col_major, precond_by, precond_blocksize):
