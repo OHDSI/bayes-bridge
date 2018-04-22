@@ -389,11 +389,10 @@ class BayesBridge():
             )
 
         beta = precond_scale * beta_scaled
-        # beta_init = precond_scale * beta_scaled_init
         cg_info['valid_input'] = (info >= 0)
         cg_info['converged'] = (info == 0)
 
-        return beta, cg_info # , info, beta_init, Phi_precond_op, b, precond_scale
+        return beta, cg_info
 
     def precondition_linear_system(
             self, D, omega, X_row_major, X_col_major, precond_by, precond_blocksize):
