@@ -90,6 +90,14 @@ class BayesBridge():
         else:
             return A * v[np.newaxis, :]
 
+    def choose_optimal_format_for_matvec(self, X_row_major, X_col_major):
+        X = X_row_major
+        if X_col_major is not None:
+            X_T = X_col_major.T
+        else:
+            X_T = X_row_major.T
+        return X, X_T
+
     def warn_message_only(self, message, category=UserWarning):
         frameinfo = getframeinfo(currentframe())
         warnings.showwarning(
@@ -268,10 +276,7 @@ class BayesBridge():
         """
         #TODO: Comment on the form of the posterior.
 
-        if X_col_major is not None:
-            X_T = X_col_major.T
-        else:
-            X_T = X_row_major.T
+        _, X_T = self.choose_optimal_format_for_matvec(X_row_major, X_col_major)
         v = X_T.dot(omega * y)
         prec_sqrt = 1 / prior_sd
 
@@ -344,11 +349,7 @@ class BayesBridge():
                 of CG iterations.
         """
 
-        X = X_row_major
-        if X_col_major is not None:
-            X_T = X_col_major.T
-        else:
-            X_T = X_row_major.T
+        X, X_T = self.choose_optimal_format_for_matvec(X_row_major, X_col_major)
 
         if seed is not None:
             np.random.seed(seed)
@@ -425,11 +426,7 @@ class BayesBridge():
     def precondition_linear_system(
             self, D, omega, X_row_major, X_col_major, precond_by, precond_blocksize):
 
-        X = X_row_major
-        if X_col_major is not None:
-            X_T = X_col_major.T
-        else:
-            X_T = X_row_major.T
+        X, X_T = self.choose_optimal_format_for_matvec(X_row_major, X_col_major)
 
         # Compute the preconditioners.
         precond_scale, block_precond_op = self.choose_preconditioner(
