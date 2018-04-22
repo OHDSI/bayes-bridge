@@ -395,34 +395,6 @@ class BayesBridge():
 
         return beta, cg_info # , info, beta_init, Phi_precond_op, b, precond_scale
 
-    def optimize_cg_objective(self, A, b, x1, x2=None):
-        # Minimize the function f(x) = x'Ax / 2 - x'b along the line connecting
-        # x1 and x2.
-        if x2 is None:
-            x = x1
-        else:
-            v = x2 - x1
-            Av = A(v)
-            denom = v.dot(Av)
-            if denom == 0:
-                t_argmin = 0
-            else:
-                t_argmin = (x1.dot(Av) - b.dot(v)) / denom
-            x = x1 - t_argmin * v
-        return x
-
-    def choose_best_linear_comb(
-            self, beta_init_1, beta_init_2, Phi_precond_op, precond_scale, b):
-
-        if beta_init_1 is not None:
-            beta_init_1 = beta_init_1.copy() / precond_scale
-        if beta_init_2 is not None:
-            beta_init_2 = beta_init_2.copy() / precond_scale
-        beta_scaled_init = self.optimize_cg_objective(
-            Phi_precond_op, b, beta_init_1, beta_init_2)
-
-        return beta_scaled_init
-
     def precondition_linear_system(
             self, D, omega, X_row_major, X_col_major, precond_by, precond_blocksize):
 
@@ -513,6 +485,34 @@ class BayesBridge():
         )
 
         return block_preconditioner_op
+
+    def choose_best_linear_comb(
+            self, beta_init_1, beta_init_2, Phi_precond_op, precond_scale, b):
+
+        if beta_init_1 is not None:
+            beta_init_1 = beta_init_1.copy() / precond_scale
+        if beta_init_2 is not None:
+            beta_init_2 = beta_init_2.copy() / precond_scale
+        beta_scaled_init = self.optimize_cg_objective(
+            Phi_precond_op, b, beta_init_1, beta_init_2)
+
+        return beta_scaled_init
+
+    def optimize_cg_objective(self, A, b, x1, x2=None):
+        # Minimize the function f(x) = x'Ax / 2 - x'b along the line connecting
+        # x1 and x2.
+        if x2 is None:
+            x = x1
+        else:
+            v = x2 - x1
+            Av = A(v)
+            denom = v.dot(Av)
+            if denom == 0:
+                t_argmin = 0
+            else:
+                t_argmin = (x1.dot(Av) - b.dot(v)) / denom
+            x = x1 - t_argmin * v
+        return x
 
     def update_obs_precision(self, beta, omega):
 
