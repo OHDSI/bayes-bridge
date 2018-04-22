@@ -353,18 +353,11 @@ class BayesBridge():
         if seed is not None:
             np.random.seed(seed)
 
-        # Compute the preconditioner.
-        precond_scale, block_precond_op = self.choose_preconditioner(
-            D, omega, X_row_major, X_col_major, precond_by, precond_blocksize
-        )
-
         # Define a preconditioned linear operator.
-        D_scaled_sq = (precond_scale * D) ** 2
-        def Phi(x):
-            Phi_x = D_scaled_sq * x \
-                    + precond_scale * X_T.dot(omega * X.dot(precond_scale * x))
-            return Phi_x
-        A = sp.sparse.linalg.LinearOperator((X.shape[1], X.shape[1]), matvec=Phi)
+        Phi_precond_op, precond_scale, block_precond_op = \
+            self.precondition_linear_system(
+                D, omega, X_row_major, X_col_major, precond_by, precond_blocksize
+            )
 
         # Draw a target vector.
         v = X_T.dot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
@@ -377,7 +370,7 @@ class BayesBridge():
         if beta_init_2 is not None:
             beta_init_2 = beta_init_2.copy() / precond_scale
         beta_scaled_init = self.optimize_cg_objective(
-            A, b, beta_init_1, beta_init_2)
+            Phi_precond_op, b, beta_init_1, beta_init_2)
 
         # Callback function to count the number of PCG iterations.
         cg_info = {'n_iter': 0}
@@ -386,7 +379,7 @@ class BayesBridge():
         # Run PCG.
         rtol = atol / np.linalg.norm(b)
         beta_scaled, info = sp.sparse.linalg.cg(
-            A, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
+            Phi_precond_op, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
             M=block_precond_op, callback=cg_callback
         )
 
@@ -402,7 +395,7 @@ class BayesBridge():
         cg_info['valid_input'] = (info >= 0)
         cg_info['converged'] = (info == 0)
 
-        return beta, cg_info # , info, beta_init, A, b, precond_scale
+        return beta, cg_info # , info, beta_init, Phi_precond_op, b, precond_scale
 
     def optimize_cg_objective(self, A, b, x1, x2=None):
         # Minimize the function f(x) = x'Ax / 2 - x'b along the line connecting
@@ -419,6 +412,32 @@ class BayesBridge():
                 t_argmin = (x1.dot(Av) - b.dot(v)) / denom
             x = x1 - t_argmin * v
         return x
+
+    def precondition_linear_system(
+            self, D, omega, X_row_major, X_col_major, precond_by, precond_blocksize):
+
+        X = X_row_major
+        if X_col_major is not None:
+            X_T = X_col_major.T
+        else:
+            X_T = X_row_major.T
+
+        # Compute the preconditioners.
+        precond_scale, block_precond_op = self.choose_preconditioner(
+            D, omega, X_row_major, X_col_major, precond_by, precond_blocksize
+        )
+
+        # Define a preconditioned linear operator.
+        D_scaled_sq = (precond_scale * D) ** 2
+        def Phi_precond(x):
+            Phi_x = D_scaled_sq * x \
+                    + precond_scale * X_T.dot(omega * X.dot(precond_scale * x))
+            return Phi_x
+        Phi_precond_op = sp.sparse.linalg.LinearOperator(
+            (X.shape[1], X.shape[1]), matvec=Phi_precond
+        )
+        return Phi_precond_op, precond_scale, block_precond_op
+
 
     def choose_preconditioner(self, D, omega, X_row_major, X_col_major,
                               precond_by, precond_blocksize):
