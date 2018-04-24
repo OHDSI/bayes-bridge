@@ -472,7 +472,7 @@ class BayesBridge():
 
         weighted_X_subset_scaled = self.right_matmul_by_diag(weighted_X_subset, precond_scale[indices])
         B = weighted_X_subset_scaled.T.dot(weighted_X_subset_scaled) \
-            + (D[indices] * precond_scale[indices]) ** 2
+            + np.diag((D[indices] * precond_scale[indices]) ** 2)
 
         B_cho_factor = sp.linalg.cho_factor(B)
         def B_inv_on_indices(x):
