@@ -471,6 +471,8 @@ class BayesBridge():
             weighted_X_subset = weighted_X_subset.tocsc()
 
         weighted_X_subset_scaled = self.right_matmul_by_diag(weighted_X_subset, precond_scale[indices])
+        if sp.sparse.issparse(weighted_X_subset_scaled):
+            weighted_X_subset_scaled = weighted_X_subset_scaled.toarray() 
         B = weighted_X_subset_scaled.T.dot(weighted_X_subset_scaled) \
             + np.diag((D[indices] * precond_scale[indices]) ** 2)
 
