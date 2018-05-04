@@ -423,7 +423,8 @@ class BayesBridge():
 
         block_precond_op = None
         if precond_by == 'prior+block' and precond_blocksize > 0:
-            pred_importance = precond_scale
+            pred_importance = precond_scale.copy()
+            pred_importance[:self.n_coef_wo_shrinkage] = float('inf')
             subset_indices = np.argsort(pred_importance)[-precond_blocksize:]
             block_precond_op = self.compute_block_preconditioner(
                 omega, X_row_major, X_col_major, D, precond_scale, subset_indices
