@@ -7,6 +7,9 @@ import math
 import warnings
 from inspect import currentframe, getframeinfo
 import pdb
+from .sparse_dense_matrix_operators \
+    import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
+    choose_optimal_format_for_matvec
 from pypolyagamma import PyPolyaGamma
 from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
 
@@ -66,37 +69,6 @@ class BayesBridge():
         # prior_type['tau'] = 'half-cauchy'
         # prior_param['tau'] = {'scale': 1.0}
         return prior_type, prior_param
-
-    def elemwise_power(self, X, exponent):
-        """ Wrapper function that works with both dense and sparse matrices. """
-        if sp.sparse.issparse(X):
-            return X.power(exponent)
-        else:
-            return X ** exponent
-
-    def left_matmul_by_diag(self, v, A):
-        """ Computes dot(diag(v), A) for a vector 'v' and matrix 'A'. """
-        if sp.sparse.issparse(A):
-            v_mat = sp.sparse.dia_matrix((v, 0), (len(v), len(v)))
-            return v_mat.dot(A)
-        else:
-            return v[:, np.newaxis] * A
-
-    def right_matmul_by_diag(self, A, v):
-        """ Computes dot(A, diag(v)) for a matrix 'A' and vector 'v'. """
-        if sp.sparse.issparse(A):
-            v_mat = sp.sparse.dia_matrix((v, 0), (len(v), len(v)))
-            return A.dot(v_mat)
-        else:
-            return A * v[np.newaxis, :]
-
-    def choose_optimal_format_for_matvec(self, X_row_major, X_col_major):
-        X = X_row_major
-        if X_col_major is not None:
-            X_T = X_col_major.T
-        else:
-            X_T = X_row_major.T
-        return X, X_T
 
     def warn_message_only(self, message, category=UserWarning):
         frameinfo = getframeinfo(currentframe())
@@ -276,7 +248,7 @@ class BayesBridge():
         """
         #TODO: Comment on the form of the posterior.
 
-        _, X_T = self.choose_optimal_format_for_matvec(X_row_major, X_col_major)
+        _, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
         v = X_T.dot(omega * y)
         prec_sqrt = 1 / prior_sd
 
@@ -312,12 +284,12 @@ class BayesBridge():
         """
 
         omega_sqrt = omega ** (1 / 2)
-        weighted_X = self.left_matmul_by_diag(omega_sqrt, X_row_major)
+        weighted_X = left_matmul_by_diag(omega_sqrt, X_row_major)
         if sp.sparse.issparse(X_row_major):
             weighted_X = weighted_X.tocsc()
 
         precond_scale = self.choose_diag_preconditioner(D, omega, X_row_major, precond_by)
-        weighted_X_scaled = self.right_matmul_by_diag(weighted_X, precond_scale)
+        weighted_X_scaled = right_matmul_by_diag(weighted_X, precond_scale)
 
         Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled)
         if sp.sparse.issparse(X_row_major):
@@ -349,7 +321,7 @@ class BayesBridge():
                 of CG iterations.
         """
 
-        X, X_T = self.choose_optimal_format_for_matvec(X_row_major, X_col_major)
+        X, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
 
         if seed is not None:
             np.random.seed(seed)
@@ -397,7 +369,7 @@ class BayesBridge():
     def precondition_linear_system(
             self, D, omega, X_row_major, X_col_major, precond_by, precond_blocksize):
 
-        X, X_T = self.choose_optimal_format_for_matvec(X_row_major, X_col_major)
+        X, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
 
         # Compute the preconditioners.
         precond_scale, block_precond_op = self.choose_preconditioner(
@@ -445,8 +417,8 @@ class BayesBridge():
 
         elif precond_by == 'diag':
             diag = D ** 2 + np.squeeze(np.asarray(
-                self.left_matmul_by_diag(
-                    omega, self.elemwise_power(X_row_major, 2)
+                left_matmul_by_diag(
+                    omega, elemwise_power(X_row_major, 2)
                 ).sum(axis=0)
             ))
             precond_scale = 1 / np.sqrt(diag)
@@ -468,11 +440,11 @@ class BayesBridge():
             X = X_row_major
 
         weighted_X_subset = \
-            self.left_matmul_by_diag(omega ** (1 / 2), X[:, indices])
+            left_matmul_by_diag(omega ** (1 / 2), X[:, indices])
         if sp.sparse.issparse(weighted_X_subset):
             weighted_X_subset = weighted_X_subset.tocsc()
 
-        weighted_X_subset_scaled = self.right_matmul_by_diag(weighted_X_subset, precond_scale[indices])
+        weighted_X_subset_scaled = right_matmul_by_diag(weighted_X_subset, precond_scale[indices])
         if sp.sparse.issparse(weighted_X_subset_scaled):
             weighted_X_subset_scaled = weighted_X_subset_scaled.toarray() 
         B = weighted_X_subset_scaled.T.dot(weighted_X_subset_scaled) \
