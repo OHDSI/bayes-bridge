@@ -307,7 +307,7 @@ class BayesBridge():
                              seed=None, iter_list=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-           Sigma^{-1} = X' Omega X + D^2, mu = Sigma v
+           Sigma^{-1} = X' Omega X + D^2, mu = Sigma z
         where D is assumed to be diagonal. For numerical stability, the code first sample
         from the scaled parameter beta / precond_scale.
 
