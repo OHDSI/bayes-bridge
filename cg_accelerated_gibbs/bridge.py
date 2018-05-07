@@ -285,8 +285,6 @@ class BayesBridge():
 
         omega_sqrt = omega ** (1 / 2)
         weighted_X = left_matmul_by_diag(omega_sqrt, X_row_major)
-        if sp.sparse.issparse(X_row_major):
-            weighted_X = weighted_X.tocsc()
 
         precond_scale = self.choose_diag_preconditioner(D, omega, X_row_major, precond_by)
         weighted_X_scaled = right_matmul_by_diag(weighted_X, precond_scale)
@@ -441,9 +439,6 @@ class BayesBridge():
 
         weighted_X_subset = \
             left_matmul_by_diag(omega ** (1 / 2), X[:, indices])
-        if sp.sparse.issparse(weighted_X_subset):
-            weighted_X_subset = weighted_X_subset.tocsc()
-
         weighted_X_subset_scaled = right_matmul_by_diag(weighted_X_subset, precond_scale[indices])
         if sp.sparse.issparse(weighted_X_subset_scaled):
             weighted_X_subset_scaled = weighted_X_subset_scaled.toarray() 

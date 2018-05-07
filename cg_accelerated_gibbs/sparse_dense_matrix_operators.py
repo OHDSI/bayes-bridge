@@ -25,7 +25,7 @@ def right_matmul_by_diag(A, v):
     """ Computes dot(A, diag(v)) for a matrix 'A' and vector 'v'. """
     if sp.sparse.issparse(A):
         v_mat = sp.sparse.dia_matrix((v, 0), (len(v), len(v)))
-        return A.dot(v_mat)
+        return A.tocsc().dot(v_mat)
     else:
         return A * v[np.newaxis, :]
 
