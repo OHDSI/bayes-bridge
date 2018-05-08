@@ -78,7 +78,8 @@ class BayesBridge():
         ) # line='' supresses printing the line from codes.
 
     def gibbs(self, n_burnin, n_post_burnin, thin, reg_exponent=.5,
-              tau_fixed=False, init={}, mvnorm_method='pcg', seed=None):
+              init={}, mvnorm_method='pcg', seed=None,
+              global_shrinkage_update='sample'):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -97,6 +98,7 @@ class BayesBridge():
                thin = thinning parameter of the chain
                tau_fixed = if true, the penalty parameter will not be updated.
                mvnorm_method = {'dense', 'pcg'}
+               global_shrinkage_update = {'sample', 'optimize', None}
 
         """
 
@@ -133,9 +135,8 @@ class BayesBridge():
             omega, sigma_sq = self.update_obs_precision(beta, omega)
 
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
-            if not tau_fixed:
-                tau = self.update_global_shrinkage(
-                    tau, beta[self.n_coef_wo_shrinkage:], reg_exponent)
+            tau = self.update_global_shrinkage(
+                tau, beta[self.n_coef_wo_shrinkage:], reg_exponent, global_shrinkage_update)
 
             lam = self.update_local_shrinkage(
                 tau, beta[self.n_coef_wo_shrinkage:], reg_exponent)
@@ -496,24 +497,39 @@ class BayesBridge():
 
         return omega, sigma_sq
 
-    def update_global_shrinkage(self, tau, beta_with_shrinkage, reg_exponent):
+    def update_global_shrinkage(
+            self, tau, beta_with_shrinkage, reg_exponent, method='sample'):
+        # :param method: {"sample", "optimize", None}
 
-        if self.prior_type['tau'] == 'jeffreys':
+        if method == 'optimize':
+            tau = self.monte_carlo_em_global_shrinkage(
+                beta_with_shrinkage, reg_exponent)
 
-            # Conjugate update for phi = 1 / tau ** reg_exponent
-            shape = beta_with_shrinkage.size / reg_exponent
-            scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
-            phi = np.random.gamma(shape, scale=scale)
-            tau = 1 / phi ** (1 / reg_exponent)
+        elif method == 'sample':
 
-        elif self.prior_type['tau'] == 'half-cauchy':
+            if self.prior_type['tau'] == 'jeffreys':
 
-            tau = self.slice_sample_global_shrinkage(
-                tau, beta_with_shrinkage, self.prior_param['tau']['scale'], reg_exponent
-            )
-        else:
-            raise NotImplementedError()
+                # Conjugate update for phi = 1 / tau ** reg_exponent
+                shape = beta_with_shrinkage.size / reg_exponent
+                scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
+                phi = np.random.gamma(shape, scale=scale)
+                tau = 1 / phi ** (1 / reg_exponent)
 
+            elif self.prior_type['tau'] == 'half-cauchy':
+
+                tau = self.slice_sample_global_shrinkage(
+                    tau, beta_with_shrinkage, self.prior_param['tau']['scale'], reg_exponent
+                )
+            else:
+                raise NotImplementedError()
+
+        return tau
+
+    def monte_carlo_em_global_shrinkage(
+            self, beta_with_shrinkage, reg_exponent):
+        phi = len(beta_with_shrinkage) / reg_exponent \
+              / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
+        tau = phi ** - (1 / reg_exponent)
         return tau
 
     def slice_sample_global_shrinkage(
