@@ -83,22 +83,18 @@ class BayesBridge():
         """
         MCMC implementation for the Bayesian bridge.
 
-        Model: y = X \beta + \epslion, \epsilon \sim N(0, \sigma^2)
-               \beta_j \sim N(0, \sigma^2 \lambda_j^2 \tau^2)
-               \lambda_j^{-2} \sim \lambda_j^{-1} g(\lambda_j^{-2})
-                   where g is the density of positive alpha-stable random variable
-                   with index of stability reg_exponent / 2
-               \tau \sim Half-Cauchy(0, global_scale^2),
-               \pi(\sigma^2) \sim 1 / \sigma^2
-
-        Input: y = response, a n * 1 vector
-               X = matrix of covariates, dimension n * p
-               n_burnin = number of burnin MCMC samples
-               n_post_burnin = number of posterior draws to be saved
-               thin = thinning parameter of the chain
-               tau_fixed = if true, the penalty parameter will not be updated.
-               mvnorm_method = {'dense', 'pcg'}
-               global_shrinkage_update = {'sample', 'optimize', None} 
+        Parameters
+        ----------
+        y : vector
+        X : numpy array
+        n_burnin : int
+            number of burn-in samples to be discarded
+        n_post_burnin : int
+            number of posterior draws to be saved
+        mvnorm_method : str, {'dense', 'pcg'}
+        precond_blocksize : int
+            size of the block preconditioner
+        global_shrinkage_update : str, {'sample', 'optimize', None}
 
         """
 
