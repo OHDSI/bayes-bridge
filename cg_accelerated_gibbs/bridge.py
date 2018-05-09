@@ -594,7 +594,7 @@ class BayesBridge():
     class runmeanUpdater():
 
         def __init__(self, beta, n_coef_wo_shrinkage):
-            self.n_averaged = 0 # For scaled_runmean.
+            self.n_averaged = -1 # For scaled_runmean.
             self.beta_runmean = beta
             self.beta_scaled_runmean = None
             self.shrinkage_scale = None # The value of tau * lam from the previous gibbs iteration.
@@ -604,18 +604,18 @@ class BayesBridge():
             # Computes the running mean of beta / (tau * lam) and rescale it with the
             # current values of tau and lam.
 
-            if self.n_averaged == 0:
+            if self.n_averaged < 0:
                 self.beta_runmean = beta.copy()
                 self.shrinkage_scale = tau * lam
             else:
                 self.beta_scaled_runmean = self.update_scaled_runmean(
                     beta, self.shrinkage_scale, self.beta_scaled_runmean
                 )
-                self.n_averaged += 1
                 self.shrinkage_scale = tau * lam
                 self.beta_runmean = self.beta_scaled_runmean.copy()
                 self.beta_runmean[self.n_coef_wo_shrinkage:] *= self.shrinkage_scale
 
+            self.n_averaged += 1
             return
 
         def update_scaled_runmean(self, beta, shrinkage_scale, prev_scaled_runmean):
