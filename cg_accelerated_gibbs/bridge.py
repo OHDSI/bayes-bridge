@@ -78,7 +78,7 @@ class BayesBridge():
         ) # line='' supresses printing the line from codes.
 
     def gibbs(self, n_burnin, n_post_burnin, thin, reg_exponent=.5,
-              init={}, mvnorm_method='pcg', seed=None,
+              init={}, mvnorm_method='pcg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample'):
         """
         MCMC implementation for the Bayesian bridge.
@@ -98,7 +98,7 @@ class BayesBridge():
                thin = thinning parameter of the chain
                tau_fixed = if true, the penalty parameter will not be updated.
                mvnorm_method = {'dense', 'pcg'}
-               global_shrinkage_update = {'sample', 'optimize', None}
+               global_shrinkage_update = {'sample', 'optimize', None} 
 
         """
 
@@ -131,7 +131,9 @@ class BayesBridge():
 
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
-            beta = self.update_beta(omega, tau, lam, beta_runmean, mvnorm_method)
+            beta = self.update_beta(
+                omega, tau, lam, beta_runmean, mvnorm_method, precond_blocksize
+            )
             omega, sigma_sq = self.update_obs_precision(beta, omega)
 
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
@@ -214,7 +216,8 @@ class BayesBridge():
 
         return beta, sigma_sq, omega, lam, tau
 
-    def update_beta(self, omega, tau, lam, beta_runmean, mvnorm_method):
+    def update_beta(self, omega, tau, lam, beta_runmean,
+                    mvnorm_method, precond_blocksize):
 
         if self.link == 'gaussian':
             y_gaussian = self.y
@@ -227,13 +230,13 @@ class BayesBridge():
         ))
         beta = self.sample_gaussian_posterior(
             y_gaussian, self.X_row_major, self.X_col_major, omega, prior_sd,
-            beta_runmean, mvnorm_method
+            beta_runmean, mvnorm_method, precond_blocksize
         )
         return beta
 
     def sample_gaussian_posterior(
             self, y, X_row_major, X_col_major, omega, prior_sd, beta_init=None,
-            method='pcg'):
+            method='pcg', precond_blocksize=0):
         """
         Param:
         ------
@@ -263,7 +266,8 @@ class BayesBridge():
             beta, cg_info = self.pcg_gaussian_sampler(
                 X_row_major, X_col_major, omega, prec_sqrt, v,
                 beta_init_1=beta_init, beta_init_2=None,
-                precond_by='prior', maxiter=500, atol=10e-4
+                precond_by='prior+block', precond_blocksize=precond_blocksize,
+                maxiter=500, atol=10e-4
             )
             self.cg_iter.append(cg_info['n_iter'])
         else:
