@@ -418,12 +418,14 @@ class BayesBridge():
                 if beta_scale_estimates is None:
                     precond_scale[:self.n_coef_wo_shrinkage] = 1.0
                 else:
-                    max_shrunk_coef_scale = np.max(
-                        beta_scale_estimates[self.n_coef_wo_shrinkage]
-                        / precond_scale[self.n_coef_wo_shrinkage]
+                    least_uncertain_coef_scale = self.mean_min(
+                        beta_scale_estimates[self.n_coef_wo_shrinkage:]
+                        / precond_scale[self.n_coef_wo_shrinkage:]
                     )
-                    precond_scale[:self.n_coef_wo_shrinkage] =  \
-                        beta_scale_estimates[:self.n_coef_wo_shrinkage] / max_shrunk_coef_scale
+                    precond_scale[:self.n_coef_wo_shrinkage] = (
+                        beta_scale_estimates[:self.n_coef_wo_shrinkage]
+                        / least_uncertain_coef_scale
+                    )
 
         elif precond_by == 'diag':
             diag = D ** 2 + np.squeeze(np.asarray(
@@ -440,6 +442,9 @@ class BayesBridge():
             raise NotImplementedError()
 
         return precond_scale
+
+    def mean_min(self, x, n_to_average=10):
+        return np.mean(np.sort(x)[:n_to_average])
 
     def compute_block_preconditioner(
             self, omega, X_row_major, X_col_major, D, precond_scale, indices):
