@@ -127,7 +127,7 @@ class BayesBridge():
             beta_runmean = self.averager.beta_runmean
             beta = self.update_beta(
                 omega, tau, lam, beta_runmean, mvnorm_method,
-                precond_blocksize, self.averager.beta_post_sd
+                precond_blocksize, self.averager.beta_scaled_sd
             )
             omega, sigma_sq = self.update_obs_precision(beta, omega)
 
@@ -209,7 +209,7 @@ class BayesBridge():
         return beta, sigma_sq, omega, lam, tau
 
     def update_beta(self, omega, tau, lam, beta_runmean,
-                    mvnorm_method, precond_blocksize, beta_post_sd):
+                    mvnorm_method, precond_blocksize, beta_scaled_sd):
 
         if self.link == 'gaussian':
             y_gaussian = self.y
@@ -222,13 +222,13 @@ class BayesBridge():
         ))
         beta = self.sample_gaussian_posterior(
             y_gaussian, self.X_row_major, self.X_col_major, omega, prior_sd,
-            beta_runmean, mvnorm_method, precond_blocksize, beta_post_sd
+            beta_runmean, mvnorm_method, precond_blocksize, beta_scaled_sd
         )
         return beta
 
     def sample_gaussian_posterior(
             self, y, X_row_major, X_col_major, omega, prior_sd, beta_init=None,
-            method='pcg', precond_blocksize=0, beta_post_sd=None):
+            method='pcg', precond_blocksize=0, beta_scaled_sd=None):
         """
         Param:
         ------
@@ -259,7 +259,7 @@ class BayesBridge():
                 X_row_major, X_col_major, omega, prec_sqrt, v,
                 beta_init_1=beta_init, beta_init_2=None,
                 precond_by='prior+block', precond_blocksize=precond_blocksize,
-                beta_scale_estimate=beta_post_sd,
+                beta_scaled_sd=beta_scaled_sd,
                 maxiter=500, atol=10e-4
             )
             self.cg_iter.append(cg_info['n_iter'])
@@ -302,7 +302,7 @@ class BayesBridge():
     def pcg_gaussian_sampler(self, X_row_major, X_col_major, omega, D, z,
                              beta_init_1=None, beta_init_2=None,
                              precond_by='diag', precond_blocksize=0,
-                             beta_scale_estimate=None,
+                             beta_scaled_sd=None,
                              maxiter=None, atol=10e-6, seed=None, iter_list=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
@@ -316,7 +316,7 @@ class BayesBridge():
         atol : float
             The absolute tolerance on the residual norm at the termination
             of CG iterations.
-        beta_scale_estimates : vector of length X.shape[1]
+        beta_scaled_sd : vector of length X.shape[1]
             Used to estimate a good preconditioning scale for the coefficient
             without shrinkage. Used only if precond_by in ('prior', 'prior+block').
         """
@@ -330,7 +330,7 @@ class BayesBridge():
         Phi_precond_op, precond_scale, block_precond_op = \
             self.precondition_linear_system(
                 D, omega, X_row_major, X_col_major, precond_by,
-                precond_blocksize, beta_scale_estimate
+                precond_blocksize, beta_scaled_sd
             )
 
         # Draw a target vector.
@@ -369,13 +369,13 @@ class BayesBridge():
 
     def precondition_linear_system(
             self, D, omega, X_row_major, X_col_major, precond_by,
-            precond_blocksize, beta_scale_estimates):
+            precond_blocksize, beta_scaled_sd):
 
         X, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
 
         # Compute the preconditioners.
         precond_scale, block_precond_op = self.choose_preconditioner(
-            D, omega, X_row_major, X_col_major, precond_by, precond_blocksize, beta_scale_estimates
+            D, omega, X_row_major, X_col_major, precond_by, precond_blocksize, beta_scaled_sd
         )
 
         # Define a preconditioned linear operator.
@@ -391,10 +391,10 @@ class BayesBridge():
 
 
     def choose_preconditioner(self, D, omega, X_row_major, X_col_major,
-                              precond_by, precond_blocksize, beta_scale_estimates):
+                              precond_by, precond_blocksize, beta_scaled_sd):
 
         precond_scale = self.choose_diag_preconditioner(
-            D, omega, X_row_major, precond_by, beta_scale_estimates)
+            D, omega, X_row_major, precond_by, beta_scaled_sd)
 
         block_precond_op = None
         if precond_by == 'prior+block' and precond_blocksize > 0:
@@ -410,22 +410,21 @@ class BayesBridge():
 
     def choose_diag_preconditioner(
             self, D, omega, X_row_major, precond_by='diag',
-            beta_scale_estimates=None):
+            beta_scaled_sd=None):
         # Compute the diagonal (sqrt) preconditioner.
+
         if precond_by in ('prior', 'prior+block'):
+
             precond_scale = D ** -1
             if self.n_coef_wo_shrinkage > 0:
-                if beta_scale_estimates is None:
-                    precond_scale[:self.n_coef_wo_shrinkage] = 1.0
-                else:
-                    least_uncertain_coef_scale = self.mean_min(
-                        beta_scale_estimates[self.n_coef_wo_shrinkage:]
-                        / precond_scale[self.n_coef_wo_shrinkage:]
-                    )
-                    precond_scale[:self.n_coef_wo_shrinkage] = (
-                        beta_scale_estimates[:self.n_coef_wo_shrinkage]
-                        / least_uncertain_coef_scale
-                    )
+                regularized_coef_scale = self.mean_min(
+                    beta_scaled_sd[self.n_coef_wo_shrinkage:],
+                    n_to_average=10  # TODO: take care of the case p < 10
+                )
+                precond_scale[:self.n_coef_wo_shrinkage] = (
+                    beta_scaled_sd[:self.n_coef_wo_shrinkage]
+                    / regularized_coef_scale
+                )
 
         elif precond_by == 'diag':
             diag = D ** 2 + np.squeeze(np.asarray(
@@ -618,7 +617,7 @@ class BayesBridge():
             self.n_averaged = -1 # For scaled_runmean.
             self.beta_runmean = beta
             self.beta_scaled_runmean = None
-            self.beta_post_sd = None
+            self.beta_scaled_sd = np.ones(len(beta))
             self.shrinkage_scale = None # The value of tau * lam from the previous gibbs iteration.
             self.n_coef_wo_shrinkage = n_coef_wo_shrinkage
 
