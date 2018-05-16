@@ -6,6 +6,7 @@ import scipy.sparse
 import math
 import warnings
 from inspect import currentframe, getframeinfo
+import time
 import pdb
 from .sparse_dense_matrix_operators \
     import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
@@ -106,7 +107,7 @@ class BayesBridge():
         n_iter = n_burnin + n_post_burnin
 
         # Initial state of the Markov chain
-        beta, sigma_sq, omega, lam, tau  = \
+        beta, sigma_sq, omega, lam, tau, init = \
             self.initialize_chain(init)
 
         # Object for keeping track of running average.
@@ -120,6 +121,7 @@ class BayesBridge():
         self.cg_iter = []
 
         # Start Gibbs sampling
+        start_time = time.time()
         for mcmc_iter in range(1, n_iter + 1):
 
             if self.link == 'gaussian':
@@ -143,7 +145,22 @@ class BayesBridge():
 
             self.averager.update_beta_runmean(beta, tau, lam)
 
-        return samples
+        runtime = time.time() - start_time
+        mcmc_output = {
+            'samples': samples,
+            'init': init,
+            'n_burnin': n_burnin,
+            'n_post_burnin': n_post_burnin,
+            'thin': thin,
+            'seed': seed,
+            'mvnorm_method': mvnorm_method,
+            'runtime': runtime,
+        }
+        if mvnorm_method == 'pcg':
+            mcmc_output['mvnorm_method'] \
+                = 'block_pcg_' + str(precond_blocksize)
+
+        return mcmc_output
 
     def set_seed(self, seed):
         np.random.seed(seed)
@@ -206,7 +223,15 @@ class BayesBridge():
         else:
             tau = 1
 
-        return beta, sigma_sq, omega, lam, tau
+        init = {
+            'beta': beta,
+            'sigma_sq': sigma_sq,
+            'omega': omega,
+            'lambda': lam,
+            'tau': tau
+        }
+
+        return beta, sigma_sq, omega, lam, tau, init
 
     def update_beta(self, omega, tau, lam, beta_runmean,
                     mvnorm_method, precond_blocksize, beta_scaled_sd):
