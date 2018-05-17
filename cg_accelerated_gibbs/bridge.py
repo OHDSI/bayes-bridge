@@ -17,14 +17,21 @@ from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
 class BayesBridge():
 
     def __init__(self, y, X, n_trial=None, link='gaussian',
-                 n_coef_without_shrinkage=0, add_intercept=True):
+                 n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
+                 add_intercept=True):
         """
         Params
         ------
         n_coef_without_shrinkage : int
             The number of predictors whose coefficients are to be estimated
             without any shrinkage (a.k.a. regularization).
+        prior_sd_for_unshrunk : float, numpy array
+            If an array, the length must be the same as n_coef_without_shrinkage.
         """
+
+        if not (np.isscalar(prior_sd_for_unshrunk)
+                or n_coef_without_shrinkage == len(prior_sd_for_unshrunk)):
+            raise ValueError('Invalid array size for prior sd.')
 
         if add_intercept:
             if sp.sparse.issparse(X):
@@ -33,6 +40,10 @@ class BayesBridge():
                 hstack = np.hstack
             X = hstack((np.ones((X.shape[0], 1)), X))
             n_coef_without_shrinkage += 1
+            if not np.isscalar(prior_sd_for_unshrunk):
+                prior_sd_for_unshrunk = np.concatenate((
+                    [float('inf')], prior_sd_for_unshrunk
+                ))
 
         if sp.sparse.issparse(X):
             X = X.tocsr()
@@ -47,6 +58,11 @@ class BayesBridge():
             else:
                 self.n_trial = n_trial
 
+        if np.isscalar(prior_sd_for_unshrunk):
+            self.prior_sd_for_unshrunk = prior_sd_for_unshrunk \
+                                         * np.ones(n_coef_without_shrinkage)
+        else:
+            self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_coef_wo_shrinkage = n_coef_without_shrinkage
         self.link = link
         self.y = y
@@ -244,8 +260,7 @@ class BayesBridge():
             y_gaussian = (self.y - self.n_trial / 2) / omega
 
         prior_sd = np.concatenate((
-            [float('inf')] * self.n_coef_wo_shrinkage,
-            tau * lam
+            self.prior_sd_for_unshrunk, tau * lam
         ))
         beta = self.sample_gaussian_posterior(
             y_gaussian, self.X_row_major, self.X_col_major, omega, prior_sd,
