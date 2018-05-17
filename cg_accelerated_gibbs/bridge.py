@@ -116,6 +116,7 @@ class BayesBridge():
         # Pre-allocate
         samples = {}
         self.pre_allocate(samples, n_post_burnin, thin)
+        n_pcg_iter = np.zeros(n_iter)
 
         # Outputs of the algorim useful for research purposes; a user does not need to see this.
         self.cg_iter = []
@@ -127,7 +128,7 @@ class BayesBridge():
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
             beta_runmean = self.averager.beta_runmean
-            beta = self.update_beta(
+            beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
                 omega, tau, lam, beta_runmean, mvnorm_method,
                 precond_blocksize, self.averager.beta_scaled_sd
             )
@@ -159,6 +160,7 @@ class BayesBridge():
         if mvnorm_method == 'pcg':
             mcmc_output['mvnorm_method'] \
                 = 'block_pcg_' + str(precond_blocksize)
+            mcmc_output['n_pcg_iter'] = n_pcg_iter
 
         return mcmc_output
 
@@ -276,6 +278,7 @@ class BayesBridge():
         if method == 'dense':
             beta = self.generate_gaussian_with_weight(
                 X_row_major, omega, prec_sqrt, v)
+            n_pcg_iter = np.nan
 
         elif method == 'pcg':
             # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
@@ -287,11 +290,12 @@ class BayesBridge():
                 beta_scaled_sd=beta_scaled_sd,
                 maxiter=500, atol=10e-4
             )
-            self.cg_iter.append(cg_info['n_iter'])
+            n_pcg_iter = cg_info['n_iter']
+
         else:
             raise NotImplementedError()
 
-        return beta
+        return beta, n_pcg_iter
 
     def generate_gaussian_with_weight(self, X_row_major, omega, D, z,
                                       precond_by='diag'):
