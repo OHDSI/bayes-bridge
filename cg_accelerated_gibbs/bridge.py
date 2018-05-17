@@ -223,9 +223,7 @@ class BayesBridge():
             if not len(omega) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         elif self.link == 'logit':
-            predicted_prob = 1 / (1 + np.exp( - self.X.dot(beta)))
-            hess_neg_loglik = self.n_trial * predicted_prob * (1 - predicted_prob)
-            omega = hess_neg_loglik
+            omega = self.compute_polya_gamma_mean(self.n_trial, self.X.dot(beta))
         else:
             omega = None
 
@@ -250,6 +248,15 @@ class BayesBridge():
         }
 
         return beta, sigma_sq, omega, lam, tau, init
+
+    def compute_polya_gamma_mean(self, shape, tilt):
+        min_magnitude = 1e-5
+        pg_mean = shape.copy() / 2
+        is_nonzero = (np.abs(tilt) > min_magnitude)
+        pg_mean[is_nonzero] \
+            *= 1 / tilt[is_nonzero] \
+               * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
+        return pg_mean
 
     def update_beta(self, omega, tau, lam, beta_runmean,
                     mvnorm_method, precond_blocksize, beta_scaled_sd):
