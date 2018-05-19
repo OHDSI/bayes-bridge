@@ -171,9 +171,10 @@ class BayesBridge():
             'runtime': runtime,
         }
         if mvnorm_method == 'pcg':
-            mcmc_output['mvnorm_method'] \
-                = 'block_pcg_' + str(precond_blocksize)
             mcmc_output['n_pcg_iter'] = n_pcg_iter
+            if precond_blocksize > 0:
+                mcmc_output['mvnorm_method'] \
+                    = 'block_pcg_' + str(precond_blocksize)
 
         return mcmc_output
 
