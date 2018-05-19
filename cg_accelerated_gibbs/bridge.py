@@ -134,9 +134,6 @@ class BayesBridge():
         self.pre_allocate(samples, n_post_burnin, thin)
         n_pcg_iter = np.zeros(n_iter)
 
-        # Outputs of the algorim useful for research purposes; a user does not need to see this.
-        self.cg_iter = []
-
         # Start Gibbs sampling
         start_time = time.time()
         for mcmc_iter in range(1, n_iter + 1):
