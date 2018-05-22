@@ -94,9 +94,41 @@ class BayesBridge():
             file=None, line=''
         ) # line='' supresses printing the line from codes.
 
+    def gibbs_additional_iter(
+            self, mcmc_output, n_iter, merge=False, deallocate=False):
+        """
+        Continue running the Gibbs sampler from the previous state. To continue
+        the random number stream of the previous Gibbs sampler iterations, the
+        same instance of the BayesBridge class must be used.
+
+        Parameter
+        ---------
+        mcmc_output : the output of the 'gibbs' method.
+        """
+
+        np.random.set_state(mcmc_output['_random_gen_state'])
+        init = {
+            key: np.take(val, -1, axis=-1).copy()
+            for key, val in mcmc_output['samples'].items()
+        }
+        if 'precond_blocksize' in mcmc_output:
+            precond_blocksize = mcmc_output['precond_blocksize']
+        else:
+            precond_blocksize = 0
+
+        next_mcmc_output = self.gibbs(
+            0, n_iter, mcmc_output['thin'], mcmc_output['reg_exponent'], init,
+            mvnorm_method=mcmc_output['mvnorm_method'],
+            precond_blocksize=precond_blocksize,
+            global_shrinkage_update=mcmc_output['global_shrinkage_update_method'],
+            _add_iter_mode=True
+        )
+
+        return next_mcmc_output
+
     def gibbs(self, n_burnin, n_post_burnin, thin, reg_exponent=.5,
               init={}, mvnorm_method='pcg', precond_blocksize=0, seed=None,
-              global_shrinkage_update='sample'):
+              global_shrinkage_update='sample', _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -115,7 +147,8 @@ class BayesBridge():
 
         """
 
-        self.set_seed(seed)
+        if not _add_iter_mode:
+            self.set_seed(seed)
 
         if self.link not in ('gaussian', 'logit'):
             raise NotImplementedError()
@@ -127,7 +160,8 @@ class BayesBridge():
             self.initialize_chain(init)
 
         # Object for keeping track of running average.
-        self.averager = self.runmeanUpdater(beta, self.n_coef_wo_shrinkage)
+        if not _add_iter_mode:
+            self.averager = self.runmeanUpdater(beta, self.n_coef_wo_shrinkage)
 
         # Pre-allocate
         samples = {}
@@ -167,14 +201,16 @@ class BayesBridge():
             'n_post_burnin': n_post_burnin,
             'thin': thin,
             'seed': seed,
+            'reg_exponent': reg_exponent,
             'mvnorm_method': mvnorm_method,
             'runtime': runtime,
+            'global_shrinkage_update_method': global_shrinkage_update,
+            '_random_gen_state': np.random.get_state()
         }
         if mvnorm_method == 'pcg':
             mcmc_output['n_pcg_iter'] = n_pcg_iter
             if precond_blocksize > 0:
-                mcmc_output['mvnorm_method'] \
-                    = 'block_pcg_' + str(precond_blocksize)
+                mcmc_output['precond_blocksize'] = precond_blocksize
 
         return mcmc_output
 
