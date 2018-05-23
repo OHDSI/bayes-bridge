@@ -116,11 +116,17 @@ class BayesBridge():
         else:
             precond_blocksize = 0
 
+        thin, reg_exponent, mvnorm_method, global_shrinkage_update = (
+            mcmc_output[key] for key in
+            ['thin', 'reg_exponent', 'mvnorm_method', 'global_shrinkage_update']
+        )
+        if deallocate:
+            mcmc_output.clear()
+
         next_mcmc_output = self.gibbs(
-            0, n_iter, mcmc_output['thin'], mcmc_output['reg_exponent'], init,
-            mvnorm_method=mcmc_output['mvnorm_method'],
+            0, n_iter, thin, reg_exponent, init, mvnorm_method=mvnorm_method,
             precond_blocksize=precond_blocksize,
-            global_shrinkage_update=mcmc_output['global_shrinkage_update_method'],
+            global_shrinkage_update=global_shrinkage_update,
             _add_iter_mode=True
         )
 
@@ -204,7 +210,7 @@ class BayesBridge():
             'reg_exponent': reg_exponent,
             'mvnorm_method': mvnorm_method,
             'runtime': runtime,
-            'global_shrinkage_update_method': global_shrinkage_update,
+            'global_shrinkage_update': global_shrinkage_update,
             '_random_gen_state': np.random.get_state()
         }
         if mvnorm_method == 'pcg':
