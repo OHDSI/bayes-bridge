@@ -106,6 +106,11 @@ class BayesBridge():
         mcmc_output : the output of the 'gibbs' method.
         """
 
+        if merge and deallocate:
+            self.warn_message_only(
+                "To merge the outputs, the previous one cannot be deallocated.")
+            deallocate = False
+
         np.random.set_state(mcmc_output['_random_gen_state'])
         init = {
             key: np.take(val, -1, axis=-1).copy()
@@ -129,6 +134,23 @@ class BayesBridge():
             global_shrinkage_update=global_shrinkage_update,
             _add_iter_mode=True
         )
+        if merge:
+            next_mcmc_output \
+                = self.merge_outputs(mcmc_output, next_mcmc_output)
+
+        return next_mcmc_output
+
+    def merge_outputs(self, mcmc_output, next_mcmc_output):
+
+        samples = mcmc_output['samples']
+        next_samples = next_mcmc_output['samples']
+        next_mcmc_output['samples'] = {
+            key : np.concatenate(
+                (samples[key], next_samples[key]), axis=-1
+            ) for key in samples.keys()
+        }
+        next_mcmc_output['n_post_burnin'] += mcmc_output['n_post_burnin']
+        next_mcmc_output['runtime'] += mcmc_output['runtime']
 
         return next_mcmc_output
 
