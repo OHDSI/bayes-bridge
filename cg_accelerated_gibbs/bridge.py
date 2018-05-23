@@ -179,7 +179,7 @@ class BayesBridge():
                 omega, tau, lam, beta_runmean, mvnorm_method,
                 precond_blocksize, self.averager.beta_scaled_sd
             )
-            omega, sigma_sq = self.update_obs_precision(beta, omega)
+            omega, sigma_sq = self.update_obs_precision(beta)
 
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
             tau = self.update_global_shrinkage(
@@ -585,7 +585,7 @@ class BayesBridge():
             x = x1 - t_argmin * v
         return x
 
-    def update_obs_precision(self, beta, omega):
+    def update_obs_precision(self, beta):
 
         sigma_sq = None
         if self.link == 'gaussian':
@@ -593,6 +593,7 @@ class BayesBridge():
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
         elif self.link == 'logit':
+            omega = np.zeros(self.X.shape[0])
             self.pg.pgdrawv(self.n_trial, self.X_row_major.dot(beta), omega)
 
         return omega, sigma_sq
