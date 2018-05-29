@@ -29,6 +29,10 @@ class BayesBridge():
             If an array, the length must be the same as n_coef_without_shrinkage.
         """
 
+        # TODO: Make each MCMC run more "independent" i.e. not rely on the
+        # previous instantiation of the class. The initial run of the Gibbs
+        # sampler probably depends too much the stuffs here.
+
         if not (np.isscalar(prior_sd_for_unshrunk)
                 or n_coef_without_shrinkage == len(prior_sd_for_unshrunk)):
             raise ValueError('Invalid array size for prior sd.')
