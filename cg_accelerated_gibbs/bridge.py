@@ -229,6 +229,8 @@ class BayesBridge():
             'n_post_burnin': n_post_burnin,
             'thin': thin,
             'seed': seed,
+            'n_coef_wo_shrinkage': self.n_coef_wo_shrinkage,
+            'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
             'reg_exponent': reg_exponent,
             'mvnorm_method': mvnorm_method,
             'runtime': runtime,
