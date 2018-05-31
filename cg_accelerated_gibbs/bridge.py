@@ -193,7 +193,7 @@ class BayesBridge():
 
         # Object for keeping track of running average.
         if not _add_iter_mode:
-            self.averager = self.runmeanUpdater(beta, self.n_coef_wo_shrinkage)
+            self.averager = self.runmeanUpdater(self.scale_beta(beta, tau, lam))
 
         # Pre-allocate
         samples = {}
@@ -206,11 +206,16 @@ class BayesBridge():
 
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
-            beta_runmean = self.averager.beta_runmean
+            beta_runmean = self.scale_back_beta(
+                self.averager.runmean['beta_scaled'], tau, lam)
+            beta_post_sd = self.averager.estimate_post_sd()
+
             beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
                 omega, tau, lam, beta_runmean, mvnorm_method,
-                precond_blocksize, self.averager.beta_scaled_sd
+                precond_blocksize, beta_post_sd
             )
+            self.averager.update_runmean(self.scale_beta(beta, tau, lam))
+
             omega, sigma_sq = self.update_obs_precision(beta)
 
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
@@ -222,8 +227,6 @@ class BayesBridge():
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega)
-
-            self.averager.update_beta_runmean(beta, tau, lam)
 
         runtime = time.time() - start_time
         mcmc_output = {
@@ -325,6 +328,16 @@ class BayesBridge():
             *= 1 / tilt[is_nonzero] \
                * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
         return pg_mean
+
+    def scale_beta(self, beta, tau, lam):
+        beta_scaled = beta.copy()
+        beta_scaled[self.n_coef_wo_shrinkage:] /= tau * lam
+        return beta_scaled
+
+    def scale_back_beta(self, beta_scaled, tau, lam):
+        beta = beta_scaled.copy()
+        beta[self.n_coef_wo_shrinkage:] *= tau * lam
+        return beta
 
     def update_beta(self, omega, tau, lam, beta_runmean,
                     mvnorm_method, precond_blocksize, beta_scaled_sd):
@@ -730,44 +743,57 @@ class BayesBridge():
                 samples['omega'][:, index] = omega
 
         return
+    
 
     class runmeanUpdater():
 
-        def __init__(self, beta, n_coef_wo_shrinkage):
-            self.n_averaged = -1 # For scaled_runmean.
-            self.beta_runmean = beta
-            self.beta_scaled_runmean = None
-            self.beta_scaled_sd = np.ones(len(beta))
-            self.shrinkage_scale = None # The value of tau * lam from the previous gibbs iteration.
-            self.n_coef_wo_shrinkage = n_coef_wo_shrinkage
+        def __init__(self, beta_scaled, sd_prior_samplesize=5):
+            """
 
-        def update_beta_runmean(self, beta, tau, lam):
-            # Computes the running mean of beta / (tau * lam) and rescale it with the
-            # current values of tau and lam.
+            Params
+            ------
+            init: dict
+            sd_prior_samplesize: int
+                Weight on the initial estimate of the posterior standard
+                deviation; the estimate is treated as if it is an average of
+                'prior_samplesize' previous values.
+            """
+            self.sd_prior_samplesize = sd_prior_samplesize
+            self.sd_prior_guess = np.ones(len(beta_scaled))
+            self.n_averaged = 0
+            self.runmean = {
+                'beta_scaled': np.zeros(len(beta_scaled)),
+                'beta_scaled_sq': np.ones(len(beta_scaled))
+            }
 
-            if self.n_averaged < 0:
-                self.beta_runmean = beta.copy()
-                self.shrinkage_scale = tau * lam
-            else:
-                self.beta_scaled_runmean = self.update_scaled_runmean(
-                    beta, self.shrinkage_scale, self.beta_scaled_runmean
-                )
-                self.shrinkage_scale = tau * lam
-                self.beta_runmean = self.beta_scaled_runmean.copy()
-                self.beta_runmean[self.n_coef_wo_shrinkage:] *= self.shrinkage_scale
+        def update_runmean(self, beta_scaled):
 
+            weight = 1 / (1 + self.n_averaged)
+            self.runmean['beta_scaled'] = (
+                weight * beta_scaled + (1 - weight) * self.runmean['beta_scaled']
+            )
+            self.runmean['beta_scaled_sq'] = (
+                weight * beta_scaled ** 2
+                    + (1 - weight) * self.runmean['beta_scaled_sq']
+            )
             self.n_averaged += 1
-            return
 
-        def update_scaled_runmean(self, beta, shrinkage_scale, prev_scaled_runmean):
+        def estimate_post_sd(self):
 
-            beta_scaled = beta.copy()
-            beta_scaled[self.n_coef_wo_shrinkage:] *= 1 / shrinkage_scale
-            if self.n_averaged == 0:
-                beta_scaled_runmean = beta_scaled
+            beta_scaled_mean = self.runmean['beta_scaled']
+            beta_scaled_sq_mean = self.runmean['beta_scaled_sq']
+
+            if self.n_averaged > 1:
+                var_estimator = self.n_averaged / (self.n_averaged - 1) * (
+                    beta_scaled_sq_mean - beta_scaled_mean ** 2
+                )
+                estimator_weight = (self.n_averaged - 1) \
+                    / (self.n_averaged - 1 + self.sd_prior_samplesize)
+                beta_scaled_sd = np.sqrt(
+                    estimator_weight * var_estimator \
+                        + (1 - estimator_weight) * self.sd_prior_guess ** 2
+                )
             else:
-                weight = 1 / (1 + self.n_averaged)
-                beta_scaled_runmean = \
-                    weight * beta_scaled + (1 - weight) * prev_scaled_runmean
+                beta_scaled_sd = self.sd_prior_guess
 
-            return beta_scaled_runmean
+            return beta_scaled_sd
