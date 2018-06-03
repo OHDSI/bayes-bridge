@@ -743,7 +743,45 @@ class BayesBridge():
                 samples['omega'][:, index] = omega
 
         return
-    
+
+    def compute_posterior_logprob(self, beta, tau, sigma_sq, reg_exponent):
+
+        prior_logp = 0
+
+        if self.link == 'logit':
+            predicted_prob = 1 / (1 + np.exp( - self.X.dot(beta)))
+            loglik = np.sum(
+                self.y * np.log(predicted_prob) \
+                + (self.n_trial - self.y) * np.log(1 - predicted_prob)
+            )
+        elif self.link == 'gaussian':
+            loglik = - len(self.y) * math.log(sigma_sq) / 2 \
+                     - np.sum((self.y - self.X.dot(beta)) ** 2) / sigma_sq
+            prior_logp += - math.log(sigma_sq) / 2
+
+        n_shrunk_coef = len(beta) - self.n_coef_wo_shrinkage
+
+        # Contribution from beta | tau.
+        prior_logp += \
+            - n_shrunk_coef * math.log(tau) \
+            - np.sum(np.log(np.abs(beta[self.n_coef_wo_shrinkage:]) ** reg_exponent))
+
+        # for coefficients without shrinkage.
+        prior_logp += - 1 / 2 * np.sum(
+            (beta[:self.n_coef_wo_shrinkage] / self.prior_sd_for_unshrunk) ** 2
+        )
+        prior_logp += - np.sum(np.log(
+            self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
+        ))
+        if self.prior_type['tau'] == 'jeffreys':
+            prior_logp += - math.log(tau)
+        else:
+            raise NotImplementedError()
+
+        logp = loglik + prior_logp
+
+        return logp
+
 
     class runmeanUpdater():
 
