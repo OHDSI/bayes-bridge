@@ -637,6 +637,7 @@ class BayesBridge():
     def update_obs_precision(self, beta):
 
         sigma_sq = None
+        omega = None
         if self.link == 'gaussian':
             resid = self.y - self.X_row_major.dot(beta)
             scale = np.sum(resid ** 2) / 2
