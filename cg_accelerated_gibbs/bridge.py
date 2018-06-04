@@ -226,9 +226,7 @@ class BayesBridge():
                 tau, beta[self.n_coef_wo_shrinkage:], reg_exponent)
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
-                                beta, lam, tau, sigma_sq, omega)
-            samples['logp'] = \
-                self.compute_posterior_logprob(beta, tau, sigma_sq, reg_exponent)
+                                beta, lam, tau, sigma_sq, omega, reg_exponent)
 
         runtime = time.time() - start_time
         mcmc_output = {
@@ -270,6 +268,7 @@ class BayesBridge():
             samples['sigma_sq'] = np.zeros(n_sample)
         elif self.link == 'logit':
             samples['omega'] = np.zeros((self.n_obs, n_sample))
+        samples['logp'] = np.zeros(n_sample)
 
         return
 
@@ -733,7 +732,7 @@ class BayesBridge():
         return lam
 
     def store_current_state(self, samples, mcmc_iter, n_burnin, thin,
-                            beta, lam, tau, sigma_sq, omega):
+                            beta, lam, tau, sigma_sq, omega, reg_exponent):
 
         if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
             index = math.floor((mcmc_iter - n_burnin) / thin) - 1
@@ -744,6 +743,8 @@ class BayesBridge():
                 samples['sigma_sq'][index] = sigma_sq
             elif self.link == 'logit':
                 samples['omega'][:, index] = omega
+            samples['logp'][index] = \
+                self.compute_posterior_logprob(beta, tau, sigma_sq, reg_exponent)
 
         return
 
