@@ -227,6 +227,8 @@ class BayesBridge():
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega)
+            samples['logp'] = \
+                self.compute_posterior_logprob(beta, tau, sigma_sq, reg_exponent)
 
         runtime = time.time() - start_time
         mcmc_output = {
