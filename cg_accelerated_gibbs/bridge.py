@@ -768,7 +768,7 @@ class BayesBridge():
         # Contribution from beta | tau.
         prior_logp += \
             - n_shrunk_coef * math.log(tau) \
-            - np.sum(np.log(np.abs(beta[self.n_coef_wo_shrinkage:]) ** reg_exponent))
+            - np.sum(np.abs(beta[self.n_coef_wo_shrinkage:] / tau) ** reg_exponent)
 
         # for coefficients without shrinkage.
         prior_logp += - 1 / 2 * np.sum(
