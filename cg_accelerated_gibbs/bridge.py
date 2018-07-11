@@ -754,9 +754,15 @@ class BayesBridge():
 
         if self.link == 'logit':
             predicted_prob = 1 / (1 + np.exp( - self.X.dot(beta)))
+            machine_prec = 2. ** - 53
+            within_bd = np.logical_and(
+                predicted_prob > machine_prec,
+                predicted_prob < 1. - machine_prec
+            )
             loglik = np.sum(
-                self.y * np.log(predicted_prob) \
-                + (self.n_trial - self.y) * np.log(1 - predicted_prob)
+                self.y[within_bd] * np.log(predicted_prob[within_bd]) \
+                + (self.n_trial - self.y)[within_bd] 
+                    * np.log(1 - predicted_prob[within_bd])
             )
         elif self.link == 'gaussian':
             loglik = - len(self.y) * math.log(sigma_sq) / 2 \
