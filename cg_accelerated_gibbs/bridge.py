@@ -550,14 +550,11 @@ class BayesBridge():
 
             precond_scale = D ** -1
             if self.n_coef_wo_shrinkage > 0:
-                regularized_coef_scale = self.mean_min(
-                    beta_scaled_sd[self.n_coef_wo_shrinkage:],
-                    n_to_average=10  # TODO: take care of the case p < 10
-                )
-                precond_scale[:self.n_coef_wo_shrinkage] = (
-                    beta_scaled_sd[:self.n_coef_wo_shrinkage]
-                    / regularized_coef_scale
-                )
+                target_sd_scale = 2.
+                    # Larger than 1 because it is better to err on the side
+                    # of introducing large precisions.
+                precond_scale[:self.n_coef_wo_shrinkage] = \
+                    target_sd_scale * beta_scaled_sd[:self.n_coef_wo_shrinkage]
 
         elif precond_by == 'diag':
             diag = D ** 2 + np.squeeze(np.asarray(
