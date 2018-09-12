@@ -572,9 +572,6 @@ class BayesBridge():
 
         return precond_scale
 
-    def mean_min(self, x, n_to_average=10):
-        return np.mean(np.sort(x)[:n_to_average])
-
     def compute_block_preconditioner(
             self, omega, X_row_major, X_col_major, D, precond_scale, indices):
 
