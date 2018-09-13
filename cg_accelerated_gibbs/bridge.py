@@ -68,7 +68,7 @@ class BayesBridge():
                                          * np.ones(n_coef_without_shrinkage)
         else:
             self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
-        self.n_coef_wo_shrinkage = n_coef_without_shrinkage
+        self.n_unshrunk = n_coef_without_shrinkage
         self.link = link
         self.y = y
         if sp.sparse.issparse(X):
@@ -182,7 +182,7 @@ class BayesBridge():
         n_iter = n_burnin + n_post_burnin
 
         if mvnorm_method == 'pcg':
-            self.cg_sampler = ConjugateGradientSampler(self.n_coef_wo_shrinkage)
+            self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
 
         # Initial state of the Markov chain
         beta, sigma_sq, omega, lam, tau, init = \
@@ -217,10 +217,10 @@ class BayesBridge():
 
             # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
             tau = self.update_global_shrinkage(
-                tau, beta[self.n_coef_wo_shrinkage:], reg_exponent, global_shrinkage_update)
+                tau, beta[self.n_unshrunk:], reg_exponent, global_shrinkage_update)
 
             lam = self.update_local_shrinkage(
-                tau, beta[self.n_coef_wo_shrinkage:], reg_exponent)
+                tau, beta[self.n_unshrunk:], reg_exponent)
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
                                 beta, lam, tau, sigma_sq, omega, reg_exponent)
@@ -233,7 +233,7 @@ class BayesBridge():
             'n_post_burnin': n_post_burnin,
             'thin': thin,
             'seed': seed,
-            'n_coef_wo_shrinkage': self.n_coef_wo_shrinkage,
+            'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
             'reg_exponent': reg_exponent,
             'mvnorm_method': mvnorm_method,
@@ -259,7 +259,7 @@ class BayesBridge():
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
         samples['beta'] = np.zeros((self.n_pred, n_sample))
-        samples['lambda'] = np.zeros((self.n_pred - self.n_coef_wo_shrinkage, n_sample))
+        samples['lambda'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
         samples['tau'] = np.zeros(n_sample)
         if self.link == 'gaussian':
             samples['sigma_sq'] = np.zeros(n_sample)
@@ -298,10 +298,10 @@ class BayesBridge():
 
         if 'lambda' in init:
             lam = init['lambda']
-            if not len(lam) == (self.n_pred - self.n_coef_wo_shrinkage):
+            if not len(lam) == (self.n_pred - self.n_unshrunk):
                 raise ValueError('An invalid initial state.')
         else:
-            lam = np.ones(self.n_pred - self.n_coef_wo_shrinkage)
+            lam = np.ones(self.n_pred - self.n_unshrunk)
 
         if 'tau' in init:
             tau = init['tau']
@@ -329,12 +329,12 @@ class BayesBridge():
 
     def scale_beta(self, beta, tau, lam):
         beta_scaled = beta.copy()
-        beta_scaled[self.n_coef_wo_shrinkage:] /= tau * lam
+        beta_scaled[self.n_unshrunk:] /= tau * lam
         return beta_scaled
 
     def scale_back_beta(self, beta_scaled, tau, lam):
         beta = beta_scaled.copy()
-        beta[self.n_coef_wo_shrinkage:] *= tau * lam
+        beta[self.n_unshrunk:] *= tau * lam
         return beta
 
     def update_beta(self, omega, tau, lam, beta_runmean,
@@ -565,16 +565,16 @@ class BayesBridge():
                      - np.sum((self.y - self.X.dot(beta)) ** 2) / sigma_sq
             prior_logp += - math.log(sigma_sq) / 2
 
-        n_shrunk_coef = len(beta) - self.n_coef_wo_shrinkage
+        n_shrunk_coef = len(beta) - self.n_unshrunk
 
         # Contribution from beta | tau.
         prior_logp += \
             - n_shrunk_coef * math.log(tau) \
-            - np.sum(np.abs(beta[self.n_coef_wo_shrinkage:] / tau) ** reg_exponent)
+            - np.sum(np.abs(beta[self.n_unshrunk:] / tau) ** reg_exponent)
 
         # for coefficients without shrinkage.
         prior_logp += - 1 / 2 * np.sum(
-            (beta[:self.n_coef_wo_shrinkage] / self.prior_sd_for_unshrunk) ** 2
+            (beta[:self.n_unshrunk] / self.prior_sd_for_unshrunk) ** 2
         )
         prior_logp += - np.sum(np.log(
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
