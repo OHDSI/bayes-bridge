@@ -5,8 +5,7 @@ import scipy.linalg
 from .sparse_dense_matrix_operators \
     import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
     choose_optimal_format_for_matvec
-import warnings
-from inspect import currentframe, getframeinfo
+from util.simple_warnings import warn_message_only
 
 class ConjugateGradientSampler():
 
@@ -69,7 +68,7 @@ class ConjugateGradientSampler():
         )
 
         if info != 0:
-            self.warn_message_only(
+            warn_message_only(
                 "The conjugate gradient algorithm did not achieve the requested " +
                 "tolerance level. You may increase the maxiter or use the dense " +
                 "linear algebra instead."
@@ -206,11 +205,3 @@ class ConjugateGradientSampler():
                 t_argmin = (x1.dot(Av) - b.dot(v)) / denom
             x = x1 - t_argmin * v
         return x
-
-    def warn_message_only(self, message, category=UserWarning):
-        frameinfo = getframeinfo(currentframe())
-        warnings.showwarning(
-            message, category, frameinfo.filename, frameinfo.lineno,
-            file=None, line=''
-        ) # line='' supresses printing the line from codes.
-

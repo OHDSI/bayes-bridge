@@ -4,16 +4,16 @@ import scipy.stats
 import scipy.linalg
 import scipy.sparse
 import math
-import warnings
-from inspect import currentframe, getframeinfo
 import time
 import pdb
 from .sparse_dense_matrix_operators \
     import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
     choose_optimal_format_for_matvec
 from pypolyagamma import PyPolyaGamma
+from util.simple_warnings import warn_message_only
 from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
 from .cg_sampler import ConjugateGradientSampler
+
 
 class BayesBridge():
 
@@ -56,7 +56,7 @@ class BayesBridge():
         if link == 'logit':
             if n_trial is None:
                 self.n_trial = np.ones(len(y))
-                self.warn_message_only(
+                warn_message_only(
                     "The numbers of trials were not specified. The binary "
                     "outcome is assumed."
                 )
@@ -92,13 +92,6 @@ class BayesBridge():
         # prior_param['tau'] = {'scale': 1.0}
         return prior_type, prior_param
 
-    def warn_message_only(self, message, category=UserWarning):
-        frameinfo = getframeinfo(currentframe())
-        warnings.showwarning(
-            message, category, frameinfo.filename, frameinfo.lineno,
-            file=None, line=''
-        ) # line='' supresses printing the line from codes.
-
     def gibbs_additional_iter(
             self, mcmc_output, n_iter, merge=False, deallocate=False):
         """
@@ -112,7 +105,7 @@ class BayesBridge():
         """
 
         if merge and deallocate:
-            self.warn_message_only(
+            warn_message_only(
                 "To merge the outputs, the previous one cannot be deallocated.")
             deallocate = False
 
@@ -524,11 +517,11 @@ class BayesBridge():
 
         # TODO: Pick the lower and upper bound more carefully.
         if np.any(lam == 0):
-            self.warn_message_only(
+            warn_message_only(
                 "Local shrinkage parameter under-flowed. Replacing with a small number.")
             lam[lam == 0] = 10e-16
         elif np.any(np.isinf(lam)):
-            self.warn_message_only(
+            warn_message_only(
                 "Local shrinkage parameter under-flowed. Replacing with a large number.")
             lam[np.isinf(lam)] = 2.0 / tau
 
