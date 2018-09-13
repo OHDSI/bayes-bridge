@@ -9,10 +9,8 @@ import pdb
 from .sparse_dense_matrix_operators \
     import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
     choose_optimal_format_for_matvec
-from pypolyagamma import PyPolyaGamma
-from util.simple_warnings import warn_message_only
-from .random.tilted_stable_dist.rand_exp_tilted_stable \
-    import ExpTiltedStableDist
+from .util.simple_warnings import warn_message_only
+from .random import BasicRandom
 from .cg_sampler import ConjugateGradientSampler
 
 
@@ -84,8 +82,7 @@ class BayesBridge():
         self.prior_type = {}
         self.prior_param = {}
         self.set_default_priors(self.prior_type, self.prior_param)
-        self.pg = None
-        self.tilted_stable = None
+        self.rg = BasicRandom()
 
     def set_default_priors(self, prior_type, prior_param):
         prior_type['tau'] = 'jeffreys'
@@ -110,7 +107,7 @@ class BayesBridge():
                 "To merge the outputs, the previous one cannot be deallocated.")
             deallocate = False
 
-        np.random.set_state(mcmc_output['_random_gen_state'])
+        self.rg.np_random.set_state(mcmc_output['_random_gen_state'])
         init = {
             key: np.take(val, -1, axis=-1).copy()
             for key, val in mcmc_output['samples'].items()
@@ -175,7 +172,7 @@ class BayesBridge():
         """
 
         if not _add_iter_mode:
-            self.set_seed(seed)
+            self.rg.set_seed(seed)
 
         if self.link not in ('gaussian', 'logit'):
             raise NotImplementedError()
@@ -240,7 +237,7 @@ class BayesBridge():
             'mvnorm_method': mvnorm_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
-            '_random_gen_state': np.random.get_state()
+            '_random_gen_state': self.rg.np_random.get_state()
         }
         if mvnorm_method == 'pcg':
             mcmc_output['n_pcg_iter'] = n_pcg_iter
@@ -248,13 +245,6 @@ class BayesBridge():
                 mcmc_output['precond_blocksize'] = precond_blocksize
 
         return mcmc_output
-
-    def set_seed(self, seed):
-        np.random.seed(seed)
-        pg_seed = np.random.random_integers(np.iinfo(np.uint32).max)
-        ts_seed = np.random.random_integers(np.iinfo(np.uint32).max)
-        self.pg = PyPolyaGamma(seed=pg_seed)
-        self.tilted_stable = ExpTiltedStableDist(seed=ts_seed)
 
     def pre_allocate(self, samples, n_post_burnin, thin):
 
@@ -425,7 +415,7 @@ class BayesBridge():
         Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
         mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * z)
         beta_scaled = mu + sp.linalg.solve_triangular(
-            Phi_scaled_chol, np.random.randn(X_row_major.shape[1]), lower=False
+            Phi_scaled_chol, self.rg.np_random.randn(X_row_major.shape[1]), lower=False
         )
         beta = precond_scale * beta_scaled
         return beta
@@ -437,10 +427,10 @@ class BayesBridge():
         if self.link == 'gaussian':
             resid = self.y - self.X_row_major.dot(beta)
             scale = np.sum(resid ** 2) / 2
-            sigma_sq = scale / np.random.gamma(self.n_obs / 2, 1)
+            sigma_sq = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
         elif self.link == 'logit':
-            omega = np.zeros(self.X.shape[0])
-            self.pg.pgdrawv(self.n_trial, self.X_row_major.dot(beta), omega)
+            omega = self.rg.polya_gamma(
+                self.n_trial, self.X_row_major.dot(beta),self.X.shape[0])
 
         return omega, sigma_sq
 
@@ -459,7 +449,7 @@ class BayesBridge():
                 # Conjugate update for phi = 1 / tau ** reg_exponent
                 shape = beta_with_shrinkage.size / reg_exponent
                 scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
-                phi = np.random.gamma(shape, scale=scale)
+                phi = self.rg.np_random.gamma(shape, scale=scale)
                 tau = 1 / phi ** (1 / reg_exponent)
 
             elif self.prior_type['tau'] == 'half-cauchy':
@@ -492,11 +482,11 @@ class BayesBridge():
 
         phi = 1 / tau
         for i in range(n_update):
-            u = np.random.uniform() \
+            u = self.rg.np_random.uniform() \
                 / (1 + (global_scale * phi ** (1 / reg_exponent)) ** 2)
             upper = (np.sqrt(1 / u - 1) / global_scale) ** reg_exponent
                 # Invert the half-Cauchy density.
-            phi = gamma_rv.ppf(gamma_rv.cdf(upper) * np.random.uniform())
+            phi = gamma_rv.ppf(gamma_rv.cdf(upper) * self.rg.np_random.uniform())
             if np.isnan(phi):
                 # Inverse CDF method can fail if the current conditional
                 # distribution is drastically different from the previous one.
@@ -511,7 +501,7 @@ class BayesBridge():
     def update_local_shrinkage(self, tau, beta_with_shrinkage, reg_exponent):
 
         lam_sq = 1 / np.array([
-            2 * self.tilted_stable.rv(reg_exponent / 2, (beta_j / tau) ** 2)
+            2 * self.rg.tilted_stable(reg_exponent / 2, (beta_j / tau) ** 2)
             for beta_j in beta_with_shrinkage
         ])
         lam = np.sqrt(lam_sq)
