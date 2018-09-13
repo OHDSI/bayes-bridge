@@ -10,6 +10,12 @@ class ExpTiltedStableDist():
         self.unif_rv = random.random
         self.normal_rv = random.normalvariate
 
+    def get_state(self):
+        return random.getstate()
+
+    def set_state(self, state):
+        random.setstate(state)
+
     def rv(self, char_exponent, tilt, method=None):
         """
         Generate a random variable from a stable distribution with
