@@ -11,7 +11,8 @@ from .sparse_dense_matrix_operators \
     choose_optimal_format_for_matvec
 from pypolyagamma import PyPolyaGamma
 from util.simple_warnings import warn_message_only
-from tilted_stable_dist.rand_exp_tilted_stable import ExpTiltedStableDist
+from .random.tilted_stable_dist.rand_exp_tilted_stable \
+    import ExpTiltedStableDist
 from .cg_sampler import ConjugateGradientSampler
 
 
