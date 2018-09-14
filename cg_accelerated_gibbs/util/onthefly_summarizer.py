@@ -20,28 +20,28 @@ class OntheflySummarizer():
         self.sd_prior_samplesize = sd_prior_samplesize
         self.sd_prior_guess = np.ones(len(theta))
         self.n_averaged = 0
-        self.runmean = {
+        self.stats = {
             'mean': np.zeros(len(theta)),
             'square': np.ones(len(theta))
         }
 
-    def update_runmean(self, theta):
+    def update_stats(self, theta):
 
         weight = 1 / (1 + self.n_averaged)
-        self.runmean['mean'] = (
-            weight * theta + (1 - weight) * self.runmean['mean']
+        self.stats['mean'] = (
+            weight * theta + (1 - weight) * self.stats['mean']
         )
-        self.runmean['square'] = (
+        self.stats['square'] = (
             weight * theta ** 2
-            + (1 - weight) * self.runmean['square']
+            + (1 - weight) * self.stats['square']
         )
         self.n_averaged += 1
 
     def estimate_post_sd(self):
 
         # TODO: implment Welford's algorithm for better numerical accuracy.
-        mean = self.runmean['mean']
-        sec_moment = self.runmean['square']
+        mean = self.stats['mean']
+        sec_moment = self.stats['square']
 
         if self.n_averaged > 1:
             var_estimator = self.n_averaged / (self.n_averaged - 1) * (
