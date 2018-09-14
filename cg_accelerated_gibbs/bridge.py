@@ -202,14 +202,9 @@ class BayesBridge():
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
 
-            beta_condmean_guess = self.cg_initalizer.guess_beta_condmean(tau, lam)
-            beta_precond_scale_sd = self.cg_initalizer.estimate_beta_precond_scale_sd()
-
             beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
-                omega, tau, lam, beta_condmean_guess, mvnorm_method,
-                precond_blocksize, beta_precond_scale_sd
+                omega, tau, lam, mvnorm_method, precond_blocksize
             )
-            self.cg_initalizer.update(beta, tau, lam)
 
             omega, sigma_sq = self.update_obs_precision(beta)
 
@@ -318,26 +313,23 @@ class BayesBridge():
                * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
         return pg_mean
 
-    def update_beta(self, omega, tau, lam, beta_runmean,
-                    mvnorm_method, precond_blocksize, beta_scaled_sd):
+    def update_beta(self, omega, tau, lam, mvnorm_method, precond_blocksize):
 
         if self.link == 'gaussian':
             y_gaussian = self.y
         elif self.link == 'logit':
             y_gaussian = (self.y - self.n_trial / 2) / omega
 
-        prior_sd = np.concatenate((
-            self.prior_sd_for_unshrunk, tau * lam
-        ))
         beta, n_pcg_iter = self.sample_gaussian_posterior(
-            y_gaussian, self.X_row_major, self.X_col_major, omega, prior_sd,
-            beta_runmean, mvnorm_method, precond_blocksize, beta_scaled_sd
+            y_gaussian, self.X_row_major, self.X_col_major, omega, tau, lam,
+            mvnorm_method, precond_blocksize
         )
+
         return beta, n_pcg_iter
 
     def sample_gaussian_posterior(
-            self, y, X_row_major, X_col_major, omega, prior_sd, beta_init=None,
-            method='pcg', precond_blocksize=0, beta_scaled_sd=None):
+            self, y, X_row_major, X_col_major, omega, tau, lam, method='pcg',
+            precond_blocksize=0):
         """
         Param:
         ------
@@ -355,6 +347,9 @@ class BayesBridge():
 
         _, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
         v = X_T.dot(omega * y)
+        prior_sd = np.concatenate((
+            self.prior_sd_for_unshrunk, tau * lam
+        ))
         prec_sqrt = 1 / prior_sd
 
         if method == 'dense':
@@ -365,13 +360,16 @@ class BayesBridge():
         elif method == 'pcg':
             # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
             # control the error in the MCMC output.
+            beta_condmean_guess = self.cg_initalizer.guess_beta_condmean(tau, lam)
+            beta_precond_scale_sd = self.cg_initalizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
                 X_row_major, X_col_major, omega, prec_sqrt, v,
-                beta_init_1=beta_init, beta_init_2=None,
+                beta_init_1=beta_condmean_guess, beta_init_2=None,
                 precond_by='prior+block', precond_blocksize=precond_blocksize,
-                beta_scaled_sd=beta_scaled_sd,
+                beta_scaled_sd=beta_precond_scale_sd,
                 maxiter=500, atol=10e-4
             )
+            self.cg_initalizer.update(beta, tau, lam)
             n_pcg_iter = cg_info['n_iter']
 
         else:
