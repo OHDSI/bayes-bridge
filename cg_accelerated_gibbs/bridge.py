@@ -201,7 +201,7 @@ class BayesBridge():
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
             beta_runmean = self.scale_back_beta(
-                self.averager.runmean['beta_scaled'], tau, lam)
+                self.averager.runmean['mean'], tau, lam)
             beta_post_sd = self.averager.estimate_post_sd()
 
             beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
