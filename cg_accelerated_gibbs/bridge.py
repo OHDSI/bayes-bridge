@@ -93,9 +93,7 @@ class BayesBridge():
     def gibbs_additional_iter(
             self, mcmc_output, n_iter, merge=False, deallocate=False):
         """
-        Continue running the Gibbs sampler from the previous state. To continue
-        the random number stream of the previous Gibbs sampler iterations, the
-        same instance of the BayesBridge class must be used.
+        Continue running the Gibbs sampler from the previous state.
 
         Parameter
         ---------
@@ -107,7 +105,7 @@ class BayesBridge():
                 "To merge the outputs, the previous one cannot be deallocated.")
             deallocate = False
 
-        self.rg.np_random.set_state(mcmc_output['_random_gen_state'])
+        self.rg.set_state(mcmc_output['_random_gen_state'])
         init = {
             key: np.take(val, -1, axis=-1).copy()
             for key, val in mcmc_output['samples'].items()
@@ -237,7 +235,7 @@ class BayesBridge():
             'mvnorm_method': mvnorm_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
-            '_random_gen_state': self.rg.np_random.get_state()
+            '_random_gen_state': self.rg.get_state()
         }
         if mvnorm_method == 'pcg':
             mcmc_output['n_pcg_iter'] = n_pcg_iter
