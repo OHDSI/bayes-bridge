@@ -39,6 +39,7 @@ class OntheflySummarizer():
 
     def estimate_post_sd(self):
 
+        # TODO: implment Welford's algorithm for better numerical accuracy.
         mean = self.runmean['mean']
         sec_moment = self.runmean['square']
 
