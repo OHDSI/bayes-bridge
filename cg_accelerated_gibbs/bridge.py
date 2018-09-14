@@ -329,11 +329,11 @@ class BayesBridge():
         prior_sd = np.concatenate((
             self.prior_sd_for_unshrunk, tau * lam
         ))
-        beta = self.sample_gaussian_posterior(
+        beta, n_pcg_iter = self.sample_gaussian_posterior(
             y_gaussian, self.X_row_major, self.X_col_major, omega, prior_sd,
             beta_runmean, mvnorm_method, precond_blocksize, beta_scaled_sd
         )
-        return beta
+        return beta, n_pcg_iter
 
     def sample_gaussian_posterior(
             self, y, X_row_major, X_col_major, omega, prior_sd, beta_init=None,
