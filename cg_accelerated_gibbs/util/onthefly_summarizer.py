@@ -1,6 +1,10 @@
 import numpy as np
 
-class RunmeanTracker():
+class OntheflySummarizer():
+    """
+    Carries out online updates of the mean, variance, and other statistics of a
+    random sequence.
+    """
 
     def __init__(self, theta, sd_prior_samplesize=5):
         """

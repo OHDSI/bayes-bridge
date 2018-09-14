@@ -10,7 +10,7 @@ from .sparse_dense_matrix_operators \
     import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
     choose_optimal_format_for_matvec
 from .util.simple_warnings import warn_message_only
-from .util.runmean_tracker import RunmeanTracker
+from .util.onthefly_summarizer import OntheflySummarizer
 from .random import BasicRandom
 from .cg_sampler import ConjugateGradientSampler
 
@@ -187,7 +187,7 @@ class BayesBridge():
 
         # Object for keeping track of running average.
         if not _add_iter_mode:
-            self.averager = RunmeanTracker(self.scale_beta(beta, tau, lam))
+            self.averager = OntheflySummarizer(self.scale_beta(beta, tau, lam))
 
         # Pre-allocate
         samples = {}
