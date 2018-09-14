@@ -187,7 +187,7 @@ class BayesBridge():
 
         # Object for keeping track of running average.
         if not _add_iter_mode:
-            self.averager = OntheflySummarizer(self.scale_beta(beta, tau, lam))
+            self.beta_summarizer = OntheflySummarizer(self.scale_beta(beta, tau, lam))
 
         # Pre-allocate
         samples = {}
@@ -201,14 +201,14 @@ class BayesBridge():
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
             beta_runmean = self.scale_back_beta(
-                self.averager.runmean['mean'], tau, lam)
-            beta_post_sd = self.averager.estimate_post_sd()
+                self.beta_summarizer.runmean['mean'], tau, lam)
+            beta_post_sd = self.beta_summarizer.estimate_post_sd()
 
             beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
                 omega, tau, lam, beta_runmean, mvnorm_method,
                 precond_blocksize, beta_post_sd
             )
-            self.averager.update_runmean(self.scale_beta(beta, tau, lam))
+            self.beta_summarizer.update_runmean(self.scale_beta(beta, tau, lam))
 
             omega, sigma_sq = self.update_obs_precision(beta)
 
