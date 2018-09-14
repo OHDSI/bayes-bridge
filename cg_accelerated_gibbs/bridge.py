@@ -10,9 +10,9 @@ from .sparse_dense_matrix_operators \
     import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
     choose_optimal_format_for_matvec
 from .util.simple_warnings import warn_message_only
+from .util.runmean_tracker import RunmeanTracker
 from .random import BasicRandom
 from .cg_sampler import ConjugateGradientSampler
-from .runmean_tracker import RunmeanTracker
 
 
 class BayesBridge():
