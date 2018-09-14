@@ -43,8 +43,7 @@ class RunmeanTracker():
                 sec_moment - mean ** 2
             )
             estimator_weight = (self.n_averaged - 1) \
-                               / (
-                               self.n_averaged - 1 + self.sd_prior_samplesize)
+                / (self.n_averaged - 1 + self.sd_prior_samplesize)
             sd_estimator = np.sqrt(
                 estimator_weight * var_estimator \
                 + (1 - estimator_weight) * self.sd_prior_guess ** 2
