@@ -12,7 +12,7 @@ from .sparse_dense_matrix_operators \
 from .util.simple_warnings import warn_message_only
 from .util.onthefly_summarizer import OntheflySummarizer
 from .random import BasicRandom
-from .cg_sampler import ConjugateGradientSampler
+from .cg_sampler import ConjugateGradientSampler, CgSamplerInitializer
 
 
 class BayesBridge():
@@ -187,7 +187,8 @@ class BayesBridge():
 
         # Object for keeping track of running average.
         if not _add_iter_mode:
-            self.beta_summarizer = OntheflySummarizer(self.scale_beta(beta, tau, lam))
+            self.cg_initalizer = CgSamplerInitializer(beta, tau, lam)
+
 
         # Pre-allocate
         samples = {}
@@ -200,15 +201,15 @@ class BayesBridge():
 
             if self.link == 'gaussian':
                 omega = np.ones(self.n_obs) / sigma_sq
-            beta_runmean = self.scale_back_beta(
-                self.beta_summarizer.stats['mean'], tau, lam)
-            beta_post_sd = self.beta_summarizer.estimate_post_sd()
+
+            beta_condmean_guess = self.cg_initalizer.guess_beta_condmean(tau, lam)
+            beta_precond_scale_sd = self.cg_initalizer.estimate_beta_precond_scale_sd()
 
             beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
-                omega, tau, lam, beta_runmean, mvnorm_method,
-                precond_blocksize, beta_post_sd
+                omega, tau, lam, beta_condmean_guess, mvnorm_method,
+                precond_blocksize, beta_precond_scale_sd
             )
-            self.beta_summarizer.update_stats(self.scale_beta(beta, tau, lam))
+            self.cg_initalizer.update(beta, tau, lam)
 
             omega, sigma_sq = self.update_obs_precision(beta)
 
@@ -316,16 +317,6 @@ class BayesBridge():
             *= 1 / tilt[is_nonzero] \
                * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
         return pg_mean
-
-    def scale_beta(self, beta, tau, lam):
-        beta_scaled = beta.copy()
-        beta_scaled[self.n_unshrunk:] /= tau * lam
-        return beta_scaled
-
-    def scale_back_beta(self, beta_scaled, tau, lam):
-        beta = beta_scaled.copy()
-        beta[self.n_unshrunk:] *= tau * lam
-        return beta
 
     def update_beta(self, omega, tau, lam, beta_runmean,
                     mvnorm_method, precond_blocksize, beta_scaled_sd):
