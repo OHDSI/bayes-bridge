@@ -14,8 +14,7 @@ class ConjugateGradientSampler():
 
     def sample(
             self, X_row_major, X_col_major, omega, prior_prec_sqrt, z,
-            beta_init_1=None, beta_init_2=None,
-            precond_by='diag', precond_blocksize=0, beta_scaled_sd=None,
+            beta_init=None, precond_by='diag', precond_blocksize=0, beta_scaled_sd=None,
             maxiter=None, atol=10e-6, seed=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
@@ -51,17 +50,13 @@ class ConjugateGradientSampler():
             + prior_prec_sqrt * np.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
-        # Pick the initial vector for CG iteration
-        beta_scaled_init = self.choose_best_linear_comb(
-            beta_init_1, beta_init_2, Phi_precond_op, precond_scale, b
-        )
-
         # Callback function to count the number of PCG iterations.
         cg_info = {'n_iter': 0}
         def cg_callback(x): cg_info['n_iter'] += 1
 
         # Run PCG.
         rtol = atol / np.linalg.norm(b)
+        beta_scaled_init = beta_init / precond_scale
         beta_scaled, info = sp.sparse.linalg.cg(
             Phi_precond_op, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
             M=block_precond_op, callback=cg_callback
@@ -177,18 +172,6 @@ class ConjugateGradientSampler():
         )
 
         return block_preconditioner_op
-
-    def choose_best_linear_comb(
-            self, beta_init_1, beta_init_2, Phi_precond_op, precond_scale, b):
-
-        if beta_init_1 is not None:
-            beta_init_1 = beta_init_1.copy() / precond_scale
-        if beta_init_2 is not None:
-            beta_init_2 = beta_init_2.copy() / precond_scale
-        beta_scaled_init = self.optimize_cg_objective(
-            Phi_precond_op, b, beta_init_1, beta_init_2)
-
-        return beta_scaled_init
 
     def optimize_cg_objective(self, A, b, x1, x2=None):
         # Minimize the function f(x) = x'Ax / 2 - x'b along the line connecting

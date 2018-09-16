@@ -364,7 +364,7 @@ class BayesBridge():
             beta_precond_scale_sd = self.cg_initalizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
                 X_row_major, X_col_major, omega, prec_sqrt, v,
-                beta_init_1=beta_condmean_guess, beta_init_2=None,
+                beta_init=beta_condmean_guess,
                 precond_by='prior+block', precond_blocksize=precond_blocksize,
                 beta_scaled_sd=beta_precond_scale_sd,
                 maxiter=500, atol=10e-4
