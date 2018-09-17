@@ -13,18 +13,18 @@ class ConjugateGradientSampler():
         self.n_coef_wo_shrinkage = n_coef_wo_shrinkage
 
     def sample(
-            self, X_row_major, X_col_major, omega, prior_prec_sqrt, z,
+            self, X_row_major, X_col_major, omega, D, z,
             beta_init=None, precond_by='diag', precond_blocksize=0, beta_scaled_sd=None,
             maxiter=None, atol=10e-6, seed=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-           Sigma^{-1} = X' Omega X + prior_prec_sqrt^2, mu = Sigma z
+           Sigma^{-1} = X' Omega X + D^2, mu = Sigma z
         where D is assumed to be diagonal. For numerical stability, the code first sample
         from the scaled parameter beta / precond_scale.
 
         Param:
         ------
-        prior_prec_sqrt : vector
+        D : vector
         atol : float
             The absolute tolerance on the residual norm at the termination
             of CG iterations.
@@ -41,13 +41,13 @@ class ConjugateGradientSampler():
         # Define a preconditioned linear operator.
         Phi_precond_op, precond_scale, block_precond_op = \
             self.precondition_linear_system(
-                prior_prec_sqrt, omega, X_row_major, X_col_major, precond_by,
+                D, omega, X_row_major, X_col_major, precond_by,
                 precond_blocksize, beta_scaled_sd
             )
 
         # Draw a target vector.
         v = X_T.dot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
-            + prior_prec_sqrt * np.random.randn(X.shape[1])
+            + D * np.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
         # Callback function to count the number of PCG iterations.
