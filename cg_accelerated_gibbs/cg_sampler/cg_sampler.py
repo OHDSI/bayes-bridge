@@ -172,19 +172,3 @@ class ConjugateGradientSampler():
         )
 
         return block_preconditioner_op
-
-    def optimize_cg_objective(self, A, b, x1, x2=None):
-        # Minimize the function f(x) = x'Ax / 2 - x'b along the line connecting
-        # x1 and x2.
-        if x2 is None:
-            x = x1
-        else:
-            v = x2 - x1
-            Av = A(v)
-            denom = v.dot(Av)
-            if denom == 0:
-                t_argmin = 0
-            else:
-                t_argmin = (x1.dot(Av) - b.dot(v)) / denom
-            x = x1 - t_argmin * v
-        return x
