@@ -350,11 +350,11 @@ class BayesBridge():
         prior_sd = np.concatenate((
             self.prior_sd_for_unshrunk, tau * lam
         ))
-        prec_sqrt = 1 / prior_sd
+        prior_prec_sqrt = 1 / prior_sd
 
         if method == 'dense':
             beta = self.generate_gaussian_with_weight(
-                X_row_major, omega, prec_sqrt, v)
+                X_row_major, omega, prior_prec_sqrt, v)
             n_pcg_iter = np.nan
 
         elif method == 'pcg':
@@ -363,7 +363,7 @@ class BayesBridge():
             beta_condmean_guess = self.cg_initalizer.guess_beta_condmean(tau, lam)
             beta_precond_scale_sd = self.cg_initalizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
-                X_row_major, X_col_major, omega, prec_sqrt, v,
+                X_row_major, X_col_major, omega, prior_prec_sqrt, v,
                 beta_init=beta_condmean_guess,
                 precond_by='prior+block', precond_blocksize=precond_blocksize,
                 beta_scaled_sd=beta_precond_scale_sd,
