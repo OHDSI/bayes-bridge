@@ -87,9 +87,9 @@ class BayesBridge():
         self.rg = BasicRandom()
 
     def set_default_priors(self, prior_type, prior_param):
-        prior_type['tau'] = 'jeffreys'
-        # prior_type['tau'] = 'half-cauchy'
-        # prior_param['tau'] = {'scale': 1.0}
+        prior_type['global_shrinkage'] = 'jeffreys'
+        # prior_type['global_shrinkage'] = 'half-cauchy'
+        # prior_param['global_shrinkage'] = {'scale': 1.0}
         return prior_type, prior_param
 
     def gibbs_additional_iter(
@@ -183,12 +183,12 @@ class BayesBridge():
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
 
         # Initial state of the Markov chain
-        beta, sigma_sq, omega, lam, tau, init = \
+        beta, sigma_sq, obs_prec, lshrink, gshrink, init = \
             self.initialize_chain(init)
 
         # Object for keeping track of running average.
         if not _add_iter_mode:
-            self.cg_initalizer = CgSamplerInitializer(beta, tau, lam)
+            self.cg_initalizer = CgSamplerInitializer(beta, gshrink, lshrink)
 
 
         # Pre-allocate
@@ -201,23 +201,23 @@ class BayesBridge():
         for mcmc_iter in range(1, n_iter + 1):
 
             if self.link == 'gaussian':
-                omega = np.ones(self.n_obs) / sigma_sq
+                obs_prec = np.ones(self.n_obs) / sigma_sq
 
             beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
-                omega, tau, lam, mvnorm_method, precond_blocksize
+                obs_prec, gshrink, lshrink, mvnorm_method, precond_blocksize
             )
 
-            omega, sigma_sq = self.update_obs_precision(beta)
+            obs_prec, sigma_sq = self.update_obs_precision(beta)
 
-            # Draw from \tau | \beta and then \lambda | \tau, \beta. (The order matters.)
-            tau = self.update_global_shrinkage(
-                tau, beta[self.n_unshrunk:], reg_exponent, global_shrinkage_update)
+            # Draw from \gshrink | \beta and then \lambda | \gshrink, \beta. (The order matters.)
+            gshrink = self.update_global_shrinkage(
+                gshrink, beta[self.n_unshrunk:], reg_exponent, global_shrinkage_update)
 
-            lam = self.update_local_shrinkage(
-                tau, beta[self.n_unshrunk:], reg_exponent)
+            lshrink = self.update_local_shrinkage(
+                gshrink, beta[self.n_unshrunk:], reg_exponent)
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
-                                beta, lam, tau, sigma_sq, omega, reg_exponent)
+                                     beta, lshrink, gshrink, sigma_sq, obs_prec, reg_exponent)
 
         runtime = time.time() - start_time
         mcmc_output = {
@@ -246,12 +246,12 @@ class BayesBridge():
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
         samples['beta'] = np.zeros((self.n_pred, n_sample))
-        samples['lambda'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
-        samples['tau'] = np.zeros(n_sample)
+        samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
+        samples['global_shrinkage'] = np.zeros(n_sample)
         if self.link == 'gaussian':
             samples['sigma_sq'] = np.zeros(n_sample)
         elif self.link == 'logit':
-            samples['omega'] = np.zeros((self.n_obs, n_sample))
+            samples['obs_prec'] = np.zeros((self.n_obs, n_sample))
         samples['logp'] = np.zeros(n_sample)
 
         return
@@ -273,37 +273,37 @@ class BayesBridge():
         else:
             sigma_sq = np.mean((self.y - self.X.dot(beta)) ** 2)
 
-        if 'omega' in init:
-            omega = np.ascontiguousarray(init['omega'])
+        if 'obs_prec' in init:
+            obs_prec = np.ascontiguousarray(init['obs_prec'])
                 # Cython requires a C-contiguous array.
-            if not len(omega) == self.n_obs:
+            if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         elif self.link == 'logit':
-            omega = self.compute_polya_gamma_mean(self.n_trial, self.X.dot(beta))
+            obs_prec = self.compute_polya_gamma_mean(self.n_trial, self.X.dot(beta))
         else:
-            omega = None
+            obs_prec = None
 
-        if 'lambda' in init:
-            lam = init['lambda']
-            if not len(lam) == (self.n_pred - self.n_unshrunk):
+        if 'local_shrinkage' in init:
+            lshrink = init['local_shrinkage']
+            if not len(lshrink) == (self.n_pred - self.n_unshrunk):
                 raise ValueError('An invalid initial state.')
         else:
-            lam = np.ones(self.n_pred - self.n_unshrunk)
+            lshrink = np.ones(self.n_pred - self.n_unshrunk)
 
-        if 'tau' in init:
-            tau = init['tau']
+        if 'global_shrinkage' in init:
+            gshrink = init['global_shrinkage']
         else:
-            tau = 1
+            gshrink = 1
 
         init = {
             'beta': beta,
             'sigma_sq': sigma_sq,
-            'omega': omega,
-            'lambda': lam,
-            'tau': tau
+            'obs_prec': obs_prec,
+            'local_shrinkage': lshrink,
+            'global_shrinkage': gshrink
         }
 
-        return beta, sigma_sq, omega, lam, tau, init
+        return beta, sigma_sq, obs_prec, lshrink, gshrink, init
 
     def compute_polya_gamma_mean(self, shape, tilt):
         min_magnitude = 1e-5
@@ -314,22 +314,22 @@ class BayesBridge():
                * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
         return pg_mean
 
-    def update_beta(self, omega, tau, lam, mvnorm_method, precond_blocksize):
+    def update_beta(self, obs_prec, gshrink, lshrink, mvnorm_method, precond_blocksize):
 
         if self.link == 'gaussian':
             y_gaussian = self.y
         elif self.link == 'logit':
-            y_gaussian = (self.y - self.n_trial / 2) / omega
+            y_gaussian = (self.y - self.n_trial / 2) / obs_prec
 
         beta, n_pcg_iter = self.sample_gaussian_posterior(
-            y_gaussian, self.X_row_major, self.X_col_major, omega, tau, lam,
+            y_gaussian, self.X_row_major, self.X_col_major, obs_prec, gshrink, lshrink,
             mvnorm_method, precond_blocksize
         )
 
         return beta, n_pcg_iter
 
     def sample_gaussian_posterior(
-            self, y, X_row_major, X_col_major, omega, tau, lam, method='pcg',
+            self, y, X_row_major, X_col_major, obs_prec, gshrink, lshrink, method='pcg',
             precond_blocksize=0):
         """
         Param:
@@ -344,33 +344,34 @@ class BayesBridge():
                 sampler is used.
 
         """
-        #TODO: Comment on the form of the posterior.
+        # TODO: Comment on the form of the posterior.
 
         _, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
-        v = X_T.dot(omega * y)
+        v = X_T.dot(obs_prec * y)
         prior_sd = np.concatenate((
-            self.prior_sd_for_unshrunk, tau * lam
+            self.prior_sd_for_unshrunk, gshrink * lshrink
         ))
         prior_prec_sqrt = 1 / prior_sd
 
         if method == 'dense':
             beta = generate_gaussian_with_weight(
-                X_row_major, omega, prior_prec_sqrt, v)
+                X_row_major, obs_prec, prior_prec_sqrt, v)
             n_pcg_iter = np.nan
 
         elif method == 'pcg':
             # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
             # control the error in the MCMC output.
-            beta_condmean_guess = self.cg_initalizer.guess_beta_condmean(tau, lam)
+            beta_condmean_guess = \
+                self.cg_initalizer.guess_beta_condmean(gshrink, lshrink)
             beta_precond_scale_sd = self.cg_initalizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
-                X_row_major, X_col_major, omega, prior_prec_sqrt, v,
+                X_row_major, X_col_major, obs_prec, prior_prec_sqrt, v,
                 beta_init=beta_condmean_guess,
                 precond_by='prior+block', precond_blocksize=precond_blocksize,
                 beta_scaled_sd=beta_precond_scale_sd,
                 maxiter=500, atol=10e-4
             )
-            self.cg_initalizer.update(beta, tau, lam)
+            self.cg_initalizer.update(beta, gshrink, lshrink)
             n_pcg_iter = cg_info['n_iter']
 
         else:
@@ -381,55 +382,55 @@ class BayesBridge():
     def update_obs_precision(self, beta):
 
         sigma_sq = None
-        omega = None
+        obs_prec = None
         if self.link == 'gaussian':
             resid = self.y - self.X_row_major.dot(beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
         elif self.link == 'logit':
-            omega = self.rg.polya_gamma(
+            obs_prec = self.rg.polya_gamma(
                 self.n_trial, self.X_row_major.dot(beta),self.X.shape[0])
 
-        return omega, sigma_sq
+        return obs_prec, sigma_sq
 
     def update_global_shrinkage(
-            self, tau, beta_with_shrinkage, reg_exponent, method='sample'):
+            self, gshrink, beta_with_shrinkage, reg_exponent, method='sample'):
         # :param method: {"sample", "optimize", None}
 
         if method == 'optimize':
-            tau = self.monte_carlo_em_global_shrinkage(
+            gshrink = self.monte_carlo_em_global_shrinkage(
                 beta_with_shrinkage, reg_exponent)
 
         elif method == 'sample':
 
-            if self.prior_type['tau'] == 'jeffreys':
+            if self.prior_type['global_shrinkage'] == 'jeffreys':
 
-                # Conjugate update for phi = 1 / tau ** reg_exponent
+                # Conjugate update for phi = 1 / gshrink ** reg_exponent
                 shape = beta_with_shrinkage.size / reg_exponent
                 scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
                 phi = self.rg.np_random.gamma(shape, scale=scale)
-                tau = 1 / phi ** (1 / reg_exponent)
+                gshrink = 1 / phi ** (1 / reg_exponent)
 
-            elif self.prior_type['tau'] == 'half-cauchy':
+            elif self.prior_type['global_shrinkage'] == 'half-cauchy':
 
-                tau = self.slice_sample_global_shrinkage(
-                    tau, beta_with_shrinkage, self.prior_param['tau']['scale'], reg_exponent
+                gshrink = self.slice_sample_global_shrinkage(
+                    gshrink, beta_with_shrinkage, self.prior_param['global_shrinkage']['scale'], reg_exponent
                 )
             else:
                 raise NotImplementedError()
 
-        return tau
+        return gshrink
 
     def monte_carlo_em_global_shrinkage(
             self, beta_with_shrinkage, reg_exponent):
         phi = len(beta_with_shrinkage) / reg_exponent \
               / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
-        tau = phi ** - (1 / reg_exponent)
-        return tau
+        gshrink = phi ** - (1 / reg_exponent)
+        return gshrink
 
     def slice_sample_global_shrinkage(
-            self, tau, beta_with_shrinkage, global_scale, reg_exponent):
-        """ Slice sample phi = 1 / tau ** reg_exponent. """
+            self, gshrink, beta_with_shrinkage, global_scale, reg_exponent):
+        """ Slice sample phi = 1 / gshrink ** reg_exponent. """
 
         n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
 
@@ -438,7 +439,7 @@ class BayesBridge():
         scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
         gamma_rv = sp.stats.gamma(shape, scale=scale)
 
-        phi = 1 / tau
+        phi = 1 / gshrink
         for i in range(n_update):
             u = self.rg.np_random.uniform() \
                 / (1 + (global_scale * phi ** (1 / reg_exponent)) ** 2)
@@ -451,49 +452,49 @@ class BayesBridge():
                 # In this case, ignore the slicing variable and just sample from
                 # a Gamma.
                 phi = gamma_rv.rvs()
-        tau = 1 / phi ** (1 / reg_exponent)
+        gshrink = 1 / phi ** (1 / reg_exponent)
 
-        return tau
+        return gshrink
 
 
-    def update_local_shrinkage(self, tau, beta_with_shrinkage, reg_exponent):
+    def update_local_shrinkage(self, gshrink, beta_with_shrinkage, reg_exponent):
 
-        lam_sq = 1 / np.array([
-            2 * self.rg.tilted_stable(reg_exponent / 2, (beta_j / tau) ** 2)
+        lshrink_sq = 1 / np.array([
+            2 * self.rg.tilted_stable(reg_exponent / 2, (beta_j / gshrink) ** 2)
             for beta_j in beta_with_shrinkage
         ])
-        lam = np.sqrt(lam_sq)
+        lshrink = np.sqrt(lshrink_sq)
 
         # TODO: Pick the lower and upper bound more carefully.
-        if np.any(lam == 0):
+        if np.any(lshrink == 0):
             warn_message_only(
                 "Local shrinkage parameter under-flowed. Replacing with a small number.")
-            lam[lam == 0] = 10e-16
-        elif np.any(np.isinf(lam)):
+            lshrink[lshrink == 0] = 10e-16
+        elif np.any(np.isinf(lshrink)):
             warn_message_only(
                 "Local shrinkage parameter under-flowed. Replacing with a large number.")
-            lam[np.isinf(lam)] = 2.0 / tau
+            lshrink[np.isinf(lshrink)] = 2.0 / gshrink
 
-        return lam
+        return lshrink
 
     def store_current_state(self, samples, mcmc_iter, n_burnin, thin,
-                            beta, lam, tau, sigma_sq, omega, reg_exponent):
+                            beta, lshrink, gshrink, sigma_sq, obs_prec, reg_exponent):
 
         if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
             index = math.floor((mcmc_iter - n_burnin) / thin) - 1
             samples['beta'][:, index] = beta
-            samples['lambda'][:, index] = lam
-            samples['tau'][index] = tau
+            samples['local_shrinkage'][:, index] = lshrink
+            samples['global_shrinkage'][index] = gshrink
             if self.link == 'gaussian':
                 samples['sigma_sq'][index] = sigma_sq
             elif self.link == 'logit':
-                samples['omega'][:, index] = omega
+                samples['obs_prec'][:, index] = obs_prec
             samples['logp'][index] = \
-                self.compute_posterior_logprob(beta, tau, sigma_sq, reg_exponent)
+                self.compute_posterior_logprob(beta, gshrink, sigma_sq, reg_exponent)
 
         return
 
-    def compute_posterior_logprob(self, beta, tau, sigma_sq, reg_exponent):
+    def compute_posterior_logprob(self, beta, gshrink, sigma_sq, reg_exponent):
 
         prior_logp = 0
 
@@ -506,7 +507,7 @@ class BayesBridge():
             )
             loglik = np.sum(
                 self.y[within_bd] * np.log(predicted_prob[within_bd]) \
-                + (self.n_trial - self.y)[within_bd] 
+                + (self.n_trial - self.y)[within_bd]
                     * np.log(1 - predicted_prob[within_bd])
             )
         elif self.link == 'gaussian':
@@ -516,10 +517,10 @@ class BayesBridge():
 
         n_shrunk_coef = len(beta) - self.n_unshrunk
 
-        # Contribution from beta | tau.
+        # Contribution from beta | gshrink.
         prior_logp += \
-            - n_shrunk_coef * math.log(tau) \
-            - np.sum(np.abs(beta[self.n_unshrunk:] / tau) ** reg_exponent)
+            - n_shrunk_coef * math.log(gshrink) \
+            - np.sum(np.abs(beta[self.n_unshrunk:] / gshrink) ** reg_exponent)
 
         # for coefficients without shrinkage.
         prior_logp += - 1 / 2 * np.sum(
@@ -528,8 +529,8 @@ class BayesBridge():
         prior_logp += - np.sum(np.log(
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
         ))
-        if self.prior_type['tau'] == 'jeffreys':
-            prior_logp += - math.log(tau)
+        if self.prior_type['global_shrinkage'] == 'jeffreys':
+            prior_logp += - math.log(gshrink)
         else:
             raise NotImplementedError()
 
