@@ -393,7 +393,10 @@ class BayesBridge():
         omega_sqrt = omega ** (1 / 2)
         weighted_X = left_matmul_by_diag(omega_sqrt, X_row_major)
 
-        precond_scale = self.choose_diag_preconditioner(D, omega, X_row_major, precond_by)
+        self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
+        precond_scale = self.cg_sampler.choose_diag_preconditioner(
+            D, omega, X_row_major, precond_by
+        )
         weighted_X_scaled = right_matmul_by_diag(weighted_X, precond_scale)
 
         Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled)
