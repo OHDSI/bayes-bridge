@@ -13,6 +13,7 @@ from .util.simple_warnings import warn_message_only
 from .util.onthefly_summarizer import OntheflySummarizer
 from .random import BasicRandom
 from .reg_coef_sampler import ConjugateGradientSampler, CgSamplerInitializer
+from .reg_coef_sampler.direct_gaussian_sampler import generate_gaussian_with_weight
 
 
 class BayesBridge():
@@ -353,7 +354,7 @@ class BayesBridge():
         prior_prec_sqrt = 1 / prior_sd
 
         if method == 'dense':
-            beta = self.generate_gaussian_with_weight(
+            beta = generate_gaussian_with_weight(
                 X_row_major, omega, prior_prec_sqrt, v)
             n_pcg_iter = np.nan
 
@@ -376,40 +377,6 @@ class BayesBridge():
             raise NotImplementedError()
 
         return beta, n_pcg_iter
-
-    def generate_gaussian_with_weight(self, X_row_major, omega, D, z,
-                                      precond_by='diag'):
-        """
-        Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-           Sigma^{-1} = X' diag(omega) X + D^2, mu = Sigma z
-        where D is assumed to be diagonal.
-
-        Param:
-        ------
-            omega : vector
-            D : vector
-        """
-
-        omega_sqrt = omega ** (1 / 2)
-        weighted_X = left_matmul_by_diag(omega_sqrt, X_row_major)
-
-        self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
-        precond_scale = self.cg_sampler.choose_diag_preconditioner(
-            D, omega, X_row_major, precond_by
-        )
-        weighted_X_scaled = right_matmul_by_diag(weighted_X, precond_scale)
-
-        Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled)
-        if sp.sparse.issparse(X_row_major):
-            Phi_scaled = Phi_scaled.toarray()
-        Phi_scaled += np.diag((precond_scale * D) ** 2)
-        Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
-        mu = sp.linalg.cho_solve((Phi_scaled_chol, False), precond_scale * z)
-        beta_scaled = mu + sp.linalg.solve_triangular(
-            Phi_scaled_chol, self.rg.np_random.randn(X_row_major.shape[1]), lower=False
-        )
-        beta = precond_scale * beta_scaled
-        return beta
 
     def update_obs_precision(self, beta):
 
