@@ -19,8 +19,10 @@ def generate_gaussian_with_weight(X_row_major, omega, D, z, rand_gen=None):
 
     omega_sqrt = omega ** (1 / 2)
     weighted_X = left_matmul_by_diag(omega_sqrt, X_row_major)
-
-    inv_sqrt_diag_scale = jacobi_precondition(D, omega, X_row_major)
+    diag = D ** 2 + np.squeeze(np.asarray(
+        elemwise_power(weighted_X, 2).sum(axis=0)
+    ))
+    inv_sqrt_diag_scale = 1 / np.sqrt(diag)
     weighted_X_scaled = right_matmul_by_diag(weighted_X, inv_sqrt_diag_scale)
 
     Phi_scaled = weighted_X_scaled.T.dot(weighted_X_scaled)
@@ -39,15 +41,3 @@ def generate_gaussian_with_weight(X_row_major, omega, D, z, rand_gen=None):
     beta = inv_sqrt_diag_scale * beta_scaled
 
     return beta
-
-
-def jacobi_precondition(D, omega, X_row_major):
-
-    diag = D ** 2 + np.squeeze(np.asarray(
-        left_matmul_by_diag(
-            omega, elemwise_power(X_row_major, 2)
-        ).sum(axis=0)
-    ))
-    precond_scale = 1 / np.sqrt(diag)
-
-    return precond_scale
