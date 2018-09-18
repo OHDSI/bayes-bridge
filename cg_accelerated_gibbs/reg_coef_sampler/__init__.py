@@ -1,2 +1,1 @@
-from .cg_sampler import ConjugateGradientSampler
-from .cg_sampler_initializer import CgSamplerInitializer
+from .reg_coef_sampler import SparseRegressionCoefficientSampler
