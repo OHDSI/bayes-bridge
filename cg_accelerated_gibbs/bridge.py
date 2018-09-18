@@ -6,11 +6,7 @@ import scipy.sparse
 import math
 import time
 import pdb
-from .sparse_dense_matrix_operators \
-    import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
-    choose_optimal_format_for_matvec
 from .util.simple_warnings import warn_message_only
-from .util.onthefly_summarizer import OntheflySummarizer
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
 
