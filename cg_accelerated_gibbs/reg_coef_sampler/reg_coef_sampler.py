@@ -11,13 +11,26 @@ class SparseRegressionCoefficientSampler():
     def __init__(self, init, prior_sd_for_unshrunk, mvnorm_method):
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
-        self.n_unshrunk = len(init['beta']) - len(init['local_shrinkage'])
+        self.n_unshrunk = len(prior_sd_for_unshrunk)
+
         # Object for keeping track of running average.
         if mvnorm_method == 'pcg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
             self.cg_initalizer = CgSamplerInitializer(
                 init['beta'], init['global_shrinkage'], init['local_shrinkage']
             )
+
+    def get_internal_state(self):
+        state = {}
+        attr = 'cg_initializer'
+        if hasattr(self, attr):
+            state[attr] = getattr(self, attr)
+        return state
+
+    def set_internal_state(self, state):
+        attr = 'cg_initializer'
+        if hasattr(self, attr):
+            setattr(self, attr, state[attr])
 
     def sample_gaussian_posterior(
             self, y, X_row_major, X_col_major, obs_prec, gshrink, lshrink,

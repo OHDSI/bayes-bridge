@@ -107,6 +107,7 @@ class BayesBridge():
             deallocate = False
 
         self.rg.set_state(mcmc_output['_random_gen_state'])
+
         init = {
             key: np.take(val, -1, axis=-1).copy()
             for key, val in mcmc_output['samples'].items()
@@ -120,6 +121,13 @@ class BayesBridge():
             mcmc_output[key] for key in
             ['thin', 'reg_exponent', 'mvnorm_method', 'global_shrinkage_update']
         )
+
+        # Initalize the regression coefficient sampler with the previous state.
+        self.reg_coef_sampler = SparseRegressionCoefficientSampler(
+            init, self.prior_sd_for_unshrunk, mvnorm_method
+        )
+        self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
+
         if deallocate:
             mcmc_output.clear()
 
@@ -229,7 +237,8 @@ class BayesBridge():
             'mvnorm_method': mvnorm_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
-            '_random_gen_state': self.rg.get_state()
+            '_random_gen_state': self.rg.get_state(),
+            '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
         if mvnorm_method == 'pcg':
             mcmc_output['n_pcg_iter'] = n_pcg_iter
