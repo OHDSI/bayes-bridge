@@ -2,9 +2,6 @@ import numpy as np
 import scipy as sp
 import scipy.sparse
 import scipy.linalg
-from ..sparse_dense_matrix_operators \
-    import elemwise_power, left_matmul_by_diag, right_matmul_by_diag, \
-    choose_optimal_format_for_matvec
 from ..util.simple_warnings import warn_message_only
 
 class ConjugateGradientSampler():
@@ -13,7 +10,7 @@ class ConjugateGradientSampler():
         self.n_coef_wo_shrinkage = n_coef_wo_shrinkage
 
     def sample(
-            self, X_row_major, X_col_major, omega, D, z,
+            self, X, omega, D, z,
             beta_init=None, precond_by='diag', precond_blocksize=0, beta_scaled_sd=None,
             maxiter=None, atol=10e-6, seed=None):
         """
@@ -33,20 +30,18 @@ class ConjugateGradientSampler():
             without shrinkage. Used only if precond_by in ('prior', 'prior+block').
         """
 
-        X, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
-
         if seed is not None:
             np.random.seed(seed)
 
         # Define a preconditioned linear operator.
         Phi_precond_op, precond_scale, block_precond_op = \
             self.precondition_linear_system(
-                D, omega, X_row_major, X_col_major, precond_by,
+                D, omega, X, precond_by,
                 precond_blocksize, beta_scaled_sd
             )
 
         # Draw a target vector.
-        v = X_T.dot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
+        v = X.Tdot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
             + D * np.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
@@ -76,32 +71,30 @@ class ConjugateGradientSampler():
         return beta, cg_info
 
     def precondition_linear_system(
-            self, D, omega, X_row_major, X_col_major, precond_by,
+            self, D, omega, X, precond_by,
             precond_blocksize, beta_scaled_sd):
-
-        X, X_T = choose_optimal_format_for_matvec(X_row_major, X_col_major)
 
         # Compute the preconditioners.
         precond_scale, block_precond_op = self.choose_preconditioner(
-            D, omega, X_row_major, X_col_major, precond_by, precond_blocksize, beta_scaled_sd
+            D, omega, X, precond_by, precond_blocksize, beta_scaled_sd
         )
 
         # Define a preconditioned linear operator.
         D_scaled_sq = (precond_scale * D) ** 2
         def Phi_precond(x):
             Phi_x = D_scaled_sq * x \
-                    + precond_scale * X_T.dot(omega * X.dot(precond_scale * x))
+                    + precond_scale * X.Tdot(omega * X.dot(precond_scale * x))
             return Phi_x
         Phi_precond_op = sp.sparse.linalg.LinearOperator(
             (X.shape[1], X.shape[1]), matvec=Phi_precond
         )
         return Phi_precond_op, precond_scale, block_precond_op
 
-    def choose_preconditioner(self, D, omega, X_row_major, X_col_major,
+    def choose_preconditioner(self, D, omega, X,
                               precond_by, precond_blocksize, beta_scaled_sd):
 
         precond_scale = self.choose_diag_preconditioner(
-            D, omega, X_row_major, precond_by, beta_scaled_sd)
+            D, omega, X, precond_by, beta_scaled_sd)
 
         block_precond_op = None
         if precond_by == 'prior+block' and precond_blocksize > 0:
@@ -110,13 +103,13 @@ class ConjugateGradientSampler():
             subset_indices = np.argsort(pred_importance)[-precond_blocksize:]
             subset_indices = np.sort(subset_indices)
             block_precond_op = self.compute_block_preconditioner(
-                omega, X_row_major, X_col_major, D, precond_scale, subset_indices
+                omega, X, D, precond_scale, subset_indices
             )
 
         return precond_scale, block_precond_op
 
     def choose_diag_preconditioner(
-            self, D, omega, X_row_major, precond_by='diag',
+            self, D, omega, X, precond_by='diag',
             beta_scaled_sd=None):
         # Compute the diagonal (sqrt) preconditioner.
 
@@ -131,15 +124,13 @@ class ConjugateGradientSampler():
                     target_sd_scale * beta_scaled_sd[:self.n_coef_wo_shrinkage]
 
         elif precond_by == 'diag':
-            diag = D ** 2 + np.squeeze(np.asarray(
-                left_matmul_by_diag(
-                    omega, elemwise_power(X_row_major, 2)
-                ).sum(axis=0)
-            ))
+            diag = D ** 2 + np.squeeze(
+                X.elemwise_power(2).matmul_by_diag(omega, from_='left').sum(axis=0)
+            )
             precond_scale = 1 / np.sqrt(diag)
 
         elif precond_by is None:
-            precond_scale = np.ones(X_row_major.shape[1])
+            precond_scale = np.ones(X.shape[1])
 
         else:
             raise NotImplementedError()
@@ -147,18 +138,13 @@ class ConjugateGradientSampler():
         return precond_scale
 
     def compute_block_preconditioner(
-            self, omega, X_row_major, X_col_major, D, precond_scale, indices):
+            self, omega, X, D, precond_scale, indices):
 
-        if X_col_major is not None:
-            X = X_col_major
-        else:
-            X = X_row_major
+        weighted_X_subset = X.matmul_by_diag(omega ** (1 / 2), from_='left')
+        weighted_X_subset_scaled = \
+            weighted_X_subset.matmul_by_diag(precond_scale[indices], from_='right')
+        weighted_X_subset_scaled = weighted_X_subset_scaled.toarray()
 
-        weighted_X_subset = \
-            left_matmul_by_diag(omega ** (1 / 2), X[:, indices])
-        weighted_X_subset_scaled = right_matmul_by_diag(weighted_X_subset, precond_scale[indices])
-        if sp.sparse.issparse(weighted_X_subset_scaled):
-            weighted_X_subset_scaled = weighted_X_subset_scaled.toarray()
         B = weighted_X_subset_scaled.T.dot(weighted_X_subset_scaled) \
             + np.diag((D[indices] * precond_scale[indices]) ** 2)
 

@@ -9,6 +9,7 @@ import pdb
 from .util.simple_warnings import warn_message_only
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
+from .matrix import Matrix
 
 
 class BayesBridge():
@@ -46,9 +47,6 @@ class BayesBridge():
                     [float('inf')], prior_sd_for_unshrunk
                 ))
 
-        if sp.sparse.issparse(X):
-            X = X.tocsr()
-
         if link == 'logit':
             if n_trial is None:
                 self.n_trial = np.ones(len(y))
@@ -67,13 +65,7 @@ class BayesBridge():
         self.n_unshrunk = n_coef_without_shrinkage
         self.link = link
         self.y = y
-        if sp.sparse.issparse(X):
-            X = X.tocsr()
-            self.X_col_major = X.tocsc()
-        else:
-            self.X_col_major = None
-        self.X_row_major = X
-        self.X = X
+        self.X = Matrix(X)
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
         self.prior_type = {}
@@ -324,7 +316,7 @@ class BayesBridge():
             y_gaussian = (self.y - self.n_trial / 2) / obs_prec
 
         beta, n_pcg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
-            y_gaussian, self.X_row_major, self.X_col_major, obs_prec, gshrink, lshrink,
+            y_gaussian, self.X, obs_prec, gshrink, lshrink,
             mvnorm_method, precond_blocksize
         )
 
@@ -335,12 +327,12 @@ class BayesBridge():
         sigma_sq = None
         obs_prec = None
         if self.link == 'gaussian':
-            resid = self.y - self.X_row_major.dot(beta)
+            resid = self.y - self.X.dot(beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
         elif self.link == 'logit':
             obs_prec = self.rg.polya_gamma(
-                self.n_trial, self.X_row_major.dot(beta),self.X.shape[0])
+                self.n_trial, self.X.dot(beta),self.X.shape[0])
 
         return obs_prec, sigma_sq
 
