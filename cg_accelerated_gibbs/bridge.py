@@ -213,7 +213,8 @@ class BayesBridge():
 
             obs_prec, sigma_sq = self.update_obs_precision(beta)
 
-            # Draw from \gshrink | \beta and then \lambda | \gshrink, \beta. (The order matters.)
+            # Draw from gshrink | \beta and then lshrink | gshrink, \beta.
+            # (The order matters.)
             gshrink = self.update_global_shrinkage(
                 gshrink, beta[self.n_unshrunk:], reg_exponent, global_shrinkage_update)
 
