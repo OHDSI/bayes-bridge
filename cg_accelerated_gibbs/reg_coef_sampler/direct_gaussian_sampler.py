@@ -16,9 +16,7 @@ def generate_gaussian_with_weight(X, omega, D, z, rand_gen=None):
 
     omega_sqrt = omega ** (1 / 2)
     weighted_X = X.matmul_by_diag(omega_sqrt, from_='left')
-    diag = D ** 2 + np.squeeze(
-        weighted_X.elemwise_power(2).sum(axis=0)
-    )
+    diag = D ** 2 + weighted_X.sqnorm(axis=0)
     inv_sqrt_diag_scale = 1 / np.sqrt(diag)
     weighted_X_scaled = \
         weighted_X.matmul_by_diag(inv_sqrt_diag_scale,
