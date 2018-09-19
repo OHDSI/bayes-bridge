@@ -138,6 +138,22 @@ class Matrix():
         else:
             return self.X.T.dot(v)
 
+    def sqnorm(self, axis=0):
+
+        if axis != 0:
+            raise NotImplementedError()
+
+        if self.format == 'sparse':
+            if self.order == 'row_major':
+                sq_norm = self.X_row_major.power(2).sum(0)
+            else:
+                sq_norm = self.X_col_major.power(2).sum(0)
+        else:
+            sq_norm = np.sum(self.X ** 2, 0)
+        sq_norm = np.squeeze(np.asarray(sq_norm))
+
+        return sq_norm
+
     def elemwise_power(self, exponent, order=None):
 
         if self.format == 'sparse':
