@@ -11,7 +11,7 @@ class ConjugateGradientSampler():
 
     def sample(
             self, X, omega, D, z,
-            beta_init=None, precond_by='diag', precond_blocksize=0, beta_scaled_sd=None,
+            beta_init=None, precond_by='prior', precond_blocksize=0, beta_scaled_sd=None,
             maxiter=None, atol=10e-6, seed=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
