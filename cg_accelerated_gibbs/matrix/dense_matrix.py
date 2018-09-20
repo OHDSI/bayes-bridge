@@ -48,12 +48,6 @@ class DenseMatrix(AbstractMatrix):
     def sqnorm(self, axis=0):
         return np.squeeze(np.sum(self.X ** 2, 0))
 
-    def sum(self, axis):
-        return self.X.sum(axis=axis)
-
-    def elemwise_power(self, exponent, order=None):
-        return DenseMatrix(self.X ** exponent)
-
     def toarray(self):
         return self.X
 

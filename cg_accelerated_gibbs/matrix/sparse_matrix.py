@@ -109,54 +109,8 @@ class SparseMatrix(AbstractMatrix):
 
         return sq_norm
 
-    def elemwise_power(self, exponent, order=None):
-
-        if order == 'col_major' and (self.X_col_major is not None):
-            X_powered = self.X_col_major.power(exponent)
-        elif order == 'row_major' and (self.X_row_major is not None):
-            X_powered = self.X_row_major.power(exponent)
-        else:
-            X_powered = self.X.power(exponent)
-
-        return SparseMatrix(X_powered, order)
-
-    def sum(self, axis):
-        # TODO: optimally choose row or col major depending on the summation axis?
-        return np.asarray(self.X.sum(axis=axis))
-
-    def switch_order(self, target_order):
-
-        if self.order is None:
-            raise NotImplementedError()
-
-        if self.order != target_order:
-            if target_order == 'row_major':
-                self.X_row_major = self.X_col_major.csr()
-                self.X = self.X_row_major
-                self.order = target_order
-            elif target_order == 'col_major':
-                self.X_col_major = self.X_row_major.csc()
-                self.X = self.X_col_major
-                self.order = target_order
-            else:
-                raise NotImplementedError()
-
     def toarray(self):
         return self.X.toarray()
 
     def extract_matrix(self, order=None):
-
-        if order == 'row_major':
-            if self.X_row_major is not None:
-                X = self.X_row_major
-            else:
-                X = self.X.csr()
-        elif order == 'col_major':
-            if self.X_col_major is not None:
-                X = self.X_col_major
-            else:
-                X = self.X.tocsc()
-        else:
-            X = self.X
-
-        return X
+        pass

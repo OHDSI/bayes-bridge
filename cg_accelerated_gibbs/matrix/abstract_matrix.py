@@ -38,14 +38,6 @@ class AbstractMatrix():
         pass
 
     @abc.abstractmethod
-    def elemwise_power(self, exponent, order=None):
-        pass
-
-    @abc.abstractmethod
-    def sum(self):
-        pass
-
-    @abc.abstractmethod
     def toarray(self):
         """ Returns a 2-dimensional numpy array. """
         pass
