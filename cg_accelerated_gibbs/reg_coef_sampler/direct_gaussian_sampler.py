@@ -14,15 +14,10 @@ def generate_gaussian_with_weight(X, omega, D, z, rand_gen=None):
         D : vector
     """
 
-    omega_sqrt = omega ** (1 / 2)
-    weighted_X = X.matmul_by_diag(omega_sqrt, from_='left')
-    diag = D ** 2 + weighted_X.sqnorm(axis=0)
+    diag = D ** 2 + X.extract_fisher_info_diag(omega)
     inv_sqrt_diag_scale = 1 / np.sqrt(diag)
-    weighted_X_scaled = \
-        weighted_X.matmul_by_diag(inv_sqrt_diag_scale,
-                                  from_='right', order='col_major')
-
-    Phi_scaled = weighted_X_scaled.transpose().matdot(weighted_X_scaled)
+    Phi_scaled = inv_sqrt_diag_scale[:, np.newaxis] \
+        * X.compute_fisher_info(omega) * inv_sqrt_diag_scale[np.newaxis, :]
     Phi_scaled += np.diag((inv_sqrt_diag_scale * D) ** 2)
     Phi_scaled_chol = sp.linalg.cholesky(Phi_scaled)
     mu = sp.linalg.cho_solve((Phi_scaled_chol, False), inv_sqrt_diag_scale * z)

@@ -124,8 +124,7 @@ class ConjugateGradientSampler():
                     target_sd_scale * beta_scaled_sd[:self.n_coef_wo_shrinkage]
 
         elif precond_by == 'diag':
-            weighted_X = X.matmul_by_diag(np.sqrt(omega), from_='left')
-            diag = D ** 2 + weighted_X.sqnorm(axis=0)
+            diag = D ** 2 + X.extract_fisher_info_diag(weight=omega)
             precond_scale = 1 / np.sqrt(diag)
 
         elif precond_by is None:
@@ -139,6 +138,7 @@ class ConjugateGradientSampler():
     def compute_block_preconditioner(
             self, omega, X, D, precond_scale, indices):
 
+        # TODO: debug this method.
         weighted_X_subset = X.matmul_by_diag(omega ** (1 / 2), from_='left')
         weighted_X_subset_scaled = \
             weighted_X_subset.matmul_by_diag(precond_scale[indices], from_='right')
