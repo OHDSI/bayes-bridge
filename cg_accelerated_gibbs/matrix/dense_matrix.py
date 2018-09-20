@@ -1,7 +1,7 @@
 import numpy as np
-from .abstract_matrix import AbstractMatrix
+from .abstract_matrix import AbstractDesignMatrix
 
-class DenseMatrix(AbstractMatrix):
+class DenseDesignMatrix(AbstractDesignMatrix):
     
     def __init__(self, X):
         """

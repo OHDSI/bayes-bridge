@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse as sparse
-from .abstract_matrix import AbstractMatrix
+from .abstract_matrix import AbstractDesignMatrix
 
-class SparseMatrix(AbstractMatrix):
+class SparseDesignMatrix(AbstractDesignMatrix):
 
     def __init__(self, X):
         """

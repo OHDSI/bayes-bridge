@@ -1,2 +1,2 @@
-from .sparse_matrix import SparseMatrix
-from .dense_matrix import DenseMatrix
+from .sparse_matrix import SparseDesignMatrix
+from .dense_matrix import DenseDesignMatrix

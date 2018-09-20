@@ -1,6 +1,6 @@
 import abc
 
-class AbstractMatrix():
+class AbstractDesignMatrix():
 
     @abc.abstractmethod
     def dot(self, v):

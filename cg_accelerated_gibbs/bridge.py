@@ -9,7 +9,7 @@ import pdb
 from .util.simple_warnings import warn_message_only
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
-from .matrix import SparseMatrix, DenseMatrix
+from .matrix import SparseDesignMatrix, DenseDesignMatrix
 
 
 class BayesBridge():
@@ -57,7 +57,7 @@ class BayesBridge():
         self.n_unshrunk = n_coef_without_shrinkage
         self.link = link
         self.y = y
-        self.X = SparseMatrix(X) if sp.sparse.issparse(X) else DenseMatrix(X)
+        self.X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
         self.prior_type = {}
