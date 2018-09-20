@@ -4,50 +4,21 @@ from .abstract_matrix import AbstractMatrix
 
 class SparseMatrix(AbstractMatrix):
 
-    def __init__(self, X, order=None):
+    def __init__(self, X):
         """
         Params:
         ------
-        X : scipy sparse matrix, or tuple of (csr, csc) SparseMatrix
-        order : str, {'row_major', 'col_major', None}
+        X : scipy sparse matrix
         """
-        if type(X) is tuple:
-
-            self.X_row_major, self.X_col_major = X
-            self.X = self.X_row_major
-            self.format = 'sparse'
-            self.order = None
-
-        else:
-
-            if order == 'row_major':
-                self.X_row_major = X.tocsr()
-                self.X_col_major = None
-                self.X = self.X_row_major
-            elif order == 'col_major':
-                self.X_row_major = None
-                self.X_col_major = X.tocsc()
-                self.X = self.X_col_major
-            else:
-                self.X_row_major = X.tocsr()
-                self.X_col_major = X.tocsc()
-                self.X = self.X_row_major
-            self.format = 'sparse'
-            self.order = order
-
-        self.shape = self.X.shape
+        self.X_row_major = X.tocsr()
+        self.X_col_major = X.tocsc()
+        self.shape = self.X_row_major.shape
 
     def dot(self, v):
-        if self.format == 'sparse' and (self.X_row_major is not None):
-            return self.X_row_major.dot(v)
-        else:
-            return self.X.dot(v)
+        return self.X_row_major.dot(v)
 
     def Tdot(self, v):
-        if self.format == 'sparse' and (self.X_col_major is not None):
-            return self.X_col_major.T.dot(v)
-        else:
-            return self.X.T.dot(v)
+        return self.X_col_major.T.dot(v)
 
     def compute_fisher_info(self, weight, diag_only=False):
 
