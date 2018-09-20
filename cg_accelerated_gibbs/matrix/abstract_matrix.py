@@ -14,13 +14,8 @@ class AbstractMatrix():
         pass
 
     @abc.abstractmethod
-    def compute_fisher_info(self, weight):
+    def compute_fisher_info(self, weight, diag_only):
         """ Computes X' diag(weight) X and returns it as a numpy array. """
-        pass
-
-    @abc.abstractmethod
-    def extract_fisher_info_diag(self, weight):
-        """ Returns the diagonal elements of X' diag(weight) X. """
         pass
 
     @abc.abstractmethod

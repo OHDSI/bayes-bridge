@@ -124,7 +124,7 @@ class ConjugateGradientSampler():
                     target_sd_scale * beta_scaled_sd[:self.n_coef_wo_shrinkage]
 
         elif precond_by == 'diag':
-            diag = D ** 2 + X.extract_fisher_info_diag(weight=omega)
+            diag = D ** 2 + X.compute_fisher_info(weight=omega, diag_only=True)
             precond_scale = 1 / np.sqrt(diag)
 
         elif precond_by is None:

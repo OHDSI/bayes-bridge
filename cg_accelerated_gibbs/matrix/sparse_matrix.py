@@ -49,16 +49,17 @@ class SparseMatrix(AbstractMatrix):
         else:
             return self.X.T.dot(v)
 
-    def compute_fisher_info(self, weight):
-        weight_mat = self.create_diag_matrix(weight)
-        X_T = self.X_row_major.T
-        weighted_X = weight_mat.dot(self.X_row_major).tocsc()
-        return X_T.dot(weighted_X).toarray()
+    def compute_fisher_info(self, weight, diag_only=False):
 
-    def extract_fisher_info_diag(self, weight):
         weight_mat = self.create_diag_matrix(weight)
-        diag = weight_mat.dot(self.X_row_major.power(2)).sum(0)
-        return np.squeeze(np.asarray(diag))
+
+        if diag_only:
+            diag = weight_mat.dot(self.X_row_major.power(2)).sum(0)
+            return np.squeeze(np.asarray(diag))
+        else:
+            X_T = self.X_row_major.T
+            weighted_X = weight_mat.dot(self.X_row_major).tocsc()
+            return X_T.dot(weighted_X).toarray()
 
     def create_diag_matrix(self, v):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))

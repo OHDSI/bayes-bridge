@@ -23,11 +23,11 @@ class DenseMatrix(AbstractMatrix):
     def Tdot(self, v):
         return self.X.T.dot(v)
 
-    def compute_fisher_info(self, weight):
-        return self.X.T.dot(weight[:, np.newaxis] * self.X)
-
-    def extract_fisher_info_diag(self, weight):
-        return np.sum(weight[:, np.newaxis] * self.X ** 2, 0)
+    def compute_fisher_info(self, weight, diag_only=False):
+        if diag_only:
+            return np.sum(weight[:, np.newaxis] * self.X ** 2, 0)
+        else:
+            return self.X.T.dot(weight[:, np.newaxis] * self.X)
 
     def toarray(self):
         return self.X

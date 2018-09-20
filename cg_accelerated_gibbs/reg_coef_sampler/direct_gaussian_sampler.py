@@ -14,7 +14,7 @@ def generate_gaussian_with_weight(X, omega, D, z, rand_gen=None):
         D : vector
     """
 
-    diag = D ** 2 + X.extract_fisher_info_diag(omega)
+    diag = D ** 2 + X.compute_fisher_info(weight=omega, diag_only=True)
     inv_sqrt_diag_scale = 1 / np.sqrt(diag)
     Phi_scaled = inv_sqrt_diag_scale[:, np.newaxis] \
         * X.compute_fisher_info(omega) * inv_sqrt_diag_scale[np.newaxis, :]
