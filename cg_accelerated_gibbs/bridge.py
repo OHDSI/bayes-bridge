@@ -9,7 +9,6 @@ import pdb
 from .util.simple_warnings import warn_message_only
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
-from .matrix import Matrix
 from .matrix import SparseMatrix, DenseMatrix
 
 
