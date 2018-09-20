@@ -23,31 +23,6 @@ class DenseMatrix(AbstractMatrix):
     def Tdot(self, v):
         return self.X.T.dot(v)
 
-    def matmul_by_diag(self, v, from_, order=None):
-        """
-        Computes dot(diag(v), X) if direc == 'left' or dot(X, diag(v))
-        if direc == 'right'. Return a numpy or scipy.sparse array.
-
-        Params:
-        ------
-        v : vector
-        """
-        if from_ == 'left':
-            X_multiplied = v[:, np.newaxis] * self.X
-        elif from_ == 'right':
-            X_multiplied = self.X * v[np.newaxis, :]
-
-        return DenseMatrix(X_multiplied, order)
-
-    def transpose(self):
-        return DenseMatrix(self.X.T)
-
-    def matdot(self, another):
-        return self.X.dot(another.X)
-
-    def sqnorm(self, axis=0):
-        return np.squeeze(np.sum(self.X ** 2, 0))
-
     def toarray(self):
         return self.X
 
