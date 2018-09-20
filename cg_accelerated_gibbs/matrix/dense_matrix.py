@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.sparse as sparse
 from .abstract_matrix import AbstractMatrix
 
 class DenseMatrix(AbstractMatrix):
@@ -13,8 +12,6 @@ class DenseMatrix(AbstractMatrix):
         """
 
         self.X = X
-        self.format = 'dense'
-        self.order = None
         self.shape = self.X.shape
 
     def dot(self, v):

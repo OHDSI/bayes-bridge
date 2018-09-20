@@ -1,5 +1,3 @@
-import numpy as np
-import scipy.sparse as sparse
 import abc
 
 class AbstractMatrix():
