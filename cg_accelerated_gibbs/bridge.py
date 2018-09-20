@@ -36,16 +36,8 @@ class BayesBridge():
             raise ValueError('Invalid array size for prior sd.')
 
         if add_intercept:
-            if sp.sparse.issparse(X):
-                hstack = sp.sparse.hstack
-            else:
-                hstack = np.hstack
-            X = hstack((np.ones((X.shape[0], 1)), X))
-            n_coef_without_shrinkage += 1
-            if not np.isscalar(prior_sd_for_unshrunk):
-                prior_sd_for_unshrunk = np.concatenate((
-                    [float('inf')], prior_sd_for_unshrunk
-                ))
+            X, n_coef_without_shrinkage, prior_sd_for_unshrunk = \
+                self.add_intercept(X, n_coef_without_shrinkage, prior_sd_for_unshrunk)
 
         if link == 'logit':
             if n_trial is None:
@@ -72,6 +64,19 @@ class BayesBridge():
         self.prior_param = {}
         self.set_default_priors(self.prior_type, self.prior_param)
         self.rg = BasicRandom()
+
+    def add_intercept(self, X, n_coef_without_shrinkage, prior_sd_for_unshrunk):
+        if sp.sparse.issparse(X):
+            hstack = sp.sparse.hstack
+        else:
+            hstack = np.hstack
+        X = hstack((np.ones((X.shape[0], 1)), X))
+        n_coef_without_shrinkage += 1
+        if not np.isscalar(prior_sd_for_unshrunk):
+            prior_sd_for_unshrunk = np.concatenate((
+                [float('inf')], prior_sd_for_unshrunk
+            ))
+        return X, n_coef_without_shrinkage, prior_sd_for_unshrunk
 
     def set_default_priors(self, prior_type, prior_param):
         prior_type['global_shrinkage'] = 'jeffreys'
