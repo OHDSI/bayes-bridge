@@ -11,10 +11,11 @@ class LogisticModel(AbstractModel):
         self.X = X
 
     def compute_loglik_and_gradient(self, beta):
-        predicted_prob = LogisticModel.compute_predicted_prob(self.X, beta)
+        logit_prob = self.X.dot(beta)
+        predicted_prob = LogisticModel.convert_to_probability_scale(logit_prob)
         loglik = np.sum(
-            self.y * np.log(predicted_prob) \
-            + (self.n_trial - self.y) * np.log(1 - predicted_prob)
+            self.y * logit_prob \
+            - self.n_trial * np.log(1 + np.exp(logit_prob))
         )
         grad = self.X.Tdot(self.y - self.n_trial * predicted_prob)
         return loglik, grad
