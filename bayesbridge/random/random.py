@@ -16,8 +16,8 @@ class BasicRandom():
 
     def set_seed(self, seed):
         self.np_random.seed(seed)
-        pg_seed = np.random.random_integers(np.iinfo(np.uint32).max)
-        ts_seed = np.random.random_integers(np.iinfo(np.uint32).max)
+        pg_seed = np.random.randint(1, 1 + np.iinfo(np.uint32).max)
+        ts_seed = np.random.randint(1, 1 + np.iinfo(np.uint32).max)
         self.pg = PyPolyaGamma(seed=pg_seed)
         self.ts = ExpTiltedStableDist(seed=ts_seed)
 
