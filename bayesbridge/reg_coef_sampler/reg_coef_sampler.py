@@ -69,7 +69,7 @@ class SparseRegressionCoefficientSampler():
                 beta_init=beta_condmean_guess,
                 precond_by='prior+block', precond_blocksize=precond_blocksize,
                 beta_scaled_sd=beta_precond_scale_sd,
-                maxiter=500, atol=10e-4
+                maxiter=500, atol=10e-6 * np.sqrt(X.shape[1])
             )
             self.cg_initalizer.update(beta, gshrink, lshrink)
             n_pcg_iter = cg_info['n_iter']
