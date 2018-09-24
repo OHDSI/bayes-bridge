@@ -115,7 +115,9 @@ class ConjugateGradientSampler():
 
         if precond_by in ('prior', 'prior+block'):
 
-            precond_scale = D ** -1
+            precond_scale = np.ones(len(D))
+            precond_scale[self.n_coef_wo_shrinkage:] = \
+                D[self.n_coef_wo_shrinkage:] ** -1
             if self.n_coef_wo_shrinkage > 0:
                 target_sd_scale = 2.
                     # Larger than 1 because it is better to err on the side
