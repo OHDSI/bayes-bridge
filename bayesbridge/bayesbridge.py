@@ -150,7 +150,7 @@ class BayesBridge():
 
         return next_mcmc_output
 
-    def gibbs(self, n_burnin, n_post_burnin, thin, reg_exponent=.5,
+    def gibbs(self, n_burnin, n_post_burnin, thin=1, reg_exponent=.5,
               init={}, mvnorm_method='pcg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', _add_iter_mode=False):
         """
