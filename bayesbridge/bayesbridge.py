@@ -151,7 +151,7 @@ class BayesBridge():
         return next_mcmc_output
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, reg_exponent=.5,
-              init={}, mvnorm_method='pcg', precond_blocksize=0, seed=None,
+              init={}, mvnorm_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
@@ -164,7 +164,7 @@ class BayesBridge():
             number of burn-in samples to be discarded
         n_post_burnin : int
             number of posterior draws to be saved
-        mvnorm_method : str, {'dense', 'pcg'}
+        mvnorm_method : str, {'direct', 'cg'}
         precond_blocksize : int
             size of the block preconditioner
         global_shrinkage_update : str, {'sample', 'optimize', None}
@@ -191,7 +191,7 @@ class BayesBridge():
         # Pre-allocate
         samples = {}
         self.pre_allocate(samples, n_post_burnin, thin)
-        n_pcg_iter = np.zeros(n_iter)
+        n_cg_iter = np.zeros(n_iter)
 
         # Start Gibbs sampling
         start_time = time.time()
@@ -200,7 +200,7 @@ class BayesBridge():
             if self.model == 'linear':
                 obs_prec = np.ones(self.n_obs) / sigma_sq
 
-            beta, n_pcg_iter[mcmc_iter - 1] = self.update_beta(
+            beta, n_cg_iter[mcmc_iter - 1] = self.update_beta(
                 obs_prec, gshrink, lshrink, mvnorm_method, precond_blocksize
             )
 
@@ -234,8 +234,8 @@ class BayesBridge():
             '_random_gen_state': self.rg.get_state(),
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
-        if mvnorm_method == 'pcg':
-            mcmc_output['n_pcg_iter'] = n_pcg_iter
+        if mvnorm_method == 'cg':
+            mcmc_output['n_cg_iter'] = n_cg_iter
             if precond_blocksize > 0:
                 mcmc_output['precond_blocksize'] = precond_blocksize
 
@@ -320,12 +320,12 @@ class BayesBridge():
         elif self.model == 'logit':
             y_gaussian = (self.y - self.n_trial / 2) / obs_prec
 
-        beta, n_pcg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
+        beta, n_cg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
             y_gaussian, self.X, obs_prec, gshrink, lshrink,
             mvnorm_method, precond_blocksize
         )
 
-        return beta, n_pcg_iter
+        return beta, n_cg_iter
 
     def update_obs_precision(self, beta):
 

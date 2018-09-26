@@ -11,7 +11,7 @@ class SparseRegressionCoefficientSampler():
         self.n_unshrunk = len(prior_sd_for_unshrunk)
 
         # Object for keeping track of running average.
-        if mvnorm_method == 'pcg':
+        if mvnorm_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
             self.cg_initalizer = CgSamplerInitializer(
                 init['beta'], init['global_shrinkage'], init['local_shrinkage']
@@ -31,17 +31,17 @@ class SparseRegressionCoefficientSampler():
 
     def sample_gaussian_posterior(
             self, y, X, obs_prec, gshrink, lshrink,
-            method='pcg', precond_blocksize=0):
+            method='cg', precond_blocksize=0):
         """
         Param:
         ------
             X: Matrix object
             beta_init: vector
-                Used when when method == 'pcg' as the starting value of the
+                Used when when method == 'cg' as the starting value of the
                 preconditioned conjugate gradient algorithm.
-            method: {'dense', 'pcg'}
-                If 'dense', a sample is generated using a direct method based on the
-                dense linear algebra. If 'pcg', the preconditioned conjugate gradient
+            method: {'direct', 'cg'}
+                If 'direct', a sample is generated using a direct method based on the
+                direct linear algebra. If 'cg', the preconditioned conjugate gradient
                 sampler is used.
 
         """
@@ -53,12 +53,12 @@ class SparseRegressionCoefficientSampler():
         ))
         prior_prec_sqrt = 1 / prior_sd
 
-        if method == 'dense':
+        if method == 'direct':
             beta = generate_gaussian_with_weight(
                 X, obs_prec, prior_prec_sqrt, v)
-            n_pcg_iter = np.nan
+            n_cg_iter = np.nan
 
-        elif method == 'pcg':
+        elif method == 'cg':
             # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
             # control the error in the MCMC output.
             beta_condmean_guess = \
@@ -72,9 +72,9 @@ class SparseRegressionCoefficientSampler():
                 maxiter=500, atol=10e-6 * np.sqrt(X.shape[1])
             )
             self.cg_initalizer.update(beta, gshrink, lshrink)
-            n_pcg_iter = cg_info['n_iter']
+            n_cg_iter = cg_info['n_iter']
 
         else:
             raise NotImplementedError()
 
-        return beta, n_pcg_iter
+        return beta, n_cg_iter
