@@ -20,6 +20,11 @@ class BayesBridge():
         """
         Params
         ------
+        y : vector
+        X : numpy array or scipy sparse matrix
+        n_trial : vector
+            Used for the logistic model for binomial outcomes.
+        model : str, {'linear', 'logit'}
         n_coef_without_shrinkage : int
             The number of predictors whose coefficients are to be estimated
             without any shrinkage (a.k.a. regularization).
@@ -158,8 +163,6 @@ class BayesBridge():
 
         Parameters
         ----------
-        y : vector
-        X : numpy array
         n_burnin : int
             number of burn-in samples to be discarded
         n_post_burnin : int
