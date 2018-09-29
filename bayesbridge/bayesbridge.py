@@ -295,7 +295,7 @@ class BayesBridge():
         if 'global_shrinkage' in init:
             gshrink = init['global_shrinkage']
         else:
-            gshrink = 1
+            gshrink = .01
 
         init = {
             'beta': beta,
