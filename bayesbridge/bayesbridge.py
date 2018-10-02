@@ -115,9 +115,9 @@ class BayesBridge():
         else:
             precond_blocksize = 0
 
-        thin, reg_exponent, mvnorm_method, global_shrinkage_update = (
+        thin, shrinkage_exponent, mvnorm_method, global_shrinkage_update = (
             mcmc_output[key] for key in
-            ['thin', 'reg_exponent', 'mvnorm_method', 'global_shrinkage_update']
+            ['thin', 'shrinkage_exponent', 'mvnorm_method', 'global_shrinkage_update']
         )
 
         # Initalize the regression coefficient sampler with the previous state.
@@ -130,7 +130,7 @@ class BayesBridge():
             mcmc_output.clear()
 
         next_mcmc_output = self.gibbs(
-            0, n_iter, thin, reg_exponent, init, mvnorm_method=mvnorm_method,
+            0, n_iter, thin, shrinkage_exponent, init, mvnorm_method=mvnorm_method,
             precond_blocksize=precond_blocksize,
             global_shrinkage_update=global_shrinkage_update,
             _add_iter_mode=True
@@ -155,7 +155,7 @@ class BayesBridge():
 
         return next_mcmc_output
 
-    def gibbs(self, n_burnin, n_post_burnin, thin=1, reg_exponent=.5,
+    def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
               init={}, mvnorm_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', _add_iter_mode=False):
         """
@@ -212,13 +212,13 @@ class BayesBridge():
             # Draw from gshrink | \beta and then lshrink | gshrink, \beta.
             # (The order matters.)
             gshrink = self.update_global_shrinkage(
-                gshrink, beta[self.n_unshrunk:], reg_exponent, global_shrinkage_update)
+                gshrink, beta[self.n_unshrunk:], shrinkage_exponent, global_shrinkage_update)
 
             lshrink = self.update_local_shrinkage(
-                gshrink, beta[self.n_unshrunk:], reg_exponent)
+                gshrink, beta[self.n_unshrunk:], shrinkage_exponent)
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
-                                     beta, lshrink, gshrink, sigma_sq, obs_prec, reg_exponent)
+                                     beta, lshrink, gshrink, sigma_sq, obs_prec, shrinkage_exponent)
 
         runtime = time.time() - start_time
         mcmc_output = {
@@ -230,7 +230,7 @@ class BayesBridge():
             'seed': seed,
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
-            'reg_exponent': reg_exponent,
+            'shrinkage_exponent': shrinkage_exponent,
             'mvnorm_method': mvnorm_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
@@ -345,27 +345,27 @@ class BayesBridge():
         return obs_prec, sigma_sq
 
     def update_global_shrinkage(
-            self, gshrink, beta_with_shrinkage, reg_exponent, method='sample'):
+            self, gshrink, beta_with_shrinkage, shrinkage_exponent, method='sample'):
         # :param method: {"sample", "optimize", None}
 
         if method == 'optimize':
             gshrink = self.monte_carlo_em_global_shrinkage(
-                beta_with_shrinkage, reg_exponent)
+                beta_with_shrinkage, shrinkage_exponent)
 
         elif method == 'sample':
 
             if self.prior_type['global_shrinkage'] == 'jeffreys':
 
-                # Conjugate update for phi = 1 / gshrink ** reg_exponent
-                shape = beta_with_shrinkage.size / reg_exponent
-                scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
+                # Conjugate update for phi = 1 / gshrink ** shrinkage_exponent
+                shape = beta_with_shrinkage.size / shrinkage_exponent
+                scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
                 phi = self.rg.np_random.gamma(shape, scale=scale)
-                gshrink = 1 / phi ** (1 / reg_exponent)
+                gshrink = 1 / phi ** (1 / shrinkage_exponent)
 
             elif self.prior_type['global_shrinkage'] == 'half-cauchy':
 
                 gshrink = self.slice_sample_global_shrinkage(
-                    gshrink, beta_with_shrinkage, self.prior_param['global_shrinkage']['scale'], reg_exponent
+                    gshrink, beta_with_shrinkage, self.prior_param['global_shrinkage']['scale'], shrinkage_exponent
                 )
             else:
                 raise NotImplementedError()
@@ -373,28 +373,28 @@ class BayesBridge():
         return gshrink
 
     def monte_carlo_em_global_shrinkage(
-            self, beta_with_shrinkage, reg_exponent):
-        phi = len(beta_with_shrinkage) / reg_exponent \
-              / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
-        gshrink = phi ** - (1 / reg_exponent)
+            self, beta_with_shrinkage, shrinkage_exponent):
+        phi = len(beta_with_shrinkage) / shrinkage_exponent \
+              / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
+        gshrink = phi ** - (1 / shrinkage_exponent)
         return gshrink
 
     def slice_sample_global_shrinkage(
-            self, gshrink, beta_with_shrinkage, global_scale, reg_exponent):
-        """ Slice sample phi = 1 / gshrink ** reg_exponent. """
+            self, gshrink, beta_with_shrinkage, global_scale, shrinkage_exponent):
+        """ Slice sample phi = 1 / gshrink ** shrinkage_exponent. """
 
         n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
 
         # Initialize a gamma distribution object.
-        shape = (beta_with_shrinkage.size + 1) / reg_exponent
-        scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** reg_exponent)
+        shape = (beta_with_shrinkage.size + 1) / shrinkage_exponent
+        scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
         gamma_rv = sp.stats.gamma(shape, scale=scale)
 
         phi = 1 / gshrink
         for i in range(n_update):
             u = self.rg.np_random.uniform() \
-                / (1 + (global_scale * phi ** (1 / reg_exponent)) ** 2)
-            upper = (np.sqrt(1 / u - 1) / global_scale) ** reg_exponent
+                / (1 + (global_scale * phi ** (1 / shrinkage_exponent)) ** 2)
+            upper = (np.sqrt(1 / u - 1) / global_scale) ** shrinkage_exponent
                 # Invert the half-Cauchy density.
             phi = gamma_rv.ppf(gamma_rv.cdf(upper) * self.rg.np_random.uniform())
             if np.isnan(phi):
@@ -403,15 +403,15 @@ class BayesBridge():
                 # In this case, ignore the slicing variable and just sample from
                 # a Gamma.
                 phi = gamma_rv.rvs()
-        gshrink = 1 / phi ** (1 / reg_exponent)
+        gshrink = 1 / phi ** (1 / shrinkage_exponent)
 
         return gshrink
 
 
-    def update_local_shrinkage(self, gshrink, beta_with_shrinkage, reg_exponent):
+    def update_local_shrinkage(self, gshrink, beta_with_shrinkage, shrinkage_exponent):
 
         lshrink_sq = 1 / np.array([
-            2 * self.rg.tilted_stable(reg_exponent / 2, (beta_j / gshrink) ** 2)
+            2 * self.rg.tilted_stable(shrinkage_exponent / 2, (beta_j / gshrink) ** 2)
             for beta_j in beta_with_shrinkage
         ])
         lshrink = np.sqrt(lshrink_sq)
@@ -429,7 +429,7 @@ class BayesBridge():
         return lshrink
 
     def store_current_state(self, samples, mcmc_iter, n_burnin, thin,
-                            beta, lshrink, gshrink, sigma_sq, obs_prec, reg_exponent):
+                            beta, lshrink, gshrink, sigma_sq, obs_prec, shrinkage_exponent):
 
         if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
             index = math.floor((mcmc_iter - n_burnin) / thin) - 1
@@ -441,11 +441,11 @@ class BayesBridge():
             elif self.model == 'logit':
                 samples['obs_prec'][:, index] = obs_prec
             samples['logp'][index] = \
-                self.compute_posterior_logprob(beta, gshrink, sigma_sq, reg_exponent)
+                self.compute_posterior_logprob(beta, gshrink, sigma_sq, shrinkage_exponent)
 
         return
 
-    def compute_posterior_logprob(self, beta, gshrink, sigma_sq, reg_exponent):
+    def compute_posterior_logprob(self, beta, gshrink, sigma_sq, shrinkage_exponent):
 
         prior_logp = 0
 
@@ -471,7 +471,7 @@ class BayesBridge():
         # Contribution from beta | gshrink.
         prior_logp += \
             - n_shrunk_coef * math.log(gshrink) \
-            - np.sum(np.abs(beta[self.n_unshrunk:] / gshrink) ** reg_exponent)
+            - np.sum(np.abs(beta[self.n_unshrunk:] / gshrink) ** shrinkage_exponent)
 
         # for coefficients without shrinkage.
         prior_logp += - 1 / 2 * np.sum(
