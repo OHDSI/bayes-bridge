@@ -167,7 +167,7 @@ class BayesBridge():
             number of burn-in samples to be discarded
         n_post_burnin : int
             number of posterior draws to be saved
-        sampling_method : str, {'direct', 'cg'}
+        sampling_method : str, {'direct', 'cg', 'hmc'}
         precond_blocksize : int
             size of the block preconditioner
         global_shrinkage_update : str, {'sample', 'optimize', None}
@@ -318,15 +318,23 @@ class BayesBridge():
 
     def update_beta(self, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize):
 
-        if self.model == 'linear':
-            y_gaussian = self.y
-        elif self.model == 'logit':
-            y_gaussian = (self.y - self.n_trial / 2) / obs_prec
+        if sampling_method in ('direct', 'cg'):
 
-        beta, n_cg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
-            y_gaussian, self.X, obs_prec, gshrink, lshrink,
-            sampling_method, precond_blocksize
-        )
+            if self.model == 'linear':
+                y_gaussian = self.y
+            elif self.model == 'logit':
+                y_gaussian = (self.y - self.n_trial / 2) / obs_prec
+
+            beta, n_cg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
+                y_gaussian, self.X, obs_prec, gshrink, lshrink,
+                sampling_method, precond_blocksize
+            )
+
+        elif sampling_method == 'hmc':
+            raise NotImplementedError()
+
+        else:
+            raise NotImplementedError()
 
         return beta, n_cg_iter
 
