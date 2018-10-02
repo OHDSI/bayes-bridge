@@ -1,14 +1,23 @@
 from .abstract_model import AbstractModel
 import numpy as np
 import numpy.random
-
+from bayesbridge.util.simple_warnings import warn_message_only
 
 class LogisticModel(AbstractModel):
 
-    def __init__(self, n_trial, y, X):
+    def __init__(self, y, X, n_trial=None):
+
+        if n_trial is None:
+            n_trial = np.ones(len(y))
+            warn_message_only(
+                "The numbers of trials were not specified. The binary "
+                "outcome is assumed."
+            )
+
         self.n_trial = n_trial
         self.y = y
         self.X = X
+        self.name = 'logit'
 
     def compute_loglik_and_gradient(self, beta):
         logit_prob = self.X.dot(beta)
