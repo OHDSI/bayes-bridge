@@ -10,6 +10,7 @@ from .util.simple_warnings import warn_message_only
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .design_matrix import SparseDesignMatrix, DenseDesignMatrix
+from .model import LinearModel, LogisticModel
 
 
 class BayesBridge():
@@ -44,15 +45,13 @@ class BayesBridge():
             X, n_coef_without_shrinkage, prior_sd_for_unshrunk = \
                 self.add_intercept(X, n_coef_without_shrinkage, prior_sd_for_unshrunk)
 
-        if model == 'logit':
-            if n_trial is None:
-                self.n_trial = np.ones(len(y))
-                warn_message_only(
-                    "The numbers of trials were not specified. The binary "
-                    "outcome is assumed."
-                )
-            else:
-                self.n_trial = n_trial
+
+        if model == 'linear':
+            self.model = LinearModel(y, X)
+        elif model == 'logit':
+            self.model = LogisticModel(y, X, n_trial)
+        else:
+            raise NotImplementedError()
 
         if np.isscalar(prior_sd_for_unshrunk):
             self.prior_sd_for_unshrunk = prior_sd_for_unshrunk \
@@ -60,7 +59,6 @@ class BayesBridge():
         else:
             self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = n_coef_without_shrinkage
-        self.model = model
         self.y = y
         self.X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
         self.n_obs = X.shape[0]
@@ -177,9 +175,6 @@ class BayesBridge():
         if not _add_iter_mode:
             self.rg.set_seed(seed)
 
-        if self.model not in ('linear', 'logit'):
-            raise NotImplementedError()
-
         n_iter = n_burnin + n_post_burnin
 
         # Initial state of the Markov chain
@@ -200,7 +195,7 @@ class BayesBridge():
         start_time = time.time()
         for mcmc_iter in range(1, n_iter + 1):
 
-            if self.model == 'linear':
+            if self.model.name == 'linear':
                 obs_prec = np.ones(self.n_obs) / sigma_sq
 
             beta, n_cg_iter[mcmc_iter - 1] = self.update_beta(
@@ -250,9 +245,9 @@ class BayesBridge():
         samples['beta'] = np.zeros((self.n_pred, n_sample))
         samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
         samples['global_shrinkage'] = np.zeros(n_sample)
-        if self.model == 'linear':
+        if self.model.name == 'linear':
             samples['sigma_sq'] = np.zeros(n_sample)
-        elif self.model == 'logit':
+        elif self.model.name == 'logit':
             samples['obs_prec'] = np.zeros((self.n_obs, n_sample))
         samples['logp'] = np.zeros(n_sample)
 
@@ -280,8 +275,8 @@ class BayesBridge():
                 # Cython requires a C-contiguous array.
             if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
-        elif self.model == 'logit':
-            obs_prec = self.compute_polya_gamma_mean(self.n_trial, self.X.dot(beta))
+        elif self.model.name == 'logit':
+            obs_prec = self.compute_polya_gamma_mean(self.model.n_trial, self.X.dot(beta))
         else:
             obs_prec = None
 
@@ -320,10 +315,10 @@ class BayesBridge():
 
         if sampling_method in ('direct', 'cg'):
 
-            if self.model == 'linear':
+            if self.model.name == 'linear':
                 y_gaussian = self.y
-            elif self.model == 'logit':
-                y_gaussian = (self.y - self.n_trial / 2) / obs_prec
+            elif self.model.name == 'logit':
+                y_gaussian = (self.y - self.model.n_trial / 2) / obs_prec
 
             beta, n_cg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
                 y_gaussian, self.X, obs_prec, gshrink, lshrink,
@@ -342,13 +337,13 @@ class BayesBridge():
 
         sigma_sq = None
         obs_prec = None
-        if self.model == 'linear':
+        if self.model.name == 'linear':
             resid = self.y - self.X.dot(beta)
             scale = np.sum(resid ** 2) / 2
             sigma_sq = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
-        elif self.model == 'logit':
+        elif self.model.name == 'logit':
             obs_prec = self.rg.polya_gamma(
-                self.n_trial, self.X.dot(beta),self.X.shape[0])
+                self.model.n_trial, self.X.dot(beta),self.X.shape[0])
 
         return obs_prec, sigma_sq
 
@@ -444,9 +439,9 @@ class BayesBridge():
             samples['beta'][:, index] = beta
             samples['local_shrinkage'][:, index] = lshrink
             samples['global_shrinkage'][index] = gshrink
-            if self.model == 'linear':
+            if self.model.name == 'linear':
                 samples['sigma_sq'][index] = sigma_sq
-            elif self.model == 'logit':
+            elif self.model.name == 'logit':
                 samples['obs_prec'][:, index] = obs_prec
             samples['logp'][index] = \
                 self.compute_posterior_logprob(beta, gshrink, sigma_sq, shrinkage_exponent)
@@ -457,19 +452,9 @@ class BayesBridge():
 
         prior_logp = 0
 
-        if self.model == 'logit':
-            predicted_prob = 1 / (1 + np.exp( - self.X.dot(beta)))
-            machine_prec = 2. ** - 53
-            within_bd = np.logical_and(
-                predicted_prob > machine_prec,
-                predicted_prob < 1. - machine_prec
-            )
-            loglik = np.sum(
-                self.y[within_bd] * np.log(predicted_prob[within_bd]) \
-                + (self.n_trial - self.y)[within_bd]
-                    * np.log(1 - predicted_prob[within_bd])
-            )
-        elif self.model == 'linear':
+        if self.model.name == 'logit':
+            loglik, _ = self.model.compute_loglik_and_gradient(beta, loglik_only=True)
+        elif self.model.name == 'linear':
             loglik = - len(self.y) * math.log(sigma_sq) / 2 \
                      - np.sum((self.y - self.X.dot(beta)) ** 2) / sigma_sq
             prior_logp += - math.log(sigma_sq) / 2
