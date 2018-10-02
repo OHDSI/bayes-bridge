@@ -19,14 +19,17 @@ class LogisticModel(AbstractModel):
         self.X = X
         self.name = 'logit'
 
-    def compute_loglik_and_gradient(self, beta):
+    def compute_loglik_and_gradient(self, beta, loglik_only=False):
         logit_prob = self.X.dot(beta)
         predicted_prob = LogisticModel.convert_to_probability_scale(logit_prob)
         loglik = np.sum(
             self.y * logit_prob \
             - self.n_trial * np.log(1 + np.exp(logit_prob))
         )
-        grad = self.X.Tdot(self.y - self.n_trial * predicted_prob)
+        if loglik_only:
+            grad = None
+        else:
+            grad = self.X.Tdot(self.y - self.n_trial * predicted_prob)
         return loglik, grad
 
     def compute_hessian(self, beta):

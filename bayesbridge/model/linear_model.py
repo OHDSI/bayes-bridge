@@ -8,7 +8,7 @@ class LinearModel(AbstractModel):
         self.X = X
         self.name = 'linear'
 
-    def compute_loglik_and_gradient(self, beta):
+    def compute_loglik_and_gradient(self, beta, loglik_only=False):
         pass
 
     def compute_hessian(self, beta):

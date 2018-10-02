@@ -3,7 +3,7 @@ import abc
 class AbstractModel():
 
     @abc.abstractmethod
-    def compute_loglik_and_gradient(self, beta):
+    def compute_loglik_and_gradient(self, beta, loglik_only=False):
         pass
 
     @abc.abstractmethod
