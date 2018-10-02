@@ -5,13 +5,13 @@ from .direct_gaussian_sampler import generate_gaussian_with_weight
 
 class SparseRegressionCoefficientSampler():
 
-    def __init__(self, init, prior_sd_for_unshrunk, mvnorm_method):
+    def __init__(self, init, prior_sd_for_unshrunk, sampling_method):
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = len(prior_sd_for_unshrunk)
 
         # Object for keeping track of running average.
-        if mvnorm_method == 'cg':
+        if sampling_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
             self.cg_initalizer = CgSamplerInitializer(
                 init['beta'], init['global_shrinkage'], init['local_shrinkage']

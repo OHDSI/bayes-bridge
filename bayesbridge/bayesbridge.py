@@ -115,14 +115,14 @@ class BayesBridge():
         else:
             precond_blocksize = 0
 
-        thin, shrinkage_exponent, mvnorm_method, global_shrinkage_update = (
+        thin, shrinkage_exponent, sampling_method, global_shrinkage_update = (
             mcmc_output[key] for key in
-            ['thin', 'shrinkage_exponent', 'mvnorm_method', 'global_shrinkage_update']
+            ['thin', 'shrinkage_exponent', 'sampling_method', 'global_shrinkage_update']
         )
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-            init, self.prior_sd_for_unshrunk, mvnorm_method
+            init, self.prior_sd_for_unshrunk, sampling_method
         )
         self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
 
@@ -130,7 +130,7 @@ class BayesBridge():
             mcmc_output.clear()
 
         next_mcmc_output = self.gibbs(
-            0, n_iter, thin, shrinkage_exponent, init, mvnorm_method=mvnorm_method,
+            0, n_iter, thin, shrinkage_exponent, init, sampling_method=sampling_method,
             precond_blocksize=precond_blocksize,
             global_shrinkage_update=global_shrinkage_update,
             _add_iter_mode=True
@@ -156,7 +156,7 @@ class BayesBridge():
         return next_mcmc_output
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
-              init={}, mvnorm_method='cg', precond_blocksize=0, seed=None,
+              init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
@@ -167,7 +167,7 @@ class BayesBridge():
             number of burn-in samples to be discarded
         n_post_burnin : int
             number of posterior draws to be saved
-        mvnorm_method : str, {'direct', 'cg'}
+        sampling_method : str, {'direct', 'cg'}
         precond_blocksize : int
             size of the block preconditioner
         global_shrinkage_update : str, {'sample', 'optimize', None}
@@ -188,7 +188,7 @@ class BayesBridge():
 
         if not _add_iter_mode:
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-                init, self.prior_sd_for_unshrunk, mvnorm_method
+                init, self.prior_sd_for_unshrunk, sampling_method
             )
 
         # Pre-allocate
@@ -204,7 +204,7 @@ class BayesBridge():
                 obs_prec = np.ones(self.n_obs) / sigma_sq
 
             beta, n_cg_iter[mcmc_iter - 1] = self.update_beta(
-                obs_prec, gshrink, lshrink, mvnorm_method, precond_blocksize
+                obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
             )
 
             obs_prec, sigma_sq = self.update_obs_precision(beta)
@@ -231,13 +231,13 @@ class BayesBridge():
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
             'shrinkage_exponent': shrinkage_exponent,
-            'mvnorm_method': mvnorm_method,
+            'sampling_method': sampling_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
             '_random_gen_state': self.rg.get_state(),
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
-        if mvnorm_method == 'cg':
+        if sampling_method == 'cg':
             mcmc_output['n_cg_iter'] = n_cg_iter
             if precond_blocksize > 0:
                 mcmc_output['precond_blocksize'] = precond_blocksize
@@ -316,7 +316,7 @@ class BayesBridge():
                * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
         return pg_mean
 
-    def update_beta(self, obs_prec, gshrink, lshrink, mvnorm_method, precond_blocksize):
+    def update_beta(self, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize):
 
         if self.model == 'linear':
             y_gaussian = self.y
@@ -325,7 +325,7 @@ class BayesBridge():
 
         beta, n_cg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
             y_gaussian, self.X, obs_prec, gshrink, lshrink,
-            mvnorm_method, precond_blocksize
+            sampling_method, precond_blocksize
         )
 
         return beta, n_cg_iter
