@@ -45,7 +45,10 @@ def generate_samples(
     return samples, logp_samples, accept_prob, time_elapsed
 
 
-def generate_next_state(f, dt, n_step, theta0, logp0, grad0):
+def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
+
+    if (logp0 is None) or (grad0 is None):
+        logp0, grad0 = f(theta0)
 
     p = draw_momentum(len(theta0))
     joint0 = - compute_hamiltonian(logp0, p)
