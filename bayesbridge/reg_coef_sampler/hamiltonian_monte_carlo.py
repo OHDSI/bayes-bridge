@@ -47,23 +47,25 @@ def generate_samples(
 
 def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
 
+    n_grad_evals = 0
+
     if (logp0 is None) or (grad0 is None):
         logp0, grad0 = f(theta0)
+        n_grad_evals += 1
 
     p = draw_momentum(len(theta0))
     joint0 = - compute_hamiltonian(logp0, p)
 
-    pathlen = 0
     theta, grad = theta0.copy(), grad0.copy()
     theta, p, grad, logp \
         = integrator(f, dt, theta, p, grad)
-    pathlen += 1
+    n_grad_evals += 1
     for i in range(1, n_step):
         if math.isinf(logp):
             break
         theta, p, grad, logp \
             = integrator(f, dt, theta, p, grad)
-        pathlen += 1
+        n_grad_evals += 1
 
     if math.isinf(logp):
         acceptprob = 0.
@@ -76,7 +78,7 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
         logp = logp0
         grad = grad0
 
-    return theta, logp, grad, acceptprob, pathlen
+    return theta, logp, grad, acceptprob, n_grad_evals
 
 
 def integrator(f, dt, theta, p, grad):
