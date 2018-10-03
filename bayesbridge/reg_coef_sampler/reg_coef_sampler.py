@@ -59,8 +59,7 @@ class SparseRegressionCoefficientSampler():
             n_cg_iter = np.nan
 
         elif method == 'cg':
-            # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
-            # control the error in the MCMC output.
+            # TODO: incorporate an automatic calibration of 'maxiter'.
             beta_condmean_guess = \
                 self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
             beta_precond_scale_sd = self.regcoef_summarizer.estimate_beta_precond_scale_sd()
