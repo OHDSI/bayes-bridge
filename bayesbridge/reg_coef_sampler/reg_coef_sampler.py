@@ -1,6 +1,6 @@
 import numpy as np
 from .cg_sampler import ConjugateGradientSampler
-from .cg_sampler_initializer import CgSamplerInitializer
+from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
 
 class SparseRegressionCoefficientSampler():
@@ -13,7 +13,7 @@ class SparseRegressionCoefficientSampler():
         # Object for keeping track of running average.
         if sampling_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
-            self.cg_initalizer = CgSamplerInitializer(
+            self.regcoef_summarizer = RegressionCoeffficientPosteriorSummarizer(
                 init['beta'], init['global_shrinkage'], init['local_shrinkage']
             )
 
@@ -62,8 +62,8 @@ class SparseRegressionCoefficientSampler():
             # TODO: incorporate an automatic calibration of 'maxiter' and 'atol' to
             # control the error in the MCMC output.
             beta_condmean_guess = \
-                self.cg_initalizer.guess_beta_condmean(gshrink, lshrink)
-            beta_precond_scale_sd = self.cg_initalizer.estimate_beta_precond_scale_sd()
+                self.regcoef_summarizer.guess_beta_condmean(gshrink, lshrink)
+            beta_precond_scale_sd = self.regcoef_summarizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
                 X, obs_prec, prior_prec_sqrt, v,
                 beta_init=beta_condmean_guess,
@@ -71,7 +71,7 @@ class SparseRegressionCoefficientSampler():
                 beta_scaled_sd=beta_precond_scale_sd,
                 maxiter=500, atol=10e-6 * np.sqrt(X.shape[1])
             )
-            self.cg_initalizer.update(beta, gshrink, lshrink)
+            self.regcoef_summarizer.update(beta, gshrink, lshrink)
             n_cg_iter = cg_info['n_iter']
 
         else:

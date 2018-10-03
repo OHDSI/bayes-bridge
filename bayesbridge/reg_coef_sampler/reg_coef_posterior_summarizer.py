@@ -1,7 +1,7 @@
 import numpy as np
 from ..util.onthefly_summarizer import OntheflySummarizer
 
-class CgSamplerInitializer():
+class RegressionCoeffficientPosteriorSummarizer():
 
     def __init__(self, beta, gshrink, lshrunk):
         self.n_unshrunk = len(beta) - len(lshrunk)
