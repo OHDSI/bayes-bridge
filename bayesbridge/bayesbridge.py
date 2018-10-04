@@ -352,6 +352,9 @@ class BayesBridge():
             self, gshrink, beta_with_shrinkage, shrinkage_exponent, method='sample'):
         # :param method: {"sample", "optimize", None}
 
+        lower_bd = min(10e-4, .1 / len(beta_with_shrinkage))
+            # TODO: make it an optional parameter.
+
         if method == 'optimize':
             gshrink = self.monte_carlo_em_global_shrinkage(
                 beta_with_shrinkage, shrinkage_exponent)
@@ -362,9 +365,14 @@ class BayesBridge():
 
                 # Conjugate update for phi = 1 / gshrink ** shrinkage_exponent
                 shape = beta_with_shrinkage.size / shrinkage_exponent
-                scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
-                phi = self.rg.np_random.gamma(shape, scale=scale)
-                gshrink = 1 / phi ** (1 / shrinkage_exponent)
+                if np.count_nonzero(beta_with_shrinkage) == 0:
+                    gshrink = 0
+                else:
+                    scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
+                    phi = self.rg.np_random.gamma(shape, scale=scale)
+                    gshrink = 1 / phi ** (1 / shrinkage_exponent)
+
+                gshrink = max(gshrink, lower_bd)
 
             elif self.prior_type['global_shrinkage'] == 'half-cauchy':
 
