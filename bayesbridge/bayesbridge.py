@@ -45,6 +45,7 @@ class BayesBridge():
             X, n_coef_without_shrinkage, prior_sd_for_unshrunk = \
                 self.add_intercept(X, n_coef_without_shrinkage, prior_sd_for_unshrunk)
 
+        X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
 
         if model == 'linear':
             self.model = LinearModel(y, X)
@@ -60,7 +61,7 @@ class BayesBridge():
             self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = n_coef_without_shrinkage
         self.y = y
-        self.X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
+        self.X = X
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
         self.prior_type = {}
