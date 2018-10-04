@@ -200,7 +200,7 @@ class BayesBridge():
                 obs_prec = np.ones(self.n_obs) / sigma_sq
 
             beta, n_cg_iter[mcmc_iter - 1] = self.update_beta(
-                obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
+                beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
             )
 
             obs_prec, sigma_sq = self.update_obs_precision(beta)
@@ -312,7 +312,7 @@ class BayesBridge():
                * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
         return pg_mean
 
-    def update_beta(self, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize):
+    def update_beta(self, beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize):
 
         if sampling_method in ('direct', 'cg'):
 
@@ -327,11 +327,15 @@ class BayesBridge():
             )
 
         elif sampling_method == 'hmc':
-            raise NotImplementedError()
+            beta, n_grad_evals = self.reg_coef_sampler.sample_by_hmc(
+                self.y, self.X, beta, gshrink, lshrink, self.model
+            )
+            n_cg_iter = np.nan
 
         else:
             raise NotImplementedError()
 
+        # TODO: Return the number of gradient evaluations (or something like that) if using 'hmc'.
         return beta, n_cg_iter
 
     def update_obs_precision(self, beta):

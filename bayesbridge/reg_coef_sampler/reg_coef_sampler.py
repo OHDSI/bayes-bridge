@@ -1,7 +1,11 @@
 import numpy as np
+import scipy as sp
+import scipy.sparse
 from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
+from . import hamiltonian_monte_carlo as hmc
+
 
 class SparseRegressionCoefficientSampler():
 
@@ -11,11 +15,11 @@ class SparseRegressionCoefficientSampler():
         self.n_unshrunk = len(prior_sd_for_unshrunk)
 
         # Object for keeping track of running average.
+        self.regcoef_summarizer = RegressionCoeffficientPosteriorSummarizer(
+            init['beta'], init['global_shrinkage'], init['local_shrinkage']
+        )
         if sampling_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
-            self.regcoef_summarizer = RegressionCoeffficientPosteriorSummarizer(
-                init['beta'], init['global_shrinkage'], init['local_shrinkage']
-            )
 
     def get_internal_state(self):
         state = {}
@@ -77,3 +81,61 @@ class SparseRegressionCoefficientSampler():
             raise NotImplementedError()
 
         return beta, n_cg_iter
+
+    def sample_by_hmc(self, y, X, beta, gshrink, lshrink, model):
+
+        beta_condmean_guess = \
+            self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
+        loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_condmean_guess)
+        precond_scale = self.compute_preconditioning_scale(gshrink, lshrink)
+        precond_prior_prec = np.concatenate((
+            (self.prior_sd_for_unshrunk / precond_scale[self.n_unshrunk]) ** -2,
+            np.ones(len(lshrink))
+        ))
+        precond_hessian_matvec = lambda beta: \
+            precond_prior_prec * beta \
+            + precond_scale * loglik_hessian_matvec(precond_scale * beta)
+        precond_hessian_op = sp.sparse.linalg.LinearOperator(
+            (X.shape[1], X.shape[1]), precond_hessian_matvec
+        )
+        eigval = sp.sparse.linalg.eigsh(
+            precond_hessian_op, k=1, return_eigenvectors=False)
+        max_curvature = eigval[0]
+
+        approx_stability_limit = 2 / np.sqrt(max_curvature)
+        stepsize_upper_limit = .5 * approx_stability_limit
+            # The multiplicative factors may require adjustment.
+        dt = np.random.uniform(.5, 1) * stepsize_upper_limit
+        n_step = np.ceil(1 / dt * np.random.uniform(.8, 1.)).astype('int')
+            # TODO: should we upper bound the number of steps?
+        beta_precond = beta / precond_scale
+        def f(beta_precond):
+            beta = beta_precond * precond_scale
+            logp, grad_wrt_beta = model.compute_loglik_and_gradient(beta)
+            grad = precond_scale * grad_wrt_beta # Chain rule.
+            logp += np.sum(- precond_prior_prec * beta_precond ** 2) / 2
+            grad += - precond_prior_prec * beta_precond
+            return logp, grad
+
+        beta_precond, logp, grad, acceptprob, n_grad_evals = \
+            hmc.generate_next_state(f, dt, n_step, beta_precond)
+        beta = beta_precond * precond_scale
+
+        return beta, n_step
+
+    def compute_preconditioning_scale(self, gshrink, lshrink):
+
+        # TODO: this piece of codes for computing the preconditioned Hessian is
+        # very similar to the CG sampler preconditioning. Perhaps we can unify them?
+
+        beta_precond_post_sd = \
+            self.regcoef_summarizer.estimate_beta_precond_scale_sd()
+
+        precond_scale = np.ones(len(beta_precond_post_sd))
+        precond_scale[self.n_unshrunk:] = gshrink * lshrink
+        if self.n_unshrunk > 0:
+            target_sd_scale = 2.
+            precond_scale[:self.n_unshrunk] = \
+                target_sd_scale * beta_precond_post_sd[:self.n_unshrunk]
+
+        return precond_scale
