@@ -105,19 +105,18 @@ class BayesBridge():
 
         self.rg.set_state(mcmc_output['_random_gen_state'])
 
-        init = {
-            key: np.take(val, -1, axis=-1).copy()
-            for key, val in mcmc_output['samples'].items()
-        }
+        init = mcmc_output['_markov_chain_state']
         if 'precond_blocksize' in mcmc_output:
             precond_blocksize = mcmc_output['precond_blocksize']
         else:
             precond_blocksize = 0
 
         thin, shrinkage_exponent, sampling_method, global_shrinkage_update = (
-            mcmc_output[key] for key in
-            ['thin', 'shrinkage_exponent', 'sampling_method', 'global_shrinkage_update']
+            mcmc_output[key] for key in [
+                'thin', 'shrinkage_exponent', 'sampling_method', 'global_shrinkage_update'
+            ]
         )
+        params_to_save = mcmc_output['samples'].keys()
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
@@ -132,6 +131,7 @@ class BayesBridge():
             0, n_iter, thin, shrinkage_exponent, init, sampling_method=sampling_method,
             precond_blocksize=precond_blocksize,
             global_shrinkage_update=global_shrinkage_update,
+            params_to_save=params_to_save,
             _add_iter_mode=True
         )
         if merge:
@@ -156,7 +156,8 @@ class BayesBridge():
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
-              global_shrinkage_update='sample', _add_iter_mode=False):
+              global_shrinkage_update='sample', params_to_save=None,
+              _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -170,11 +171,19 @@ class BayesBridge():
         precond_blocksize : int
             size of the block preconditioner
         global_shrinkage_update : str, {'sample', 'optimize', None}
+        params_to_save : {None, 'all', list of str}
 
         """
 
         if not _add_iter_mode:
             self.rg.set_seed(seed)
+
+        if params_to_save == 'all':
+            params_to_save = [
+                'beta', 'obs_prec', 'local_shrinkage', 'global_shrinkage', 'logp'
+            ]
+        elif params_to_save is None:
+            params_to_save = ['beta', 'global_shrinkage', 'logp']
 
         n_iter = n_burnin + n_post_burnin
 
@@ -189,7 +198,7 @@ class BayesBridge():
 
         # Pre-allocate
         samples = {}
-        self.pre_allocate(samples, n_post_burnin, thin)
+        self.pre_allocate(samples, n_post_burnin, thin, params_to_save)
         n_cg_iter = np.zeros(n_iter)
 
         # Start Gibbs sampling
@@ -212,10 +221,20 @@ class BayesBridge():
             lshrink = self.update_local_shrinkage(
                 gshrink, beta[self.n_unshrunk:], shrinkage_exponent)
 
-            self.store_current_state(samples, mcmc_iter, n_burnin, thin,
-                                     beta, lshrink, gshrink, obs_prec, shrinkage_exponent)
+            self.store_current_state(
+                samples, mcmc_iter, n_burnin, thin, beta, lshrink, gshrink, obs_prec,
+                params_to_save, shrinkage_exponent
+            )
 
         runtime = time.time() - start_time
+
+        _markov_chain_state = {
+            'beta': beta,
+            'obs_prec': obs_prec,
+            'local_shrinkage': lshrink,
+            'global_shrinkage': gshrink,
+        }
+
         mcmc_output = {
             'samples': samples,
             'init': init,
@@ -229,6 +248,7 @@ class BayesBridge():
             'sampling_method': sampling_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
+            '_markov_chain_state': _markov_chain_state,
             '_random_gen_state': self.rg.get_state(),
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
@@ -239,17 +259,27 @@ class BayesBridge():
 
         return mcmc_output
 
-    def pre_allocate(self, samples, n_post_burnin, thin):
+    def pre_allocate(self, samples, n_post_burnin, thin, params_to_save):
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
-        samples['beta'] = np.zeros((self.n_pred, n_sample))
-        samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
-        samples['global_shrinkage'] = np.zeros(n_sample)
-        if self.model.name == 'linear':
-            samples['obs_prec'] = np.zeros(n_sample)
-        elif self.model.name == 'logit':
-            samples['obs_prec'] = np.zeros((self.n_obs, n_sample))
-        samples['logp'] = np.zeros(n_sample)
+
+        if 'beta' in params_to_save:
+            samples['beta'] = np.zeros((self.n_pred, n_sample))
+
+        if 'local_shrinkage' in params_to_save:
+            samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
+
+        if 'global_shrinkage' in params_to_save:
+            samples['global_shrinkage'] = np.zeros(n_sample)
+
+        if 'obs_prec' in params_to_save:
+            if self.model.name == 'linear':
+                samples['obs_prec'] = np.zeros(n_sample)
+            elif self.model.name == 'logit':
+                samples['obs_prec'] = np.zeros((self.n_obs, n_sample))
+
+        if 'logp' in params_to_save:
+            samples['logp'] = np.zeros(n_sample)
 
         return
 
@@ -438,18 +468,31 @@ class BayesBridge():
 
         return lshrink
 
-    def store_current_state(self, samples, mcmc_iter, n_burnin, thin,
-                            beta, lshrink, gshrink, obs_prec, shrinkage_exponent):
+    def store_current_state(
+            self, samples, mcmc_iter, n_burnin, thin, beta, lshrink,
+            gshrink, obs_prec, params_to_save, shrinkage_exponent):
 
-        if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
-            index = math.floor((mcmc_iter - n_burnin) / thin) - 1
+        if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
+            return
+
+        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
+
+        if 'beta' in params_to_save:
             samples['beta'][:, index] = beta
+
+        if 'local_shrinkage' in params_to_save:
             samples['local_shrinkage'][:, index] = lshrink
+
+        if 'global_shrinkage' in params_to_save:
             samples['global_shrinkage'][index] = gshrink
+
+        if 'obs_prec' in params_to_save:
             if self.model.name == 'linear':
                 samples['obs_prec'][index] = obs_prec
             elif self.model.name == 'logit':
                 samples['obs_prec'][:, index] = obs_prec
+
+        if 'logp' in params_to_save:
             samples['logp'][index] = \
                 self.compute_posterior_logprob(beta, gshrink, obs_prec, shrinkage_exponent)
 
