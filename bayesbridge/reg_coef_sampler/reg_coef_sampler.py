@@ -57,10 +57,10 @@ class SparseRegressionCoefficientSampler():
         ))
         prior_prec_sqrt = 1 / prior_sd
 
+        info = {}
         if method == 'direct':
             beta = generate_gaussian_with_weight(
                 X, obs_prec, prior_prec_sqrt, v)
-            n_cg_iter = np.nan
 
         elif method == 'cg':
             # TODO: incorporate an automatic calibration of 'maxiter'.
@@ -75,12 +75,12 @@ class SparseRegressionCoefficientSampler():
                 maxiter=500, atol=10e-6 * np.sqrt(X.shape[1])
             )
             self.regcoef_summarizer.update(beta, gshrink, lshrink)
-            n_cg_iter = cg_info['n_iter']
+            info['n_cg_iter'] = cg_info['n_iter']
 
         else:
             raise NotImplementedError()
 
-        return beta, n_cg_iter
+        return beta, info
 
     def sample_by_hmc(self, y, X, beta, gshrink, lshrink, model):
 
@@ -117,11 +117,15 @@ class SparseRegressionCoefficientSampler():
             grad += - precond_prior_prec * beta_precond
             return logp, grad
 
-        beta_precond, logp, grad, acceptprob, n_grad_evals = \
+        beta_precond, hmc_info = \
             hmc.generate_next_state(f, dt, n_step, beta_precond)
         beta = beta_precond * precond_scale
 
-        return beta, n_step
+        info = {
+            key: hmc_info[key]
+            for key in ['accepted', 'accept_prob', 'n_grad_evals']
+        }
+        return beta, info
 
     def compute_preconditioning_scale(self, gshrink, lshrink):
 

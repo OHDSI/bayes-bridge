@@ -199,9 +199,11 @@ class BayesBridge():
             if self.model.name == 'linear':
                 obs_prec = np.ones(self.n_obs) / sigma_sq
 
-            beta, n_cg_iter[mcmc_iter - 1] = self.update_beta(
+            beta, info = self.update_beta(
                 beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
             )
+            if 'n_cg_iter' in info.keys():
+                n_cg_iter[mcmc_iter - 1] = info['n_cg_iter']
 
             obs_prec, sigma_sq = self.update_obs_precision(beta)
 
@@ -321,22 +323,20 @@ class BayesBridge():
             elif self.model.name == 'logit':
                 y_gaussian = (self.y - self.model.n_trial / 2) / obs_prec
 
-            beta, n_cg_iter = self.reg_coef_sampler.sample_gaussian_posterior(
+            beta, info = self.reg_coef_sampler.sample_gaussian_posterior(
                 y_gaussian, self.X, obs_prec, gshrink, lshrink,
                 sampling_method, precond_blocksize
             )
 
         elif sampling_method == 'hmc':
-            beta, n_grad_evals = self.reg_coef_sampler.sample_by_hmc(
+            beta, info = self.reg_coef_sampler.sample_by_hmc(
                 self.y, self.X, beta, gshrink, lshrink, self.model
             )
-            n_cg_iter = np.nan
 
         else:
             raise NotImplementedError()
 
-        # TODO: Return the number of gradient evaluations (or something like that) if using 'hmc'.
-        return beta, n_cg_iter
+        return beta, info
 
     def update_obs_precision(self, beta):
 
