@@ -13,7 +13,7 @@ from bayesbridge.design_matrix import SparseDesignMatrix, DenseDesignMatrix
 
 def test_logitstic_model_gradient():
     n_trial, y, X, beta = simulate_logistic_model_data(seed=0)
-    logit_model = LogisticModel(n_trial, y, X)
+    logit_model = LogisticModel(y, X, n_trial)
     f = logit_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
 
