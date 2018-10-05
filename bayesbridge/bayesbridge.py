@@ -179,7 +179,7 @@ class BayesBridge():
         n_iter = n_burnin + n_post_burnin
 
         # Initial state of the Markov chain
-        beta, sigma_sq, obs_prec, lshrink, gshrink, init = \
+        beta, obs_prec, lshrink, gshrink, init = \
             self.initialize_chain(init)
 
         if not _add_iter_mode:
@@ -196,16 +196,13 @@ class BayesBridge():
         start_time = time.time()
         for mcmc_iter in range(1, n_iter + 1):
 
-            if self.model.name == 'linear':
-                obs_prec = np.ones(self.n_obs) / sigma_sq
-
             beta, info = self.update_beta(
                 beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
             )
             if 'n_cg_iter' in info.keys():
                 n_cg_iter[mcmc_iter - 1] = info['n_cg_iter']
 
-            obs_prec, sigma_sq = self.update_obs_precision(beta)
+            obs_prec = self.update_obs_precision(beta)
 
             # Draw from gshrink | \beta and then lshrink | gshrink, \beta.
             # (The order matters.)
@@ -216,7 +213,7 @@ class BayesBridge():
                 gshrink, beta[self.n_unshrunk:], shrinkage_exponent)
 
             self.store_current_state(samples, mcmc_iter, n_burnin, thin,
-                                     beta, lshrink, gshrink, sigma_sq, obs_prec, shrinkage_exponent)
+                                     beta, lshrink, gshrink, obs_prec, shrinkage_exponent)
 
         runtime = time.time() - start_time
         mcmc_output = {
@@ -249,7 +246,7 @@ class BayesBridge():
         samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
         samples['global_shrinkage'] = np.zeros(n_sample)
         if self.model.name == 'linear':
-            samples['sigma_sq'] = np.zeros(n_sample)
+            samples['obs_prec'] = np.zeros(n_sample)
         elif self.model.name == 'logit':
             samples['obs_prec'] = np.zeros((self.n_obs, n_sample))
         samples['logp'] = np.zeros(n_sample)
@@ -268,16 +265,13 @@ class BayesBridge():
             if 'intercept' in init:
                 beta[0] = init['intercept']
 
-        if 'sigma' in init:
-            sigma_sq = init['sigma'] ** 2
-        else:
-            sigma_sq = np.mean((self.y - self.X.dot(beta)) ** 2)
-
         if 'obs_prec' in init:
             obs_prec = np.ascontiguousarray(init['obs_prec'])
                 # Cython requires a C-contiguous array.
             if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
+        elif self.model.name == 'linear':
+            obs_prec = np.mean((self.y - self.X.dot(beta)) ** 2) ** -1
         elif self.model.name == 'logit':
             obs_prec = self.compute_polya_gamma_mean(self.model.n_trial, self.X.dot(beta))
         else:
@@ -297,13 +291,12 @@ class BayesBridge():
 
         init = {
             'beta': beta,
-            'sigma_sq': sigma_sq,
             'obs_prec': obs_prec,
             'local_shrinkage': lshrink,
             'global_shrinkage': gshrink
         }
 
-        return beta, sigma_sq, obs_prec, lshrink, gshrink, init
+        return beta, obs_prec, lshrink, gshrink, init
 
     def compute_polya_gamma_mean(self, shape, tilt):
         min_magnitude = 1e-5
@@ -320,6 +313,7 @@ class BayesBridge():
 
             if self.model.name == 'linear':
                 y_gaussian = self.y
+                obs_prec = obs_prec * np.ones(self.n_obs)
             elif self.model.name == 'logit':
                 y_gaussian = (self.y - self.model.n_trial / 2) / obs_prec
 
@@ -340,17 +334,17 @@ class BayesBridge():
 
     def update_obs_precision(self, beta):
 
-        sigma_sq = None
         obs_prec = None
         if self.model.name == 'linear':
             resid = self.y - self.X.dot(beta)
             scale = np.sum(resid ** 2) / 2
-            sigma_sq = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
+            obs_var = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
+            obs_prec = 1 / obs_var
         elif self.model.name == 'logit':
             obs_prec = self.rg.polya_gamma(
                 self.model.n_trial, self.X.dot(beta),self.X.shape[0])
 
-        return obs_prec, sigma_sq
+        return obs_prec
 
     def update_global_shrinkage(
             self, gshrink, beta_with_shrinkage, shrinkage_exponent, method='sample'):
@@ -445,7 +439,7 @@ class BayesBridge():
         return lshrink
 
     def store_current_state(self, samples, mcmc_iter, n_burnin, thin,
-                            beta, lshrink, gshrink, sigma_sq, obs_prec, shrinkage_exponent):
+                            beta, lshrink, gshrink, obs_prec, shrinkage_exponent):
 
         if mcmc_iter > n_burnin and (mcmc_iter - n_burnin) % thin == 0:
             index = math.floor((mcmc_iter - n_burnin) / thin) - 1
@@ -453,24 +447,24 @@ class BayesBridge():
             samples['local_shrinkage'][:, index] = lshrink
             samples['global_shrinkage'][index] = gshrink
             if self.model.name == 'linear':
-                samples['sigma_sq'][index] = sigma_sq
+                samples['obs_prec'][index] = obs_prec
             elif self.model.name == 'logit':
                 samples['obs_prec'][:, index] = obs_prec
             samples['logp'][index] = \
-                self.compute_posterior_logprob(beta, gshrink, sigma_sq, shrinkage_exponent)
+                self.compute_posterior_logprob(beta, gshrink, obs_prec, shrinkage_exponent)
 
         return
 
-    def compute_posterior_logprob(self, beta, gshrink, sigma_sq, shrinkage_exponent):
+    def compute_posterior_logprob(self, beta, gshrink, obs_prec, shrinkage_exponent):
 
         prior_logp = 0
 
         if self.model.name == 'logit':
             loglik, _ = self.model.compute_loglik_and_gradient(beta, loglik_only=True)
         elif self.model.name == 'linear':
-            loglik = - len(self.y) * math.log(sigma_sq) / 2 \
-                     - np.sum((self.y - self.X.dot(beta)) ** 2) / sigma_sq
-            prior_logp += - math.log(sigma_sq) / 2
+            loglik = len(self.y) * math.log(obs_prec) / 2 \
+                     - obs_prec * np.sum((self.y - self.X.dot(beta)) ** 2)
+            prior_logp += math.log(obs_prec) / 2
 
         n_shrunk_coef = len(beta) - self.n_unshrunk
 
