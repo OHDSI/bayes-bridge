@@ -31,8 +31,11 @@ def generate_samples(
     for i in range(n_sample + n_burnin):
         dt = np.random.uniform(dt_range[0], dt_range[1])
         nstep = np.random.randint(nstep_range[0], nstep_range[1] + 1)
-        theta, logp, grad, accept_prob[i], pathlen \
+        theta, info \
             = generate_next_state(f, dt, nstep, theta, logp, grad)
+        logp, grad, pathlen, accept_prob[i] = (
+            info[key] for key in ['logp', 'grad', 'n_grad_evals', 'accept_prob']
+        )
         pathlen_ave = i / (i + 1) * pathlen_ave + 1 / (i + 1) * pathlen
         samples[:, i] = theta
         logp_samples[i] = logp
@@ -73,12 +76,21 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
         joint = - compute_hamiltonian(logp, p)
         acceptprob = min(1, np.exp(joint - joint0))
 
-    if acceptprob < np.random.rand():
+    accepted = acceptprob > np.random.rand()
+    if not accepted:
         theta = theta0
         logp = logp0
         grad = grad0
 
-    return theta, logp, grad, acceptprob, n_grad_evals
+    info = {
+        'logp': logp,
+        'grad': grad,
+        'accepted': accepted,
+        'accept_prob': acceptprob,
+        'n_grad_evals': n_grad_evals
+    }
+
+    return theta, info
 
 
 def integrator(f, dt, theta, p, grad):
