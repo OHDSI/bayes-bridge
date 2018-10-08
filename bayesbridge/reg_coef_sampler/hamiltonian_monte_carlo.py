@@ -48,7 +48,8 @@ def generate_samples(
     return samples, logp_samples, accept_prob, time_elapsed
 
 
-def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
+def generate_next_state(
+        f, dt, n_step, theta0, logp0=None, grad0=None, hamiltonian_tol=100.):
 
     n_grad_evals = 0
 
@@ -59,8 +60,9 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
     p0 = draw_momentum(len(theta0))
     log_joint0 = - compute_hamiltonian(logp0, p0)
 
-    theta, p, logp, grad, simulation_info \
-            = simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0)
+    theta, p, logp, grad, simulation_info = simulate_dynamics(
+        f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol
+    )
     n_grad_evals += simulation_info['n_grad_evals']
 
     if math.isinf(logp):
@@ -86,24 +88,32 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
     return theta, info
 
 
-def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0):
+def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol):
 
     n_grad_evals = 0
+
+    # Keep track of Hamiltonians along the trajectory.
     hamiltonians = np.zeros(n_step + 1)
-    hamiltonians[0] = compute_hamiltonian(logp0, p0)
+    hamiltonian = compute_hamiltonian(logp0, p0)
+    hamiltonians[0] = hamiltonian
+    min_h, max_h = 2 * [hamiltonian]
 
     # First integration step.
     theta, p, logp, grad \
         = integrator(f, dt, theta0, p0, grad0)
-    hamiltonians[1] = compute_hamiltonian(logp, p)
+    hamiltonian = compute_hamiltonian(logp, p)
+    hamiltonians[1] = hamiltonian
+    min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
     n_grad_evals += 1
 
     for i in range(1, n_step):
-        if math.isinf(logp):
+        if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
             break
         theta, p, logp, grad \
             = integrator(f, dt, theta, p, grad)
-        hamiltonians[i + 1] = compute_hamiltonian(logp, p)
+        hamiltonian = compute_hamiltonian(logp, p)
+        hamiltonians[i + 1] = hamiltonian
+        min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
         n_grad_evals += 1
 
     info = {
@@ -112,6 +122,12 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0):
     }
 
     return theta, p, logp, grad, info
+
+
+def update_running_minmax(running_min, running_max, curr_val):
+    running_min = min(running_min, curr_val)
+    running_max = max(running_max, curr_val)
+    return running_min, running_max
 
 
 def integrator(f, dt, theta, p, grad):
