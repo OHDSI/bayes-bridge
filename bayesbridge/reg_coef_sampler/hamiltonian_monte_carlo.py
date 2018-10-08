@@ -64,8 +64,9 @@ def generate_next_state(
         f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol
     )
     n_grad_evals += simulation_info['n_grad_evals']
+    instability_detected = simulation_info['instability_detected']
 
-    if math.isinf(logp):
+    if instability_detected:
         acceptprob = 0.
     else:
         log_joint = - compute_hamiltonian(logp, p)
@@ -82,6 +83,7 @@ def generate_next_state(
         'grad': grad,
         'accepted': accepted,
         'accept_prob': acceptprob,
+        'instability_detected': instability_detected,
         'n_grad_evals': n_grad_evals
     }
 
@@ -91,6 +93,7 @@ def generate_next_state(
 def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol):
 
     n_grad_evals = 0
+    instability_detected = False
 
     # Keep track of Hamiltonians along the trajectory.
     hamiltonians = np.zeros(n_step + 1)
@@ -105,10 +108,11 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol):
     hamiltonians[1] = hamiltonian
     min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
     n_grad_evals += 1
+    if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
+        instability_detected = True
 
     for i in range(1, n_step):
-        if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
-            break
+
         theta, p, logp, grad \
             = integrator(f, dt, theta, p, grad)
         hamiltonian = compute_hamiltonian(logp, p)
@@ -116,9 +120,14 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol):
         min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
         n_grad_evals += 1
 
+        if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
+            instability_detected = True
+            break
+
     info = {
         'log_joints': - hamiltonians,
         'n_grad_evals': n_grad_evals,
+        'instability_detected': instability_detected,
     }
 
     return theta, p, logp, grad, info
