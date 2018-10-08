@@ -59,7 +59,7 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
     p0 = draw_momentum(len(theta0))
     joint0 = - compute_hamiltonian(logp0, p0)
 
-    theta, p, grad, logp, n_grad_evals \
+    theta, p, logp, grad, n_grad_evals \
             = simulate_dynamics(f, dt, n_step, theta0, p0, grad0)
 
     if math.isinf(logp):
@@ -89,17 +89,17 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, grad0):
 
     n_grad_evals = 0
     theta, p, grad = theta0.copy(), p0.copy(), grad0.copy()
-    theta, p, grad, logp \
+    theta, p, logp, grad \
         = integrator(f, dt, theta, p, grad)
     n_grad_evals += 1
     for i in range(1, n_step):
         if math.isinf(logp):
             break
-        theta, p, grad, logp \
+        theta, p, logp, grad \
             = integrator(f, dt, theta, p, grad)
         n_grad_evals += 1
 
-    return theta, p, grad, logp, n_grad_evals
+    return theta, p, logp, grad, n_grad_evals
 
 
 def integrator(f, dt, theta, p, grad):
@@ -109,7 +109,7 @@ def integrator(f, dt, theta, p, grad):
     logp, grad = f(theta)
     p = p + 0.5 * dt * grad
 
-    return theta, p, grad, logp
+    return theta, p, logp, grad
 
 
 def compute_hamiltonian(logp, p):
