@@ -93,9 +93,8 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0):
     hamiltonians[0] = compute_hamiltonian(logp0, p0)
 
     # First integration step.
-    theta, p, grad = theta0.copy(), p0.copy(), grad0.copy()
     theta, p, logp, grad \
-        = integrator(f, dt, theta, p, grad)
+        = integrator(f, dt, theta0, p0, grad0)
     hamiltonians[1] = compute_hamiltonian(logp, p)
     n_grad_evals += 1
 
