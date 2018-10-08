@@ -88,8 +88,7 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
 def simulate_dynamics(f, dt, n_step, theta0, p0, grad0):
 
     n_grad_evals = 0
-    theta, grad = theta0.copy(), grad0.copy()
-    p = p0 # Modify in place without copying.
+    theta, p, grad = theta0.copy(), p0.copy(), grad0.copy()
     theta, p, grad, logp \
         = integrator(f, dt, theta, p, grad)
     n_grad_evals += 1
@@ -102,13 +101,13 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, grad0):
 
     return theta, p, grad, logp, n_grad_evals
 
-# Note: the integrator modifies 'theta' and 'p' in place!
+
 def integrator(f, dt, theta, p, grad):
 
-    p += 0.5 * dt * grad
-    theta += dt * p
+    p = p + 0.5 * dt * grad
+    theta = theta + dt * p
     logp, grad = f(theta)
-    p += 0.5 * dt * grad
+    p = p + 0.5 * dt * grad
 
     return theta, p, grad, logp
 
