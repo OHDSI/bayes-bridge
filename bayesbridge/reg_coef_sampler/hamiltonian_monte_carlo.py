@@ -31,8 +31,9 @@ def generate_samples(
     for i in range(n_sample + n_burnin):
         dt = np.random.uniform(dt_range[0], dt_range[1])
         nstep = np.random.randint(nstep_range[0], nstep_range[1] + 1)
-        theta, info \
-            = generate_next_state(f, dt, nstep, theta, logp, grad)
+        theta, info = generate_next_state(
+            f, dt, nstep, theta, logp0=logp, grad0=grad
+        )
         logp, grad, pathlen, accept_prob[i] = (
             info[key] for key in ['logp', 'grad', 'n_grad_evals', 'accept_prob']
         )
@@ -49,7 +50,8 @@ def generate_samples(
 
 
 def generate_next_state(
-        f, dt, n_step, theta0, logp0=None, grad0=None, hamiltonian_tol=100.):
+        f, dt, n_step, theta0,
+        p0=None, logp0=None, grad0=None, hamiltonian_tol=100.):
 
     n_grad_evals = 0
 
@@ -57,7 +59,9 @@ def generate_next_state(
         logp0, grad0 = f(theta0)
         n_grad_evals += 1
 
-    p0 = draw_momentum(len(theta0))
+    if p0 is None:
+        p0 = draw_momentum(len(theta0))
+
     log_joint0 = - compute_hamiltonian(logp0, p0)
 
     theta, p, logp, grad, simulation_info = simulate_dynamics(
