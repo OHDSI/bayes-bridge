@@ -80,6 +80,12 @@ class BivariateSkewNormal():
             self.rotation, product_dist.compute_gradient
         )
 
+    def compute_logp_and_gradient(self, x):
+        return (
+            self.compute_logp(x),
+            self.compute_gradient(x)
+        )
+
     def compute_marginal_pdf(self, x, y):
         logp = np.zeros((len(x), len(y)))
         for i in range(len(x)):
