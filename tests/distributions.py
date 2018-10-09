@@ -1,6 +1,38 @@
 import numpy as np
 from scipy.stats import norm, skewnorm
 
+class BivariateGaussian():
+
+    def __init__(self, rho=.9, sigma=np.array([1.0, 2.0])):
+        Sigma = np.array([
+            [sigma[0] ** 2, rho * np.prod(sigma)],
+            [rho * np.prod(sigma), sigma[1] ** 2]
+        ])
+        self.sigma = sigma
+        self.Sigma = Sigma
+        self.Phi = np.linalg.inv(Sigma)
+
+    def compute_logp_and_gradient(self, x):
+        logp = - np.inner(x, self.Phi.dot(x)) / 2
+        grad = - self.Phi.dot(x)
+        return logp, grad
+
+    def compute_marginal_pdf(self, x, axis):
+        pdf = 1 / np.sqrt(2 * np.pi) / self.sigma[axis] \
+              * np.exp(- x ** 2 / 2 / self.sigma[axis] ** 2)
+        return pdf
+
+    def get_principal_components(self):
+        """ Returns principal component variances and directions. """
+        eigvals, eigvec = np.linalg.eig(self.Phi)
+        return 1 / eigvals, eigvec
+
+    def get_stepsize_stability_limit(self):
+        pc_scale = np.sqrt(
+            self.get_principal_components()[0]
+        )
+        return 2 * np.min(pc_scale)
+
 
 """
 Defines decoraters to take the log density and gradient functions for a
