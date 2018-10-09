@@ -57,7 +57,7 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
         n_grad_evals += 1
 
     p0 = draw_momentum(len(theta0))
-    joint0 = - compute_hamiltonian(logp0, p0)
+    log_joint0 = - compute_hamiltonian(logp0, p0)
 
     theta, p, logp, grad, n_grad_evals \
             = simulate_dynamics(f, dt, n_step, theta0, p0, grad0)
@@ -65,8 +65,8 @@ def generate_next_state(f, dt, n_step, theta0, logp0=None, grad0=None):
     if math.isinf(logp):
         acceptprob = 0.
     else:
-        joint = - compute_hamiltonian(logp, p)
-        acceptprob = min(1, np.exp(joint - joint0))
+        log_joint = - compute_hamiltonian(logp, p)
+        acceptprob = min(1, np.exp(log_joint - log_joint0))
 
     accepted = acceptprob > np.random.rand()
     if not accepted:
