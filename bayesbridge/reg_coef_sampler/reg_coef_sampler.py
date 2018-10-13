@@ -99,7 +99,8 @@ class SparseRegressionCoefficientSampler():
             (X.shape[1], X.shape[1]), precond_hessian_matvec
         )
         eigval = sp.sparse.linalg.eigsh(
-            precond_hessian_op, k=1, return_eigenvectors=False)
+            precond_hessian_op, k=1, tol=.1, return_eigenvectors=False)
+            # We don't need a high (relative) accuracy.
         max_curvature = eigval[0]
 
         approx_stability_limit = 2 / np.sqrt(max_curvature)
