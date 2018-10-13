@@ -7,27 +7,44 @@ import numpy.random
 import scipy as sp
 import scipy.sparse
 from simulate_data import simulate_design
-from bayesbridge.model.logistic_model import LogisticModel
+from bayesbridge.model import LogisticModel, CoxModel
 from bayesbridge.design_matrix import SparseDesignMatrix, DenseDesignMatrix
 
 
 def test_logitstic_model_gradient():
-    n_trial, y, X, beta = simulate_logistic_model_data(seed=0)
+    n_trial, y, X, beta = simulate_data(model='logit', seed=0)
     logit_model = LogisticModel(y, X, n_trial)
     f = logit_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
 
-def simulate_logistic_model_data(seed=None):
+def test_cox_model_gradient():
+    _, y, X, beta = simulate_data(model='cox', seed=0)
+    cox_model = CoxModel(y, X)
+    f = cox_model.compute_loglik_and_gradient
+    assert numerical_grad_is_close(f, beta)
+
+def simulate_data(model, seed=None):
+
     np.random.seed(seed)
     n_obs, n_pred = (100, 50)
     X = simulate_design(n_obs, n_pred, binary_frac=.9)
+
+    beta = np.random.randn(n_pred)
+    n_trial = None
+    if model == 'logit':
+        n_trial = np.random.binomial(np.arange(n_obs) + 1, .5)
+        y = LogisticModel.simulate_outcome(n_trial, X, beta)
+    elif model == 'cox':
+        y = CoxModel.simulate_outcome(X, beta)
+        y, X = CoxModel.permute_observations_by_event_time(y, X)
+    else:
+        raise NotImplementedError()
+
     if sp.sparse.issparse(X):
         X = SparseDesignMatrix(X)
     else:
         X = DenseDesignMatrix(X)
-    n_trial = np.random.binomial(np.arange(n_obs) + 1, .5)
-    beta = np.random.randn(n_pred)
-    y = LogisticModel.simulate_outcome(n_trial, X, beta)
+
     return n_trial, y, X, beta
 
 def numerical_grad_is_close(f, x, atol=10E-6, rtol=10E-6, dx=10E-6):
