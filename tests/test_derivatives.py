@@ -17,6 +17,7 @@ def test_logitstic_model_gradient():
     f = logit_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
 
+
 def test_logitstic_model_hessian_matvec():
     n_trial, y, X, beta = simulate_data(model='logit', seed=0)
     logit_model = LogisticModel(y, X, n_trial)
@@ -24,11 +25,13 @@ def test_logitstic_model_hessian_matvec():
     hessian_matvec = logit_model.get_hessian_matvec_operator(beta)
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
 
+
 def test_cox_model_gradient():
     _, y, X, beta = simulate_data(model='cox', seed=0)
     cox_model = CoxModel(y, X)
     f = cox_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
+
 
 def test_cox_model_hessian_matvec():
     _, y, X, beta = simulate_data(model='cox', seed=0)
@@ -36,6 +39,7 @@ def test_cox_model_hessian_matvec():
     f = cox_model.compute_loglik_and_gradient
     hessian_matvec = cox_model.get_hessian_matvec_operator(beta)
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
+
 
 def simulate_data(model, seed=None):
 
@@ -61,6 +65,7 @@ def simulate_data(model, seed=None):
 
     return n_trial, y, X, beta
 
+
 def numerical_grad_is_close(f, x, atol=10E-6, rtol=10E-6, dx=10E-6):
     """
     Compare the computed gradient to a centered finite difference approximation.
@@ -83,6 +88,7 @@ def numerical_grad_is_close(f, x, atol=10E-6, rtol=10E-6, dx=10E-6):
 
     _, grad = f(x)
     return np.allclose(grad, grad_est, atol=atol, rtol=rtol)
+
 
 def numerical_direc_deriv_is_close(
         f, x, hess_matvec, n_direction=10,
