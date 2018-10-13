@@ -48,6 +48,25 @@ class CoxModel(AbstractModel):
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
+        log_hazard_increase, hazard_increase, sum_over_risk_set \
+            = self._compute_hazard_increase(beta)
+
+        loglik = np.sum(
+            log_hazard_increase[:self.n_event] - np.log(sum_over_risk_set)
+        )
+
+        grad = None
+        if not loglik_only:
+            W = self._compute_multinomial_prob(hazard_increase, sum_over_risk_set)
+            v = np.zeros(self.X.shape[0])
+            v[:self.n_event] = 1
+            v -= np.sum(W, 0)
+            grad = self.X.Tdot(v)
+
+        return loglik, grad
+
+    def _compute_hazard_increase(self, beta):
+
         log_hazard_increase = self.X.dot(beta)
         log_hazard_increase = CoxModel._shift_log_hazard(log_hazard_increase)
 
@@ -59,17 +78,20 @@ class CoxModel(AbstractModel):
             ))
         )
 
-        loglik = np.sum(
-            log_hazard_increase[:self.n_event] - np.log(sum_over_risk_set)
-        )
-        W = np.outer(sum_over_risk_set ** -1, hazard_increase)
-        W = np.triu(W)
-        v = np.zeros(self.X.shape[0])
-        v[:self.n_event] = 1
-        v -= np.sum(W, 0)
-        grad = self.X.Tdot(v)
+        return log_hazard_increase, hazard_increase, sum_over_risk_set
 
-        return loglik, grad
+    @staticmethod
+    def np_reverse_cumsum(arr):
+        return np.cumsum(arr[::-1])[::-1]
+
+    def _compute_multinomial_prob(self, hazard_increase, sum_over_risk_set):
+        """
+        Returns a numpy array such that each row represents the conditional
+        probabilities of the event happening to the individuals in the risk set.
+        """
+        multinomial_prob = np.outer(sum_over_risk_set ** -1, hazard_increase)
+        multinomial_prob = np.triu(multinomial_prob)
+        return multinomial_prob
 
     @staticmethod
     def _shift_log_hazard(log_hazard_rate, log_offset=0):
@@ -84,7 +106,21 @@ class CoxModel(AbstractModel):
         raise NotImplementedError()
 
     def get_hessian_matvec_operator(self, beta):
-        pass
+
+        _, hazard_increase, sum_over_risk_set \
+            = self._compute_hazard_increase(beta)
+        W = self._compute_multinomial_prob(hazard_increase, sum_over_risk_set)
+
+        # TODO: Optimize the matrix-vector operation by W and W.T.
+        # But it does not really matter when the number of events is small.
+        def hessian_op(beta):
+            X_beta = self.X.dot(beta)
+            result_vec = - self.X.Tdot(
+                np.sum(W, 0) * X_beta - W.T.dot(W.dot(X_beta))
+            )
+            return result_vec
+
+        return hessian_op
 
     @staticmethod
     def simulate_outcome(X, beta, censoring_frac=.9, seed=None):
@@ -104,7 +140,3 @@ class CoxModel(AbstractModel):
         ] = float('inf') # Right-censoring
 
         return event_order
-
-    @staticmethod
-    def np_reverse_cumsum(arr):
-        return np.cumsum(arr[::-1])[::-1]
