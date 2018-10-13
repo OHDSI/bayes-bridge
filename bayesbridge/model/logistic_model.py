@@ -41,7 +41,7 @@ class LogisticModel(AbstractModel):
         predicted_prob = LogisticModel.compute_predicted_prob(self.X, beta)
         weight = predicted_prob * (1 - predicted_prob)
         hessian_op = lambda v: \
-            self.X.Tdot(weight * self.X.dot(v))
+            - self.X.Tdot(self.n_trial * weight * self.X.dot(v))
         return hessian_op
 
     @staticmethod
