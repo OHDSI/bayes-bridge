@@ -199,7 +199,7 @@ class BayesBridge():
         # Pre-allocate
         samples = {}
         self.pre_allocate(samples, n_post_burnin, thin, params_to_save)
-        n_cg_iter = np.zeros(n_iter)
+        sampling_cost_per_iter = np.zeros(n_iter)
 
         # Start Gibbs sampling
         start_time = time.time()
@@ -208,8 +208,10 @@ class BayesBridge():
             beta, info = self.update_beta(
                 beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
             )
-            if 'n_cg_iter' in info.keys():
-                n_cg_iter[mcmc_iter - 1] = info['n_cg_iter']
+            if sampling_method == 'cg':
+                sampling_cost_per_iter[mcmc_iter - 1] = info['n_cg_iter']
+            elif sampling_method == 'hmc':
+                sampling_cost_per_iter[mcmc_iter - 1] = info['n_hmc_step']
 
             obs_prec = self.update_obs_precision(beta)
 
@@ -253,9 +255,11 @@ class BayesBridge():
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
         if sampling_method == 'cg':
-            mcmc_output['n_cg_iter'] = n_cg_iter
+            mcmc_output['n_cg_iter'] = sampling_cost_per_iter
             if precond_blocksize > 0:
                 mcmc_output['precond_blocksize'] = precond_blocksize
+        elif sampling_method == 'hmc':
+            mcmc_output['n_hmc_step'] = sampling_cost_per_iter
 
         return mcmc_output
 

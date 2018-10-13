@@ -125,6 +125,7 @@ class SparseRegressionCoefficientSampler():
             key: hmc_info[key]
             for key in ['accepted', 'accept_prob', 'n_grad_evals']
         }
+        info['n_hmc_step'] = n_step
         return beta, info
 
     def compute_preconditioning_scale(self, gshrink, lshrink):
