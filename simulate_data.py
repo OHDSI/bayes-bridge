@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import scipy.sparse
+from bayesbridge.model import CoxModel
 
 
 def simulate_outcome(X, beta, model, n_trial=None, seed=None):
@@ -14,6 +15,8 @@ def simulate_outcome(X, beta, model, n_trial=None, seed=None):
             n_trial = np.ones(X.shape[0])
         prob = 1 / (1 + np.exp(-X.dot(beta)))
         y = np.random.binomial(n_trial.astype(np.int64), prob)
+    elif model == 'cox':
+        y = CoxModel.simulate_outcome(X, beta, censoring_frac=.5)
     else:
         raise NotImplementedError()
 
