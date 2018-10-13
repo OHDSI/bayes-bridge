@@ -17,11 +17,25 @@ def test_logitstic_model_gradient():
     f = logit_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
 
+def test_logitstic_model_hessian_matvec():
+    n_trial, y, X, beta = simulate_data(model='logit', seed=0)
+    logit_model = LogisticModel(y, X, n_trial)
+    f = logit_model.compute_loglik_and_gradient
+    hessian_matvec = logit_model.get_hessian_matvec_operator(beta)
+    assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
+
 def test_cox_model_gradient():
     _, y, X, beta = simulate_data(model='cox', seed=0)
     cox_model = CoxModel(y, X)
     f = cox_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
+
+def test_cox_model_hessian_matvec():
+    _, y, X, beta = simulate_data(model='cox', seed=0)
+    cox_model = CoxModel(y, X)
+    f = cox_model.compute_loglik_and_gradient
+    hessian_matvec = cox_model.get_hessian_matvec_operator(beta)
+    assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
 
 def simulate_data(model, seed=None):
 
@@ -69,3 +83,36 @@ def numerical_grad_is_close(f, x, atol=10E-6, rtol=10E-6, dx=10E-6):
 
     _, grad = f(x)
     return np.allclose(grad, grad_est, atol=atol, rtol=rtol)
+
+def numerical_direc_deriv_is_close(
+        f, x, hess_matvec, n_direction=10,
+        atol=10E-6, rtol=10E-6, dx=10E-6, seed=None):
+    """
+    Compare analytically computed directional derivatives of the gradient of 'f'
+    (i.e. the Hessian of 'f' applied to vectors) to its numerical approximations.
+
+    Params:
+    -------
+    f : callable
+        Returns a value of a function and its gradient
+    """
+
+    x = np.array(x, ndmin=1)
+
+    np.random.seed(seed)
+    all_matched = True
+
+    for i in range(n_direction):
+
+        v = np.random.randn(len(x))
+        v /= np.sqrt(np.sum(v ** 2))
+        _, grad_minus = f(x - dx * v)
+        _, grad_plus = f(x + dx * v)
+        direc_deriv_est = (grad_plus - grad_minus) / (2 * dx)
+        direc_deriv = hess_matvec(v)
+
+        if not np.allclose(direc_deriv, direc_deriv_est, atol=atol, rtol=rtol):
+            all_matched = False
+            break
+
+    return all_matched
