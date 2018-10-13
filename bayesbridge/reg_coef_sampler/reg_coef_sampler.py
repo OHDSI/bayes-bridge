@@ -94,7 +94,7 @@ class SparseRegressionCoefficientSampler():
         ))
         precond_hessian_matvec = lambda beta: \
             precond_prior_prec * beta \
-            + precond_scale * loglik_hessian_matvec(precond_scale * beta)
+            - precond_scale * loglik_hessian_matvec(precond_scale * beta)
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
             (X.shape[1], X.shape[1]), precond_hessian_matvec
         )
