@@ -82,7 +82,7 @@ class SparseRegressionCoefficientSampler():
 
         return beta, info
 
-    def sample_by_hmc(self, y, X, beta, gshrink, lshrink, model):
+    def sample_by_hmc(self, y, X, beta, gshrink, lshrink, model, max_step=500):
 
         beta_condmean_guess = \
             self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
@@ -107,7 +107,8 @@ class SparseRegressionCoefficientSampler():
             # The multiplicative factors may require adjustment.
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
         n_step = np.ceil(1 / dt * np.random.uniform(.8, 1.)).astype('int')
-            # TODO: should we upper bound the number of steps?
+        n_step = min(n_step, max_step)
+
         beta_precond = beta / precond_scale
         def f(beta_precond):
             beta = beta_precond * precond_scale
