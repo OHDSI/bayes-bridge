@@ -10,7 +10,7 @@ from .util.simple_warnings import warn_message_only
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .design_matrix import SparseDesignMatrix, DenseDesignMatrix
-from .model import LinearModel, LogisticModel
+from .model import LinearModel, LogisticModel, CoxModel
 
 
 class BayesBridge():
@@ -41,9 +41,14 @@ class BayesBridge():
                 or n_coef_without_shrinkage == len(prior_sd_for_unshrunk)):
             raise ValueError('Invalid array size for prior sd.')
 
-        if add_intercept:
+        if model != 'cox' and add_intercept:
             X, n_coef_without_shrinkage, prior_sd_for_unshrunk = \
                 self.add_intercept(X, n_coef_without_shrinkage, prior_sd_for_unshrunk)
+
+        if model == 'cox' and np.any(y[:-1] > y[1:]):
+            warn_message_only(
+                "The event times are not sorted, sorting the outcome and design matrix....")
+            y, X = CoxModel.permute_observations_by_event_time(y, X)
 
         X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
 
@@ -51,6 +56,8 @@ class BayesBridge():
             self.model = LinearModel(y, X)
         elif model == 'logit':
             self.model = LogisticModel(y, X, n_trial)
+        elif model == 'cox':
+            self.model = CoxModel(y, X)
         else:
             raise NotImplementedError()
 
@@ -506,7 +513,7 @@ class BayesBridge():
 
         prior_logp = 0
 
-        if self.model.name == 'logit':
+        if self.model.name in ('logit', 'cox'):
             loglik, _ = self.model.compute_loglik_and_gradient(beta, loglik_only=True)
         elif self.model.name == 'linear':
             loglik = len(self.y) * math.log(obs_prec) / 2 \
