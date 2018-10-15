@@ -57,7 +57,9 @@ class CoxModel(AbstractModel):
 
         grad = None
         if not loglik_only:
-            W = self._compute_multinomial_prob(hazard_increase, sum_over_risk_set)
+            hazard_matrix = \
+                self._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
+            W = hazard_matrix.compute_matrix()
             v = np.zeros(self.X.shape[0])
             v[:self.n_event] = 1
             v -= np.sum(W, 0)
@@ -84,15 +86,6 @@ class CoxModel(AbstractModel):
     def np_reverse_cumsum(arr):
         return np.cumsum(arr[::-1])[::-1]
 
-    def _compute_multinomial_prob(self, hazard_increase, sum_over_risk_set):
-        """
-        Returns a numpy array such that each row represents the conditional
-        probabilities of the event happening to the individuals in the risk set.
-        """
-        multinomial_prob = np.outer(sum_over_risk_set ** -1, hazard_increase)
-        multinomial_prob = np.triu(multinomial_prob)
-        return multinomial_prob
-
     @staticmethod
     def _shift_log_hazard(log_hazard_rate, log_offset=0):
         """
@@ -109,7 +102,9 @@ class CoxModel(AbstractModel):
 
         _, hazard_increase, sum_over_risk_set \
             = self._compute_hazard_increase(beta)
-        W = self._compute_multinomial_prob(hazard_increase, sum_over_risk_set)
+        hazard_matrix = \
+            self._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
+        W = hazard_matrix.compute_matrix()
 
         # TODO: Optimize the matrix-vector operation by W and W.T.
         # But it does not really matter when the number of events is small.
@@ -140,3 +135,22 @@ class CoxModel(AbstractModel):
         ] = float('inf') # Right-censoring
 
         return event_order
+
+    class _HazardMultinomialProbMatrix():
+        """
+        Defines operations by a matrix whose each row represents the conditional
+        probabilities of the event happening to the individuals in the risk set.
+        """
+
+        def __init__(self, hazard_increase, sum_over_risk_set):
+            self.hazard_increase = hazard_increase
+            self.sum_over_risk_set = sum_over_risk_set
+
+        def compute_matrix(self):
+            multinomial_prob = np.outer(
+                self.sum_over_risk_set ** -1,
+                self.hazard_increase
+            )
+            multinomial_prob = np.triu(multinomial_prob)
+            return multinomial_prob
+
