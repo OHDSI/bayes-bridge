@@ -59,10 +59,9 @@ class CoxModel(AbstractModel):
         if not loglik_only:
             hazard_matrix = \
                 self._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
-            W = hazard_matrix.compute_matrix()
             v = np.zeros(self.X.shape[0])
             v[:self.n_event] = 1
-            v -= np.sum(W, 0)
+            v -= hazard_matrix.sum_over_events()
             grad = self.X.Tdot(v)
 
         return loglik, grad
@@ -145,6 +144,21 @@ class CoxModel(AbstractModel):
         def __init__(self, hazard_increase, sum_over_risk_set):
             self.hazard_increase = hazard_increase
             self.sum_over_risk_set = sum_over_risk_set
+            self.n_event = len(sum_over_risk_set)
+
+        def sum_over_events(self):
+            """
+            Returns the same value as the row sum of the explicitly computed
+            the matrix (e.g. via the 'compute_matrix' method) but do it more
+            efficiently.
+            """
+            normalizer_cumsum = np.cumsum(self.sum_over_risk_set ** -1)
+            row_sum = np.concatenate((
+                normalizer_cumsum[:self.n_event]
+                    * self.hazard_increase[:self.n_event],
+                normalizer_cumsum[-1] * self.hazard_increase[self.n_event:]
+            ))
+            return row_sum
 
         def compute_matrix(self):
             multinomial_prob = np.outer(
@@ -153,4 +167,3 @@ class CoxModel(AbstractModel):
             )
             multinomial_prob = np.triu(multinomial_prob)
             return multinomial_prob
-
