@@ -101,16 +101,12 @@ class CoxModel(AbstractModel):
 
         _, hazard_increase, sum_over_risk_set \
             = self._compute_hazard_increase(beta)
-        hazard_matrix = \
-            self._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
-        W = hazard_matrix.compute_matrix()
+        W = self._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
 
-        # TODO: Optimize the matrix-vector operation by W and W.T.
-        # But it does not really matter when the number of events is small.
         def hessian_op(beta):
             X_beta = self.X.dot(beta)
             result_vec = - self.X.Tdot(
-                np.sum(W, 0) * X_beta - W.T.dot(W.dot(X_beta))
+                W.sum_over_events() * X_beta - W.Tdot(W.dot(X_beta))
             )
             return result_vec
 
@@ -159,6 +155,31 @@ class CoxModel(AbstractModel):
                 normalizer_cumsum[-1] * self.hazard_increase[self.n_event:]
             ))
             return row_sum
+
+        def dot(self, v):
+            return self.sum_over_risk_set ** - 1 \
+                    * self._censored_dot(self.hazard_increase, v, self.n_event)
+
+        def _censored_dot(self, hazard_increase, v, n_event):
+            """
+            Returns
+            -------
+            numpy array of length 'n_event' whose k-th element equals
+                np.dot(hazard_increase[k:], v[k:])
+            """
+            result = \
+                CoxModel.np_reverse_cumsum(
+                    hazard_increase[:n_event] * v[:n_event]) \
+                + np.dot(self.hazard_increase[n_event:], v[n_event:])
+            return result
+
+        def Tdot(self, v):
+            censored_inner_prod = np.cumsum(self.sum_over_risk_set ** -1 * v)
+            result = np.concatenate((
+                self.hazard_increase[:self.n_event] * censored_inner_prod,
+                self.hazard_increase[self.n_event:] * censored_inner_prod[-1]
+            ))
+            return result
 
         def compute_matrix(self):
             multinomial_prob = np.outer(
