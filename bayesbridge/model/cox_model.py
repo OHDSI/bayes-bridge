@@ -1,5 +1,6 @@
 from .abstract_model import AbstractModel
 import numpy as np
+import scipy as sp
 from bayesbridge.util.simple_warnings import warn_message_only
 
 
@@ -71,7 +72,10 @@ class CoxModel(AbstractModel):
 
         event_time = event_time[sort_ind]
         censoring_time = censoring_time[sort_ind]
-        X = X.tocsr()[sort_ind, :]
+        if sp.sparse.issparse(X):
+            X = X.tocsr()[sort_ind, :]
+        else:
+            X = X[sort_ind, :]
         return event_time, censoring_time, X
 
     @staticmethod
