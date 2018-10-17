@@ -28,12 +28,16 @@ def test_logitstic_model_hessian_matvec():
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
 
 
+def set_up_cox_model_test(seed=0):
+    y, X, beta = simulate_data(model='cox', seed=seed)
+    event_order, censoring_time = y
+    cox_model = CoxModel(event_order, censoring_time, X)
+    return cox_model, beta
+
+
 def test_cox_model_sum_over_risk_set():
 
-    y, X, beta = simulate_data(model='cox', seed=0)
-    event_order, censoring_time = y
-    cox_model = CoxModel(event_order, censoring_time , X)
-
+    cox_model, beta = set_up_cox_model_test()
     _, hazard_increase, sum_over_risk_set \
         = cox_model._compute_hazard_increase(beta)
     hazard_matrix = \
@@ -46,17 +50,13 @@ def test_cox_model_sum_over_risk_set():
 
 
 def test_cox_model_gradient():
-    y, X, beta = simulate_data(model='cox', seed=0)
-    event_order, censoring_time = y
-    cox_model = CoxModel(event_order, censoring_time, X)
+    cox_model, beta = set_up_cox_model_test()
     f = cox_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
 
 
 def test_cox_model_hessian_matvec():
-    y, X, beta = simulate_data(model='cox', seed=0)
-    event_order, censoring_time = y
-    cox_model = CoxModel(event_order, censoring_time, X)
+    cox_model, beta = set_up_cox_model_test()
     f = cox_model.compute_loglik_and_gradient
     hessian_matvec = cox_model.get_hessian_matvec_operator(beta)
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
@@ -64,10 +64,7 @@ def test_cox_model_hessian_matvec():
 
 def test_cox_hazard_multinom_prob_calculation():
 
-    y, X, beta = simulate_data(model='cox', seed=0)
-    event_order, censoring_time = y
-    cox_model = CoxModel(event_order, censoring_time, X)
-
+    cox_model, beta = set_up_cox_model_test()
     _, hazard_increase, sum_over_risk_set \
         = cox_model._compute_hazard_increase(beta)
     hazard_matrix = cox_model._HazardMultinomialProbMatrix(
