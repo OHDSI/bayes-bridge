@@ -35,6 +35,31 @@ def set_up_cox_model_test(seed=0):
     return cox_model, beta
 
 
+def test_cox_model_observation_reordering():
+
+    event_time = np.array(
+        [1, 5, np.inf, 2.5, np.inf]
+    )
+    censoring_time = np.array(
+        [np.inf, np.inf, 3, np.inf, 2]
+    )
+    X = np.arange(5)[:, np.newaxis]
+    event_time, censoring_time, X = \
+        CoxModel.permute_observations_by_event_and_censoring_time(
+            event_time, censoring_time, X
+        )
+    assert np.all(
+        event_time == np.array([1, 2.5, 5, np.inf, np.inf])
+    )
+    assert np.all(
+        censoring_time == np.array([np.inf, np.inf, np.inf, 3, 2])
+    )
+    assert np.all(X == np.array([0, 3, 1, 2, 4])[:, np.newaxis])
+
+    cox_model = CoxModel(event_time, censoring_time, X)
+    assert np.all(cox_model.risk_set_end_index == np.array([4, 3, 2]))
+
+
 def test_cox_model_sum_over_risk_set():
 
     cox_model, beta = set_up_cox_model_test()
@@ -74,10 +99,9 @@ def test_cox_hazard_multinom_prob_calculation():
     assert np.allclose(np.sum(W, 0), hazard_matrix.sum_over_events())
 
 
-def simulate_data(model, seed=None):
+def simulate_data(model, n_obs=100, n_pred=50, seed=None):
 
     np.random.seed(seed)
-    n_obs, n_pred = (100, 50)
     X = simulate_design(n_obs, n_pred, binary_frac=.9)
 
     beta = np.random.randn(n_pred)
