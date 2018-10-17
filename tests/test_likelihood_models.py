@@ -12,15 +12,17 @@ from bayesbridge.design_matrix import SparseDesignMatrix, DenseDesignMatrix
 
 
 def test_logitstic_model_gradient():
-    n_trial, y, X, beta = simulate_data(model='logit', seed=0)
-    logit_model = LogisticModel(y, X, n_trial)
+    y, X, beta = simulate_data(model='logit', seed=0)
+    n_trial, n_success = y
+    logit_model = LogisticModel(n_success, X, n_trial)
     f = logit_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
 
 
 def test_logitstic_model_hessian_matvec():
-    n_trial, y, X, beta = simulate_data(model='logit', seed=0)
-    logit_model = LogisticModel(y, X, n_trial)
+    y, X, beta = simulate_data(model='logit', seed=0)
+    n_trial, n_success = y
+    logit_model = LogisticModel(n_success, X, n_trial)
     f = logit_model.compute_loglik_and_gradient
     hessian_matvec = logit_model.get_hessian_matvec_operator(beta)
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
@@ -28,14 +30,15 @@ def test_logitstic_model_hessian_matvec():
 
 def test_cox_model_sum_over_risk_set():
 
-    _, y, X, beta = simulate_data(model='cox', seed=0)
-    cox_model = CoxModel(y, X)
+    y, X, beta = simulate_data(model='cox', seed=0)
+    event_order, censoring_time = y
+    cox_model = CoxModel(event_order, censoring_time , X)
 
     _, hazard_increase, sum_over_risk_set \
         = cox_model._compute_hazard_increase(beta)
     hazard_matrix = \
         cox_model._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
-    
+
     assert np.allclose(
         hazard_matrix.sum_over_events(),
         np.sum(hazard_matrix.compute_matrix(), 0)
@@ -43,15 +46,17 @@ def test_cox_model_sum_over_risk_set():
 
 
 def test_cox_model_gradient():
-    _, y, X, beta = simulate_data(model='cox', seed=0)
-    cox_model = CoxModel(y, X)
+    y, X, beta = simulate_data(model='cox', seed=0)
+    event_order, censoring_time = y
+    cox_model = CoxModel(event_order, censoring_time, X)
     f = cox_model.compute_loglik_and_gradient
     assert numerical_grad_is_close(f, beta)
 
 
 def test_cox_model_hessian_matvec():
-    _, y, X, beta = simulate_data(model='cox', seed=0)
-    cox_model = CoxModel(y, X)
+    y, X, beta = simulate_data(model='cox', seed=0)
+    event_order, censoring_time = y
+    cox_model = CoxModel(event_order, censoring_time, X)
     f = cox_model.compute_loglik_and_gradient
     hessian_matvec = cox_model.get_hessian_matvec_operator(beta)
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
@@ -59,8 +64,9 @@ def test_cox_model_hessian_matvec():
 
 def test_cox_hazard_multinom_prob_calculation():
 
-    _, y, X, beta = simulate_data(model='cox', seed=0)
-    cox_model = CoxModel(y, X)
+    y, X, beta = simulate_data(model='cox', seed=0)
+    event_order, censoring_time = y
+    cox_model = CoxModel(event_order, censoring_time, X)
 
     _, hazard_increase, sum_over_risk_set \
         = cox_model._compute_hazard_increase(beta)
@@ -81,10 +87,13 @@ def simulate_data(model, seed=None):
     n_trial = None
     if model == 'logit':
         n_trial = np.random.binomial(np.arange(n_obs) + 1, .5)
-        y = LogisticModel.simulate_outcome(n_trial, X, beta)
+        n_success = LogisticModel.simulate_outcome(n_trial, X, beta)
+        y = (n_trial, n_success)
     elif model == 'cox':
-        y = CoxModel.simulate_outcome(X, beta)
-        y, X = CoxModel.permute_observations_by_event_time(y, X)
+        event_order, censoring_time = CoxModel.simulate_outcome(X, beta)
+        event_order, censoring_time, X = \
+            CoxModel.permute_observations_by_event_and_censoring_time(event_order, censoring_time, X)
+        y = (event_order, censoring_time)
     else:
         raise NotImplementedError()
 
@@ -93,7 +102,7 @@ def simulate_data(model, seed=None):
     else:
         X = DenseDesignMatrix(X)
 
-    return n_trial, y, X, beta
+    return y, X, beta
 
 
 def numerical_grad_is_close(f, x, atol=10E-6, rtol=10E-6, dx=10E-6):
