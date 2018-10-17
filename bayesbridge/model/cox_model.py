@@ -5,40 +5,74 @@ from bayesbridge.util.simple_warnings import warn_message_only
 
 class CoxModel(AbstractModel):
 
-    def __init__(self, y, X):
+    def __init__(self, event_time, censoring_time, X):
         """
 
         Parameters
         ----------
-        y : numpy array
-            Either event time or event order (lowest value indicating the
-            earliest event). float('inf') indicates right-censoring.
-        X
+        event_time : numpy array
+            The lowest values indicate the earliest events. float('inf')
+            indicates right-censoring.
+        censoring_time : numpy array
+            float('inf') indicates uncensored observations.
         """
 
-        if np.any(y[:-1] > y[1:]):
-            raise ValueError("The event times are not sorted.")
+        if np.any(event_time[:-1] > event_time[1:]):
+            raise ValueError(
+                "The observations need to be sorted so that the event times are "
+                "in the increasing order, from the earliest to last events."
+            )
 
-        self.n_event = len(y) - np.sum(np.isinf(y))
-        self.y = y
+        if np.any(censoring_time[:-1] < censoring_time[1:]):
+            raise ValueError(
+                "The observations need to be sorted so that the censoring times "
+                "are in the increasing order, from uncensored, last censored, "
+                "to the earliest censored."
+            )
+
+        self.n_event = len(event_time) - np.sum(np.isinf(event_time))
+        self.event_time = event_time
+        self.censoring_time = censoring_time
+        self.risk_set_end_index = np.array([
+            np.sum(t < censoring_time) - 1 for t in event_time[:self.n_event]
+        ]) # TODO: Should I consider the day of censoring to be in the risk set?
         self.X = X
         self.name = 'cox'
 
     @staticmethod
-    def permute_observations_by_event_time(y, X):
+    def permute_observations_by_event_and_censoring_time(
+            event_time, censoring_time, X):
         """
+        Permute the observations so that they are ordered from the earliest
+        to the last to experience events, followed by the last censored to the
+        earliest censored.
+
         Params
         ------
-        y : numpy array
-            Either event time or event order (lowest value indicating the
-            earliest event). float('inf') indicates right-censoring.
+        event_time : numpy array
+            The lowest values indicate the earliest events. float('inf')
+            indicates right-censoring.
         X : numpy array or scipy sparse matrix
         """
-        event_rank = CoxModel.np_rank_by_value(y)
-        sort_ind = np.argsort(event_rank)
-        y = y[sort_ind]
+        if not np.all(np.equal(
+                event_time == float("inf"),
+                censoring_time < float('inf')
+            )):
+            raise ValueError("Censoring indicators are inconsistent.")
+
+        n_event = np.sum(event_time < float('inf'))
+        event_rank = CoxModel.np_rank_by_value(event_time)
+        censoring_rank = CoxModel.np_rank_by_value(censoring_time)
+        sort_ind = np.concatenate((
+            np.argsort(event_rank)[:n_event],
+            np.argsort(- censoring_rank)[n_event:]
+        ))
+        assert len(np.unique(sort_ind)) == len(sort_ind)
+
+        event_time = event_time[sort_ind]
+        censoring_time = censoring_time[sort_ind]
         X = X.tocsr()[sort_ind, :]
-        return y, X
+        return event_time, censoring_time, X
 
     @staticmethod
     def np_rank_by_value(arr):
@@ -124,12 +158,17 @@ class CoxModel(AbstractModel):
         log_hazard_rate = CoxModel._shift_log_hazard(log_hazard_rate)
         hazard_rate = np.exp(log_hazard_rate)
         event_time = np.random.exponential(scale=hazard_rate ** -1)
+        # TODO: Implement non-simultaneous censoring.
+        average_censoring_time = np.quantile(event_time, censoring_frac)
+        censoring_time = average_censoring_time * np.ones(len(event_time))
+        censoring_time[event_time < average_censoring_time] = float("inf")
+
         event_order = CoxModel.np_rank_by_value(event_time)
         event_order[
-            event_order > censoring_frac * len(event_order)
+            event_time > censoring_time
         ] = float('inf') # Right-censoring
 
-        return event_order
+        return event_order, censoring_time
 
     class _HazardMultinomialProbMatrix():
         """
