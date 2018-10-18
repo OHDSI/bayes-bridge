@@ -48,11 +48,28 @@ class BayesBridge():
             X, n_coef_without_shrinkage, prior_sd_for_unshrunk = \
                 self.add_intercept(X, n_coef_without_shrinkage, prior_sd_for_unshrunk)
 
-        if model == 'cox' and np.any(y[:-1] > y[1:]):
-            warn_message_only(
-                "The event times are not sorted, sorting the outcome and design matrix....")
-            y, X = CoxModel.permute_observations_by_event_time(y, X)
+        if model == 'cox':
 
+            event_time, censoring_time = outcome
+            if np.any(event_time[:-1] > event_time[1:]):
+                warn_message_only(
+                    "The event times are not sorted, sorting the outcome and design matrix....")
+                event_time, censoring_time, X = \
+                    CoxModel.permute_observations_by_event_and_censoring_time(
+                        event_time, censoring_time, X
+                    )
+
+            contribute_to_likelihood = (
+                CoxModel.count_risk_set_appearance(event_time, censoring_time) >= 1
+            )
+            if not np.all(contribute_to_likelihood):
+                warn_message_only(
+                    "Some observations do not contribute to the likelihood. "
+                    "Removing them...."
+                )
+                event_time = event_time[contribute_to_likelihood]
+                censoring_time = censoring_time[contribute_to_likelihood]
+                X = X[contribute_to_likelihood, :]
 
         X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
 
@@ -62,7 +79,7 @@ class BayesBridge():
             n_success, n_trial = outcome
             self.model = LogisticModel(n_success, X, n_trial)
         elif model == 'cox':
-            self.model = CoxModel(y, X)
+            self.model = CoxModel(event_time, censoring_time, X)
         else:
             raise NotImplementedError()
 
