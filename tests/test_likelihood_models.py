@@ -35,7 +35,7 @@ def set_up_cox_model_test(seed=0):
     return cox_model, beta
 
 
-def test_cox_model_observation_reordering():
+def test_cox_model_observation_reordering_and_risk_set_counting():
 
     event_time = np.array(
         [1, 5, np.inf, 2.5, np.inf]
@@ -58,6 +58,7 @@ def test_cox_model_observation_reordering():
 
     cox_model = CoxModel(event_time, censoring_time, X)
     assert np.all(cox_model.risk_set_end_index == np.array([4, 3, 2]))
+    assert np.all(cox_model.n_appearance_in_risk_set == np.array([1, 2, 3, 2, 1]))
 
 
 def test_cox_model_sum_over_risk_set():
@@ -65,9 +66,10 @@ def test_cox_model_sum_over_risk_set():
     cox_model, beta = set_up_cox_model_test()
     _, hazard_increase, sum_over_risk_set \
         = cox_model._compute_hazard_increase(beta)
-    hazard_matrix = \
-        cox_model._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
-
+    hazard_matrix = cox_model._HazardMultinomialProbMatrix(
+        hazard_increase, sum_over_risk_set,
+        cox_model.risk_set_end_index, cox_model.n_appearance_in_risk_set
+    )
     assert np.allclose(
         hazard_matrix.sum_over_events(),
         np.sum(hazard_matrix.compute_matrix(), 0)
@@ -99,10 +101,15 @@ def simulate_data(model, n_obs=100, n_pred=50, seed=None):
         n_success = LogisticModel.simulate_outcome(n_trial, X, beta)
         y = (n_trial, n_success)
     elif model == 'cox':
-        event_order, censoring_time = CoxModel.simulate_outcome(X, beta)
-        event_order, censoring_time, X = \
-            CoxModel.permute_observations_by_event_and_censoring_time(event_order, censoring_time, X)
-        y = (event_order, censoring_time)
+        event_time, censoring_time = CoxModel.simulate_outcome(X, beta)
+        event_time, censoring_time, X = \
+            CoxModel.permute_observations_by_event_and_censoring_time(event_time, censoring_time, X)
+        n_appearance = \
+            CoxModel.count_risk_set_appearance(event_time, censoring_time)
+        event_time = event_time[n_appearance >= 1]
+        censoring_time = censoring_time[n_appearance >= 1]
+        X = X[n_appearance >= 1, :]
+        y = (event_time, censoring_time)
     else:
         raise NotImplementedError()
 
