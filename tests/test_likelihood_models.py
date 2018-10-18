@@ -87,18 +87,6 @@ def test_cox_model_hessian_matvec():
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
 
 
-def test_cox_hazard_multinom_prob_calculation():
-
-    cox_model, beta = set_up_cox_model_test()
-    _, hazard_increase, sum_over_risk_set \
-        = cox_model._compute_hazard_increase(beta)
-    hazard_matrix = cox_model._HazardMultinomialProbMatrix(
-        hazard_increase, sum_over_risk_set
-    )
-    W = hazard_matrix.compute_matrix()
-    assert np.allclose(np.sum(W, 0), hazard_matrix.sum_over_events())
-
-
 def simulate_data(model, n_obs=100, n_pred=50, seed=None):
 
     np.random.seed(seed)
