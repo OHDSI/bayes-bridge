@@ -196,13 +196,9 @@ class CoxModel(AbstractModel):
         average_censoring_time = np.quantile(event_time, censoring_frac)
         censoring_time = average_censoring_time * np.ones(len(event_time))
         censoring_time[event_time < average_censoring_time] = float("inf")
+        event_time[event_time >= censoring_time] = float('inf')
 
-        event_order = CoxModel.np_rank_by_value(event_time)
-        event_order[
-            event_time > censoring_time
-        ] = float('inf') # Right-censoring
-
-        return event_order, censoring_time
+        return event_time, censoring_time
 
     class _HazardMultinomialProbMatrix():
         """
