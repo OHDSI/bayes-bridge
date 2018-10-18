@@ -36,7 +36,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
     def toarray(self):
-        return self.X.toarray()
+        return self.X_row_major.toarray()
 
     def extract_matrix(self, order=None):
         pass
