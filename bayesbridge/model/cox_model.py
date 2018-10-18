@@ -31,12 +31,20 @@ class CoxModel(AbstractModel):
                 "to the earliest censored."
             )
 
+        n_appearance = \
+            CoxModel.count_risk_set_appearance(event_time, censoring_time)
+        if not np.all(n_appearance >= 1):
+            raise ValueError(
+                "Some individuals never appear in the risk set. They have to be"
+                "removed before using the CoxModel class.")
+
         self.n_event = len(event_time) - np.sum(np.isinf(event_time))
         self.event_time = event_time
         self.censoring_time = censoring_time
+        self.n_appearance_in_risk_set = n_appearance
         self.risk_set_end_index = np.array([
             np.sum(t < censoring_time) - 1 for t in event_time[:self.n_event]
-        ]) # TODO: Should I consider the day of censoring to be in the risk set?
+        ])  # TODO: Should I consider the day of censoring to be in the risk set?
         self.X = X
         self.name = 'cox'
 
@@ -84,6 +92,19 @@ class CoxModel(AbstractModel):
         rank = np.arange(len(arr))[np.argsort(sort_arguments)]
         return rank.astype('float')
 
+    @staticmethod
+    def count_risk_set_appearance(event_time, censoring_time):
+        """ This function assumes that the observations are already sorted in
+        the way required by the class. """
+
+        # The calculation can be done more efficiently.
+        n_appearance = np.zeros(len(censoring_time), dtype=np.int)
+        for t in event_time[event_time < float('inf')]:
+            # TODO: Should I consider the day of censoring to be in the risk set?
+            index = np.logical_and(censoring_time >= t, event_time >= t)
+            n_appearance[index] += 1
+        return n_appearance
+
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
         log_hazard_increase, hazard_increase, sum_over_risk_set \
@@ -95,8 +116,10 @@ class CoxModel(AbstractModel):
 
         grad = None
         if not loglik_only:
-            hazard_matrix = \
-                self._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
+            hazard_matrix = self._HazardMultinomialProbMatrix(
+                hazard_increase, sum_over_risk_set,
+                self.risk_set_end_index, self.n_appearance_in_risk_set
+            )
             v = np.zeros(self.X.shape[0])
             v[:self.n_event] = 1
             v -= hazard_matrix.sum_over_events()
@@ -110,12 +133,16 @@ class CoxModel(AbstractModel):
         log_hazard_increase = CoxModel._shift_log_hazard(log_hazard_increase)
 
         hazard_increase = np.exp(log_hazard_increase)
-        sum_over_risk_set = CoxModel.np_reverse_cumsum(
-            np.concatenate((
-                hazard_increase[:(self.n_event - 1)],
-                [np.sum(hazard_increase[(self.n_event - 1):])]
-            ))
-        )
+
+        sum_from_right_over_risk_set = \
+            np.cumsum(hazard_increase[(self.n_event - 1):])[
+                (self.risk_set_end_index - self.n_event + 1)
+            ]
+        sum_from_left_over_risk_set = np.concatenate((
+            CoxModel.np_reverse_cumsum(hazard_increase[:(self.n_event - 1)]), [0]
+        ))
+        sum_over_risk_set = \
+            sum_from_right_over_risk_set + sum_from_left_over_risk_set
 
         return log_hazard_increase, hazard_increase, sum_over_risk_set
 
@@ -139,8 +166,10 @@ class CoxModel(AbstractModel):
 
         _, hazard_increase, sum_over_risk_set \
             = self._compute_hazard_increase(beta)
-        W = self._HazardMultinomialProbMatrix(hazard_increase, sum_over_risk_set)
-
+        W = self._HazardMultinomialProbMatrix(
+            hazard_increase, sum_over_risk_set,
+            self.risk_set_end_index, self.n_appearance_in_risk_set
+        )
         def hessian_op(beta):
             X_beta = self.X.dot(beta)
             result_vec = - self.X.Tdot(
@@ -180,10 +209,14 @@ class CoxModel(AbstractModel):
         probabilities of the event happening to the individuals in the risk set.
         """
 
-        def __init__(self, hazard_increase, sum_over_risk_set):
+        def __init__(self, hazard_increase, sum_over_risk_set,
+                     risk_set_end_index, n_appearance_in_risk_set):
             self.hazard_increase = hazard_increase
             self.sum_over_risk_set = sum_over_risk_set
+            self.risk_set_end_index = risk_set_end_index
+            self.n_appearance_in_risk_set = n_appearance_in_risk_set
             self.n_event = len(sum_over_risk_set)
+
 
         def sum_over_events(self):
             """
@@ -192,11 +225,10 @@ class CoxModel(AbstractModel):
             efficiently.
             """
             normalizer_cumsum = np.cumsum(self.sum_over_risk_set ** -1)
-            row_sum = np.concatenate((
-                normalizer_cumsum[:self.n_event]
-                    * self.hazard_increase[:self.n_event],
-                normalizer_cumsum[-1] * self.hazard_increase[self.n_event:]
-            ))
+            row_sum = normalizer_cumsum[self.n_appearance_in_risk_set - 1] \
+                      * self.hazard_increase
+            if (self.risk_set_end_index[0] + 1) < len(self.hazard_increase):
+                row_sum[(self.risk_set_end_index[0] + 1):] = 0
             return row_sum
 
         def dot(self, v):
@@ -230,4 +262,9 @@ class CoxModel(AbstractModel):
                 self.hazard_increase
             )
             multinomial_prob = np.triu(multinomial_prob)
+            for i in range(1, multinomial_prob.shape[0] + 1):
+                if (self.risk_set_end_index[-i] + 1) >= len(self.hazard_increase):
+                    break
+                multinomial_prob[-i, (self.risk_set_end_index[-i] + 1):] = 0
+
             return multinomial_prob
