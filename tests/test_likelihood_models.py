@@ -91,7 +91,9 @@ def test_cox_model_hessian_matvec():
 
 def simulate_data(model, n_obs=100, n_pred=50, seed=None):
 
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
+        
     X = simulate_design(n_obs, n_pred, binary_frac=.9)
 
     beta = np.random.randn(n_pred)

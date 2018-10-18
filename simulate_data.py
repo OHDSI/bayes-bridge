@@ -6,7 +6,9 @@ from bayesbridge.model import CoxModel
 
 def simulate_outcome(X, beta, model, n_trial=None, seed=None):
 
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
+
     if model == 'linear':
         sigma = 1.
         y = X.dot(beta) + sigma * np.random.randn(X.shape[0])
@@ -28,7 +30,9 @@ def simulate_design(
         shuffle_columns=False, seed=None, format_='sparse'
     ):
 
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
+
     n_dense_pred = int(n_pred * (1 - binary_frac - categorical_frac))
     n_categorical_pred = int((n_pred * categorical_frac) / (n_category - 1))
     n_binary_pred = n_pred - n_dense_pred - n_categorical_pred * (n_category - 1)

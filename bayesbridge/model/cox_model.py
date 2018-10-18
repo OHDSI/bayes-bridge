@@ -185,7 +185,8 @@ class CoxModel(AbstractModel):
         Simulate an outcome from a constant baseline hazard model i.e. the
         survival time is exponential.
         """
-        np.random.seed(seed)
+        if seed is not None:
+            np.random.seed(seed)
 
         log_hazard_rate = X.dot(beta)
         log_hazard_rate = CoxModel._shift_log_hazard(log_hazard_rate)
