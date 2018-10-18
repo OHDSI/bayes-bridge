@@ -192,13 +192,25 @@ class CoxModel(AbstractModel):
         log_hazard_rate = CoxModel._shift_log_hazard(log_hazard_rate)
         hazard_rate = np.exp(log_hazard_rate)
         event_time = np.random.exponential(scale=hazard_rate ** -1)
-        # TODO: Implement non-simultaneous censoring.
-        average_censoring_time = np.quantile(event_time, censoring_frac)
-        censoring_time = average_censoring_time * np.ones(len(event_time))
-        censoring_time[event_time < average_censoring_time] = float("inf")
+
+        scale = CoxModel._solve_for_exp_scale(
+            np.quantile(event_time, 1 - censoring_frac), 1 - censoring_frac
+        )
+        censoring_time = np.random.exponential(
+            scale=scale * np.ones(len(hazard_rate))
+        )
+        censoring_time[event_time < censoring_time] = float("inf")
         event_time[event_time >= censoring_time] = float('inf')
 
         return event_time, censoring_time
+
+    @staticmethod
+    def _solve_for_exp_scale(t, prob):
+        """
+        Computes the scale of an exponential random variable Z such that
+            P(Z < t) == prob
+        """
+        return - t / np.log(1 - prob)
 
     class _HazardMultinomialProbMatrix():
         """
