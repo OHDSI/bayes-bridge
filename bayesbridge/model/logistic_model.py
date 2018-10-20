@@ -5,17 +5,17 @@ from bayesbridge.util.simple_warnings import warn_message_only
 
 class LogisticModel(AbstractModel):
 
-    def __init__(self, y, X, n_trial=None):
+    def __init__(self, n_success, X, n_trial=None):
 
         if n_trial is None:
-            n_trial = np.ones(len(y))
+            n_trial = np.ones(len(n_success))
             warn_message_only(
                 "The numbers of trials were not specified. The binary "
                 "outcome is assumed."
             )
 
         self.n_trial = n_trial
-        self.y = y
+        self.n_success = n_success
         self.X = X
         self.name = 'logit'
 
@@ -23,13 +23,13 @@ class LogisticModel(AbstractModel):
         logit_prob = self.X.dot(beta)
         predicted_prob = LogisticModel.convert_to_probability_scale(logit_prob)
         loglik = np.sum(
-            self.y * logit_prob \
+            self.n_success * logit_prob \
             - self.n_trial * np.log(1 + np.exp(logit_prob))
         )
         if loglik_only:
             grad = None
         else:
-            grad = self.X.Tdot(self.y - self.n_trial * predicted_prob)
+            grad = self.X.Tdot(self.n_success - self.n_trial * predicted_prob)
         return loglik, grad
 
     def compute_hessian(self, beta):
