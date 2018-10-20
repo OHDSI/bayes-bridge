@@ -82,7 +82,7 @@ class SparseRegressionCoefficientSampler():
 
         return beta, info
 
-    def sample_by_hmc(self, y, X, beta, gshrink, lshrink, model, max_step=500):
+    def sample_by_hmc(self, X, beta, gshrink, lshrink, model, max_step=500):
 
         beta_condmean_guess = \
             self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
