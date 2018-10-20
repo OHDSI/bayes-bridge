@@ -43,8 +43,9 @@ class CoxModel(AbstractModel):
         self.censoring_time = censoring_time
         self.n_appearance_in_risk_set = n_appearance
         self.risk_set_end_index = np.array([
-            np.sum(t < censoring_time) - 1 for t in event_time[:self.n_event]
-        ])  # TODO: Should I consider the day of censoring to be in the risk set?
+            -1 + np.sum(CoxModel._is_uncensored(censoring_time, t))
+            for t in event_time[:self.n_event]
+        ])
         self.X = X
         self.name = 'cox'
 
@@ -100,10 +101,15 @@ class CoxModel(AbstractModel):
         # The calculation can be done more efficiently.
         n_appearance = np.zeros(len(censoring_time), dtype=np.int)
         for t in event_time[event_time < float('inf')]:
-            # TODO: Should I consider the day of censoring to be in the risk set?
-            index = np.logical_and(censoring_time >= t, event_time >= t)
+            uncensored = CoxModel._is_uncensored(censoring_time, t)
+            index = np.logical_and(uncensored, event_time >= t)
             n_appearance[index] += 1
         return n_appearance
+
+    @staticmethod
+    def _is_uncensored(censoring_time, t):
+        # TODO: Should I consider the day of censoring to be in the risk set?
+        return t < censoring_time
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
