@@ -107,17 +107,17 @@ class CoxModel(AbstractModel):
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
-        log_hazard_increase, hazard_increase, hazard_sum_over_risk_set \
-            = self._compute_hazard_increase(beta)
+        log_rel_hazard, rel_hazard, hazard_sum_over_risk_set \
+            = self._compute_relative_hazard(beta)
 
         loglik = np.sum(
-            log_hazard_increase[:self.n_event] - np.log(hazard_sum_over_risk_set)
+            log_rel_hazard[:self.n_event] - np.log(hazard_sum_over_risk_set)
         )
 
         grad = None
         if not loglik_only:
             hazard_matrix = self._HazardMultinomialProbMatrix(
-                hazard_increase, hazard_sum_over_risk_set,
+                rel_hazard, hazard_sum_over_risk_set,
                 self.risk_set_end_index, self.n_appearance_in_risk_set
             )
             v = np.zeros(self.X.shape[0])
@@ -127,17 +127,17 @@ class CoxModel(AbstractModel):
 
         return loglik, grad
 
-    def _compute_hazard_increase(self, beta):
+    def _compute_relative_hazard(self, beta):
 
-        log_hazard_increase = self.X.dot(beta)
-        log_hazard_increase = CoxModel._shift_log_hazard(log_hazard_increase)
+        log_rel_hazard = self.X.dot(beta)
+        log_rel_hazard = CoxModel._shift_log_hazard(log_rel_hazard)
 
-        hazard_increase = np.exp(log_hazard_increase)
+        rel_hazard = np.exp(log_rel_hazard)
 
         hazard_sum_over_risk_set = \
-            self._sum_over_risk_set(hazard_increase, self.risk_set_end_index)
+            self._sum_over_risk_set(rel_hazard, self.risk_set_end_index)
 
-        return log_hazard_increase, hazard_increase, hazard_sum_over_risk_set
+        return log_rel_hazard, rel_hazard, hazard_sum_over_risk_set
 
     @staticmethod
     def _sum_over_risk_set(arr, risk_set_end_index):
@@ -175,10 +175,10 @@ class CoxModel(AbstractModel):
 
     def get_hessian_matvec_operator(self, beta):
 
-        _, hazard_increase, hazard_sum_over_risk_set \
-            = self._compute_hazard_increase(beta)
+        _, rel_hazard, hazard_sum_over_risk_set \
+            = self._compute_relative_hazard(beta)
         W = self._HazardMultinomialProbMatrix(
-            hazard_increase, hazard_sum_over_risk_set,
+            rel_hazard, hazard_sum_over_risk_set,
             self.risk_set_end_index, self.n_appearance_in_risk_set
         )
         def hessian_op(beta):
@@ -229,9 +229,9 @@ class CoxModel(AbstractModel):
         probabilities of the event happening to the individuals in the risk set.
         """
 
-        def __init__(self, hazard_increase, hazard_sum_over_risk_set,
+        def __init__(self, rel_hazard, hazard_sum_over_risk_set,
                      risk_set_end_index, n_appearance_in_risk_set):
-            self.hazard_increase = hazard_increase
+            self.rel_hazard = rel_hazard
             self.hazard_sum_over_risk_set = hazard_sum_over_risk_set
             self.risk_set_end_index = risk_set_end_index
             self.n_appearance_in_risk_set = n_appearance_in_risk_set
@@ -246,29 +246,29 @@ class CoxModel(AbstractModel):
             """
             normalizer_cumsum = np.cumsum(self.hazard_sum_over_risk_set ** -1)
             row_sum = normalizer_cumsum[self.n_appearance_in_risk_set - 1] \
-                      * self.hazard_increase
-            if (self.risk_set_end_index[0] + 1) < len(self.hazard_increase):
+                      * self.rel_hazard
+            if (self.risk_set_end_index[0] + 1) < len(self.rel_hazard):
                 row_sum[(self.risk_set_end_index[0] + 1):] = 0
             return row_sum
 
         def dot(self, v):
             return self.hazard_sum_over_risk_set ** - 1 * CoxModel._sum_over_risk_set(
-                self.hazard_increase * v, self.risk_set_end_index
+                self.rel_hazard * v, self.risk_set_end_index
             )
 
         def Tdot(self, v):
             partial_inner_prod = np.cumsum(self.hazard_sum_over_risk_set ** -1 * v)
-            return self.hazard_increase \
+            return self.rel_hazard \
                    * partial_inner_prod[self.n_appearance_in_risk_set - 1]
 
         def compute_matrix(self):
             multinomial_prob = np.outer(
                 self.hazard_sum_over_risk_set ** -1,
-                self.hazard_increase
+                self.rel_hazard
             )
             multinomial_prob = np.triu(multinomial_prob)
             for i in range(1, multinomial_prob.shape[0] + 1):
-                if (self.risk_set_end_index[-i] + 1) >= len(self.hazard_increase):
+                if (self.risk_set_end_index[-i] + 1) >= len(self.rel_hazard):
                     break
                 multinomial_prob[-i, (self.risk_set_end_index[-i] + 1):] = 0
 

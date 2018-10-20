@@ -65,7 +65,7 @@ def test_cox_model_sum_over_risk_set():
 
     cox_model, beta = set_up_cox_model_test()
     _, hazard_increase, sum_over_risk_set \
-        = cox_model._compute_hazard_increase(beta)
+        = cox_model._compute_relative_hazard(beta)
     hazard_matrix = cox_model._HazardMultinomialProbMatrix(
         hazard_increase, sum_over_risk_set,
         cox_model.risk_set_end_index, cox_model.n_appearance_in_risk_set
