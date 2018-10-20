@@ -38,27 +38,28 @@ def set_up_cox_model_test(seed=0):
 def test_cox_model_observation_reordering_and_risk_set_counting():
 
     event_time = np.array(
-        [1, 5, np.inf, 2.5, np.inf]
+        [1, 5, np.inf, 2.5, 2.5, np.inf]
     )
     censoring_time = np.array(
-        [np.inf, np.inf, 3, np.inf, 2]
+        [np.inf, np.inf, 3, np.inf, np.inf, 2]
     )
-    X = np.arange(5)[:, np.newaxis]
+    X = np.arange(len(event_time))[:, np.newaxis]
     event_time, censoring_time, X = \
         CoxModel.permute_observations_by_event_and_censoring_time(
             event_time, censoring_time, X
         )
     assert np.all(
-        event_time == np.array([1, 2.5, 5, np.inf, np.inf])
+        event_time == np.array([1, 2.5, 2.5, 5, np.inf, np.inf])
     )
     assert np.all(
-        censoring_time == np.array([np.inf, np.inf, np.inf, 3, 2])
+        censoring_time == np.array([np.inf, np.inf, np.inf, np.inf, 3, 2])
     )
-    assert np.all(X == np.array([0, 3, 1, 2, 4])[:, np.newaxis])
+    assert np.all(X == np.array([0, 3, 4, 1, 2, 5])[:, np.newaxis])
 
     cox_model = CoxModel(event_time, censoring_time, X)
-    assert np.all(cox_model.risk_set_end_index == np.array([4, 3, 2]))
-    assert np.all(cox_model.n_appearance_in_risk_set == np.array([1, 2, 3, 2, 1]))
+    assert np.all(cox_model.risk_set_end_index == np.array([5, 4, 4, 3]))
+    assert np.all(cox_model.n_appearance_in_risk_set == np.array([1, 3, 3, 4, 3, 1]))
+        # Tied events are both considered to be in the risk set.
 
 
 def test_cox_model_sum_over_risk_set():
