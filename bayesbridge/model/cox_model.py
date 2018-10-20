@@ -252,29 +252,14 @@ class CoxModel(AbstractModel):
             return row_sum
 
         def dot(self, v):
-            return self.sum_over_risk_set ** - 1 \
-                    * self._censored_dot(self.hazard_increase, v, self.n_event)
-
-        def _censored_dot(self, hazard_increase, v, n_event):
-            """
-            Returns
-            -------
-            numpy array of length 'n_event' whose k-th element equals
-                np.dot(hazard_increase[k:], v[k:])
-            """
-            result = \
-                CoxModel.np_reverse_cumsum(
-                    hazard_increase[:n_event] * v[:n_event]) \
-                + np.dot(self.hazard_increase[n_event:], v[n_event:])
-            return result
+            return self.sum_over_risk_set ** - 1 * CoxModel._sum_over_risk_set(
+                self.hazard_increase * v, self.risk_set_end_index
+            )
 
         def Tdot(self, v):
-            censored_inner_prod = np.cumsum(self.sum_over_risk_set ** -1 * v)
-            result = np.concatenate((
-                self.hazard_increase[:self.n_event] * censored_inner_prod,
-                self.hazard_increase[self.n_event:] * censored_inner_prod[-1]
-            ))
-            return result
+            partial_inner_prod = np.cumsum(self.sum_over_risk_set ** -1 * v)
+            return self.hazard_increase \
+                   * partial_inner_prod[self.n_appearance_in_risk_set - 1]
 
         def compute_matrix(self):
             multinomial_prob = np.outer(
