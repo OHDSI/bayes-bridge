@@ -15,13 +15,16 @@ from .model import LinearModel, LogisticModel, CoxModel
 
 class BayesBridge():
 
-    def __init__(self, y, X, n_trial=None, model='linear',
+    def __init__(self, outcome, X, model='linear',
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
                  add_intercept=True):
         """
         Params
         ------
-        y : vector
+        outcome : vector if model == 'linear' else tuple
+            (n_success, n_trial) if model == 'logistic'.
+                The outcome is assumed binary if n_trial is None.
+            (event_time, censoring_time) if model == 'cox'
         X : numpy array or scipy sparse matrix
         n_trial : vector
             Used for the logistic model for binomial outcomes.
@@ -50,12 +53,14 @@ class BayesBridge():
                 "The event times are not sorted, sorting the outcome and design matrix....")
             y, X = CoxModel.permute_observations_by_event_time(y, X)
 
+
         X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
 
         if model == 'linear':
-            self.model = LinearModel(y, X)
+            self.model = LinearModel(outcome, X)
         elif model == 'logit':
-            self.model = LogisticModel(y, X, n_trial)
+            n_success, n_trial = outcome
+            self.model = LogisticModel(n_success, X, n_trial)
         elif model == 'cox':
             self.model = CoxModel(y, X)
         else:
@@ -67,7 +72,6 @@ class BayesBridge():
         else:
             self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = n_coef_without_shrinkage
-        self.y = y
         self.X = X
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
@@ -312,7 +316,7 @@ class BayesBridge():
             if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         elif self.model.name == 'linear':
-            obs_prec = np.mean((self.y - self.X.dot(beta)) ** 2) ** -1
+            obs_prec = np.mean((self.model.y - self.X.dot(beta)) ** 2) ** -1
         elif self.model.name == 'logit':
             obs_prec = self.compute_polya_gamma_mean(self.model.n_trial, self.X.dot(beta))
         else:
@@ -353,10 +357,10 @@ class BayesBridge():
         if sampling_method in ('direct', 'cg'):
 
             if self.model.name == 'linear':
-                y_gaussian = self.y
+                y_gaussian = self.model.y
                 obs_prec = obs_prec * np.ones(self.n_obs)
             elif self.model.name == 'logit':
-                y_gaussian = (self.y - self.model.n_trial / 2) / obs_prec
+                y_gaussian = (self.model.n_success - self.model.n_trial / 2) / obs_prec
 
             beta, info = self.reg_coef_sampler.sample_gaussian_posterior(
                 y_gaussian, self.X, obs_prec, gshrink, lshrink,
@@ -377,7 +381,7 @@ class BayesBridge():
 
         obs_prec = None
         if self.model.name == 'linear':
-            resid = self.y - self.X.dot(beta)
+            resid = self.model.y - self.X.dot(beta)
             scale = np.sum(resid ** 2) / 2
             obs_var = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
             obs_prec = 1 / obs_var
@@ -516,8 +520,8 @@ class BayesBridge():
         if self.model.name in ('logit', 'cox'):
             loglik, _ = self.model.compute_loglik_and_gradient(beta, loglik_only=True)
         elif self.model.name == 'linear':
-            loglik = len(self.y) * math.log(obs_prec) / 2 \
-                     - obs_prec * np.sum((self.y - self.X.dot(beta)) ** 2)
+            loglik = len(self.model.y) * math.log(obs_prec) / 2 \
+                     - obs_prec * np.sum((self.model.y - self.X.dot(beta)) ** 2)
             prior_logp += math.log(obs_prec) / 2
 
         n_shrunk_coef = len(beta) - self.n_unshrunk
