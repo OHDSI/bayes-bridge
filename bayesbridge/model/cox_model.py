@@ -134,17 +134,28 @@ class CoxModel(AbstractModel):
 
         hazard_increase = np.exp(log_hazard_increase)
 
+        sum_over_risk_set = \
+            self._sum_over_risk_set(hazard_increase, self.risk_set_end_index)
+
+        return log_hazard_increase, hazard_increase, sum_over_risk_set
+
+    @staticmethod
+    def _sum_over_risk_set(arr, risk_set_end_index):
+        """
+        Returns
+        -------
+        numpy array of length 'n_event' whose k-th element equals
+            np.sum(arr[k:risk_set_end_index[k]])
+        """
+        n_event = len(risk_set_end_index)
         sum_from_right_over_risk_set = \
-            np.cumsum(hazard_increase[(self.n_event - 1):])[
-                (self.risk_set_end_index - self.n_event + 1)
-            ]
+            np.cumsum(arr[(n_event - 1):])[risk_set_end_index - n_event + 1]
         sum_from_left_over_risk_set = np.concatenate((
-            CoxModel.np_reverse_cumsum(hazard_increase[:(self.n_event - 1)]), [0]
+            CoxModel.np_reverse_cumsum(arr[:(n_event - 1)]), [0]
         ))
         sum_over_risk_set = \
             sum_from_right_over_risk_set + sum_from_left_over_risk_set
-
-        return log_hazard_increase, hazard_increase, sum_over_risk_set
+        return sum_over_risk_set
 
     @staticmethod
     def np_reverse_cumsum(arr):
