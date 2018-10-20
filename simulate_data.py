@@ -11,18 +11,19 @@ def simulate_outcome(X, beta, model, n_trial=None, seed=None):
 
     if model == 'linear':
         sigma = 1.
-        y = X.dot(beta) + sigma * np.random.randn(X.shape[0])
+        outcome = X.dot(beta) + sigma * np.random.randn(X.shape[0])
     elif model == 'logit':
         if n_trial is None:
             n_trial = np.ones(X.shape[0])
         prob = 1 / (1 + np.exp(-X.dot(beta)))
-        y = np.random.binomial(n_trial.astype(np.int64), prob)
+        n_success = np.random.binomial(n_trial.astype(np.int64), prob)
+        outcome = (n_success, n_trial)
     elif model == 'cox':
-        y = CoxModel.simulate_outcome(X, beta, censoring_frac=.5)
+        outcome = CoxModel.simulate_outcome(X, beta, censoring_frac=.5)
     else:
         raise NotImplementedError()
 
-    return y
+    return outcome
 
 def simulate_design(
         n_obs, n_pred, binary_frac=0., categorical_frac=0.,
