@@ -208,8 +208,10 @@ class BayesBridge():
 
         if params_to_save == 'all':
             params_to_save = [
-                'beta', 'obs_prec', 'local_shrinkage', 'global_shrinkage', 'logp'
+                'beta', 'local_shrinkage', 'global_shrinkage', 'logp'
             ]
+            if self.model != 'cox':
+                params_to_save.append('obs_prec')
         elif params_to_save is None:
             params_to_save = ['beta', 'global_shrinkage', 'logp']
 
