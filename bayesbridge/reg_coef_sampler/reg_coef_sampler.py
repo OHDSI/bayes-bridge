@@ -104,7 +104,11 @@ class SparseRegressionCoefficientSampler():
         max_curvature = eigval[0]
 
         approx_stability_limit = 2 / np.sqrt(max_curvature)
-        stepsize_upper_limit = .3 * approx_stability_limit
+        if model.name == 'cox':
+            adjustment_factor = .3
+        else:
+            adjustment_factor = .5
+        stepsize_upper_limit = adjustment_factor * approx_stability_limit
             # The multiplicative factors may require adjustment.
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
         n_step = np.ceil(1 / dt * np.random.uniform(.8, 1.)).astype('int')
