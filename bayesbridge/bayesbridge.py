@@ -228,8 +228,9 @@ class BayesBridge():
 
         # Pre-allocate
         samples = {}
-        self.pre_allocate(samples, n_post_burnin, thin, params_to_save)
-        sampling_cost_per_iter = np.zeros(n_iter)
+        sampling_info = {}
+        self.pre_allocate(samples, sampling_info,
+                          n_post_burnin, thin, params_to_save, sampling_method)
 
         # Start Gibbs sampling
         start_time = time.time()
@@ -238,10 +239,6 @@ class BayesBridge():
             beta, info = self.update_beta(
                 beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
             )
-            if sampling_method == 'cg':
-                sampling_cost_per_iter[mcmc_iter - 1] = info['n_cg_iter']
-            elif sampling_method == 'hmc':
-                sampling_cost_per_iter[mcmc_iter - 1] = info['n_hmc_step']
 
             obs_prec = self.update_obs_precision(beta)
 
@@ -257,6 +254,7 @@ class BayesBridge():
                 samples, mcmc_iter, n_burnin, thin, beta, lshrink, gshrink, obs_prec,
                 params_to_save, shrinkage_exponent
             )
+            self.store_sampling_info(sampling_info, info, mcmc_iter, sampling_method)
 
         runtime = time.time() - start_time
 
@@ -280,20 +278,17 @@ class BayesBridge():
             'sampling_method': sampling_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
+            'reg_coef_sampling_info': sampling_info,
             '_markov_chain_state': _markov_chain_state,
             '_random_gen_state': self.rg.get_state(),
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
-        if sampling_method == 'cg':
-            mcmc_output['n_cg_iter'] = sampling_cost_per_iter
-            if precond_blocksize > 0:
-                mcmc_output['precond_blocksize'] = precond_blocksize
-        elif sampling_method == 'hmc':
-            mcmc_output['n_hmc_step'] = sampling_cost_per_iter
+        if sampling_method == 'cg' and precond_blocksize > 0:
+            mcmc_output['precond_blocksize'] = precond_blocksize
 
         return mcmc_output
 
-    def pre_allocate(self, samples, n_post_burnin, thin, params_to_save):
+    def pre_allocate(self, samples, sampling_info, n_post_burnin, thin, params_to_save, sampling_method):
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
 
@@ -315,7 +310,19 @@ class BayesBridge():
         if 'logp' in params_to_save:
             samples['logp'] = np.zeros(n_sample)
 
+        for key in self.get_sampling_info_keys(sampling_method):
+            sampling_info[key] = np.zeros(n_sample)
+
         return
+
+    def get_sampling_info_keys(self, sampling_method):
+        if sampling_method == 'cg':
+            keys = ['n_cg_iter']
+        elif sampling_method == 'hmc':
+            keys = ['n_integrator_step', 'accepted', 'accept_prob', 'stepsize', 'stability_limit_est']
+        else:
+            keys = []
+        return keys
 
     def initialize_chain(self, init):
         # Choose the user-specified state if provided, the default ones otherwise.
@@ -530,6 +537,11 @@ class BayesBridge():
             samples['logp'][index] = \
                 self.compute_posterior_logprob(beta, gshrink, obs_prec, shrinkage_exponent)
 
+        return
+
+    def store_sampling_info(self, sampling_info, info, mcmc_iter, sampling_method):
+        for key in self.get_sampling_info_keys(sampling_method):
+            sampling_info[key][mcmc_iter - 1] = info[key]
         return
 
     def compute_posterior_logprob(self, beta, gshrink, obs_prec, shrinkage_exponent):
