@@ -84,24 +84,17 @@ class SparseRegressionCoefficientSampler():
 
     def sample_by_hmc(self, X, beta, gshrink, lshrink, model, max_step=500):
 
-        beta_condmean_guess = \
-            self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
-        loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_condmean_guess)
         precond_scale = self.compute_preconditioning_scale(gshrink, lshrink)
         precond_prior_prec = np.concatenate((
             (self.prior_sd_for_unshrunk / precond_scale[:self.n_unshrunk]) ** -2,
             np.ones(len(lshrink))
         ))
-        precond_hessian_matvec = lambda beta: \
-            precond_prior_prec * beta \
-            - precond_scale * loglik_hessian_matvec(precond_scale * beta)
-        precond_hessian_op = sp.sparse.linalg.LinearOperator(
-            (X.shape[1], X.shape[1]), precond_hessian_matvec
+
+        beta_condmean_guess = \
+            self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
+        max_curvature = self.compute_precond_hessian_curvature(
+            beta_condmean_guess, model, precond_scale, precond_prior_prec
         )
-        eigval = sp.sparse.linalg.eigsh(
-            precond_hessian_op, k=1, tol=.1, return_eigenvectors=False)
-            # We don't need a high (relative) accuracy.
-        max_curvature = eigval[0]
 
         approx_stability_limit = 2 / np.sqrt(max_curvature)
         if model.name == 'cox':
@@ -152,3 +145,19 @@ class SparseRegressionCoefficientSampler():
                 target_sd_scale * beta_precond_post_sd[:self.n_unshrunk]
 
         return precond_scale
+
+    def compute_precond_hessian_curvature(
+            self, beta_location, model, precond_scale, precond_prior_prec):
+
+        loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
+        precond_hessian_matvec = lambda beta: \
+            precond_prior_prec * beta \
+            - precond_scale * loglik_hessian_matvec(precond_scale * beta)
+        precond_hessian_op = sp.sparse.linalg.LinearOperator(
+            (len(beta_location), len(beta_location)), precond_hessian_matvec
+        )
+        eigval = sp.sparse.linalg.eigsh(
+            precond_hessian_op, k=1, tol=.1, return_eigenvectors=False)
+            # We don't need a high (relative) accuracy.
+        max_curvature = eigval[0]
+        return max_curvature
