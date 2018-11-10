@@ -321,7 +321,10 @@ class BayesBridge():
         if sampling_method == 'cg':
             keys = ['n_cg_iter']
         elif sampling_method == 'hmc':
-            keys = ['n_integrator_step', 'accepted', 'accept_prob', 'stepsize', 'stability_limit_est']
+            keys = [
+                'n_integrator_step', 'accepted', 'accept_prob', 'stepsize',
+                'n_hessian_matvec', 'stability_limit_est'
+            ]
         else:
             keys = []
         return keys

@@ -92,7 +92,7 @@ class SparseRegressionCoefficientSampler():
 
         beta_condmean_guess = \
             self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
-        max_curvature = self.compute_precond_hessian_curvature(
+        max_curvature, n_hessian_matvec = self.compute_precond_hessian_curvature(
             beta_condmean_guess, model, precond_scale, precond_prior_prec
         )
 
@@ -125,6 +125,7 @@ class SparseRegressionCoefficientSampler():
             for key in ['accepted', 'accept_prob', 'n_grad_evals']
         }
         info['n_integrator_step'] = n_step
+        info['n_hessian_matvec'] = n_hessian_matvec
         info['stepsize'] = dt
         info['stability_limit_est'] = approx_stability_limit
         return beta, info
@@ -150,9 +151,11 @@ class SparseRegressionCoefficientSampler():
             self, beta_location, model, precond_scale, precond_prior_prec):
 
         loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
-        precond_hessian_matvec = lambda beta: \
-            precond_prior_prec * beta \
-            - precond_scale * loglik_hessian_matvec(precond_scale * beta)
+        info = {'n_iter': 0}
+        def precond_hessian_matvec(beta):
+            info['n_iter'] += 1
+            return precond_prior_prec * beta \
+                - precond_scale * loglik_hessian_matvec(precond_scale * beta)
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
             (len(beta_location), len(beta_location)), precond_hessian_matvec
         )
@@ -160,4 +163,4 @@ class SparseRegressionCoefficientSampler():
             precond_hessian_op, k=1, tol=.1, return_eigenvectors=False)
             # We don't need a high (relative) accuracy.
         max_curvature = eigval[0]
-        return max_curvature
+        return max_curvature, info['n_iter']
