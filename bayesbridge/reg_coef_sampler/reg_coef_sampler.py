@@ -89,7 +89,7 @@ class SparseRegressionCoefficientSampler():
         loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_condmean_guess)
         precond_scale = self.compute_preconditioning_scale(gshrink, lshrink)
         precond_prior_prec = np.concatenate((
-            (self.prior_sd_for_unshrunk / precond_scale[self.n_unshrunk]) ** -2,
+            (self.prior_sd_for_unshrunk / precond_scale[:self.n_unshrunk]) ** -2,
             np.ones(len(lshrink))
         ))
         precond_hessian_matvec = lambda beta: \
