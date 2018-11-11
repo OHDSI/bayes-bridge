@@ -107,9 +107,11 @@ class CoxModel(AbstractModel):
         return n_appearance
 
     @staticmethod
-    def _is_uncensored(censoring_time, t):
-        # TODO: Should I consider the day of censoring to be in the risk set?
-        return t < censoring_time
+    def _is_uncensored(censoring_time, t, tie_is_in_riskset=True):
+        if tie_is_in_riskset:
+            return t <= censoring_time
+        else:
+            return t < censoring_time
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
