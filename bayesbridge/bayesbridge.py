@@ -73,6 +73,8 @@ class BayesBridge():
 
         X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
 
+        # TODO: reconsider the current design of the BayesBridge AND model
+        # class having independent pointers to the (same) design matrix.
         if model == 'linear':
             self.model = LinearModel(outcome, X)
         elif model == 'logit':
