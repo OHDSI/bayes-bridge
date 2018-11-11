@@ -395,7 +395,7 @@ class BayesBridge():
 
         elif sampling_method == 'hmc':
             beta, info = self.reg_coef_sampler.sample_by_hmc(
-                self.X, beta, gshrink, lshrink, self.model
+                beta, gshrink, lshrink, self.model
             )
 
         else:

@@ -82,7 +82,7 @@ class SparseRegressionCoefficientSampler():
 
         return beta, info
 
-    def sample_by_hmc(self, X, beta, gshrink, lshrink, model, max_step=500):
+    def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500):
 
         precond_scale = self.compute_preconditioning_scale(gshrink, lshrink)
         precond_prior_prec = np.concatenate((
