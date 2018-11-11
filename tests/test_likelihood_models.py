@@ -57,9 +57,10 @@ def test_cox_model_observation_reordering_and_risk_set_counting():
     assert np.all(X == np.array([0, 6, 3, 4, 1, 2, 5])[:, np.newaxis])
 
     cox_model = CoxModel(event_time, censoring_time, X)
+    n_censored_before_event = np.array([0, 0, 1, 1, 2])
     assert np.all(
         cox_model.risk_set_end_index \
-            == np.array([6, 6, 5, 5, 4])
+            == len(event_time) - 1 - n_censored_before_event
     )
     assert np.all(
         cox_model.n_appearance_in_risk_set == np.array([1, 2, 4, 4, 5, 4, 2])
