@@ -42,14 +42,9 @@ class CoxModel(AbstractModel):
         self.event_time = event_time
         self.censoring_time = censoring_time
         self.n_appearance_in_risk_set = n_appearance
-        self.risk_set_start_index = np.array([
-            self.n_event - np.sum(t <= event_time[:self.n_event])
-            for t in event_time[:self.n_event]
-        ])
-        self.risk_set_end_index = np.array([
-            -1 + np.sum(CoxModel._is_uncensored(censoring_time, t))
-            for t in event_time[:self.n_event]
-        ])
+        self.risk_set_start_index, self.risk_set_end_index = \
+            self._find_risk_set_index(
+                event_time[:self.n_event], censoring_time)
         self.X = X
         self.name = 'cox'
 
@@ -116,6 +111,17 @@ class CoxModel(AbstractModel):
             return t <= censoring_time
         else:
             return t < censoring_time
+
+    def _find_risk_set_index(self, uncensored_event_time, censoring_time):
+        risk_set_start_index = np.array([
+            len(uncensored_event_time) - np.sum(t <= uncensored_event_time)
+            for t in uncensored_event_time
+        ])
+        risk_set_end_index = np.array([
+            -1 + np.sum(CoxModel._is_uncensored(censoring_time, t))
+            for t in uncensored_event_time
+        ])
+        return risk_set_start_index, risk_set_end_index
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
