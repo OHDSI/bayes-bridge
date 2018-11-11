@@ -42,6 +42,10 @@ class CoxModel(AbstractModel):
         self.event_time = event_time
         self.censoring_time = censoring_time
         self.n_appearance_in_risk_set = n_appearance
+        self.risk_set_start_index = np.array([
+            self.n_event - np.sum(t <= event_time[:self.n_event])
+            for t in event_time[:self.n_event]
+        ])
         self.risk_set_end_index = np.array([
             -1 + np.sum(CoxModel._is_uncensored(censoring_time, t))
             for t in event_time[:self.n_event]
@@ -126,7 +130,7 @@ class CoxModel(AbstractModel):
         if not loglik_only:
             hazard_matrix = self._HazardMultinomialProbMatrix(
                 rel_hazard, hazard_sum_over_risk_set,
-                self.risk_set_end_index, self.n_appearance_in_risk_set
+                self.risk_set_start_index, self.risk_set_end_index, self.n_appearance_in_risk_set
             )
             v = np.zeros(self.X.shape[0])
             v[:self.n_event] = 1
@@ -142,28 +146,27 @@ class CoxModel(AbstractModel):
 
         rel_hazard = np.exp(log_rel_hazard)
 
-        hazard_sum_over_risk_set = \
-            self._sum_over_risk_set(rel_hazard, self.risk_set_end_index)
+        hazard_sum_over_risk_set = self._sum_over_start_end(
+            rel_hazard, self.risk_set_start_index, self.risk_set_end_index
+        )
 
         return log_rel_hazard, rel_hazard, hazard_sum_over_risk_set
 
     @staticmethod
-    def _sum_over_risk_set(arr, risk_set_end_index):
+    def _sum_over_start_end(arr, start_index, end_index):
         """
         Returns
         -------
-        numpy array of length 'n_event' whose k-th element equals
-            np.sum(arr[k:risk_set_end_index[k]])
+        numpy array whose k-th element equals
+            np.sum(arr[start_index[k]:end_index[k]])
         """
-        n_event = len(risk_set_end_index)
-        sum_from_right_over_risk_set = \
-            np.cumsum(arr[(n_event - 1):])[risk_set_end_index - n_event + 1]
-        sum_from_left_over_risk_set = np.concatenate((
-            CoxModel.np_reverse_cumsum(arr[:(n_event - 1)]), [0]
+        sum_from_right = \
+            np.cumsum(arr[start_index[-1]:])[end_index - start_index[-1]]
+        sum_from_left = np.concatenate((
+            CoxModel.np_reverse_cumsum(arr[:start_index[-1]]), [0]
         ))
-        sum_over_risk_set = \
-            sum_from_right_over_risk_set + sum_from_left_over_risk_set
-        return sum_over_risk_set
+        total_sum = sum_from_right + sum_from_left
+        return total_sum
 
     @staticmethod
     def np_reverse_cumsum(arr):
@@ -187,7 +190,7 @@ class CoxModel(AbstractModel):
             = self._compute_relative_hazard(beta)
         W = self._HazardMultinomialProbMatrix(
             rel_hazard, hazard_sum_over_risk_set,
-            self.risk_set_end_index, self.n_appearance_in_risk_set
+            self.risk_set_start_index, self.risk_set_end_index, self.n_appearance_in_risk_set
         )
         def hessian_op(beta):
             X_beta = self.X.dot(beta)
@@ -238,9 +241,10 @@ class CoxModel(AbstractModel):
         """
 
         def __init__(self, rel_hazard, hazard_sum_over_risk_set,
-                     risk_set_end_index, n_appearance_in_risk_set):
+                     risk_set_start_index, risk_set_end_index, n_appearance_in_risk_set):
             self.rel_hazard = rel_hazard
             self.hazard_sum_over_risk_set = hazard_sum_over_risk_set
+            self.risk_set_start_index = risk_set_start_index
             self.risk_set_end_index = risk_set_end_index
             self.n_appearance_in_risk_set = n_appearance_in_risk_set
             self.n_event = len(hazard_sum_over_risk_set)
@@ -260,8 +264,8 @@ class CoxModel(AbstractModel):
             return row_sum
 
         def dot(self, v):
-            return self.hazard_sum_over_risk_set ** - 1 * CoxModel._sum_over_risk_set(
-                self.rel_hazard * v, self.risk_set_end_index
+            return self.hazard_sum_over_risk_set ** - 1 * CoxModel._sum_over_start_end(
+                self.rel_hazard * v, self.risk_set_start_index, self.risk_set_end_index
             )
 
         def Tdot(self, v):

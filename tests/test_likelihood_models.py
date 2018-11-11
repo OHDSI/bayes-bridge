@@ -74,7 +74,9 @@ def test_cox_model_sum_over_risk_set():
         = cox_model._compute_relative_hazard(beta)
     hazard_matrix = cox_model._HazardMultinomialProbMatrix(
         hazard_increase, sum_over_risk_set,
-        cox_model.risk_set_end_index, cox_model.n_appearance_in_risk_set
+        cox_model.risk_set_start_index,
+        cox_model.risk_set_end_index,
+        cox_model.n_appearance_in_risk_set
     )
     assert np.allclose(
         hazard_matrix.sum_over_events(),
