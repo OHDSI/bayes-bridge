@@ -6,13 +6,15 @@ import sys
 sys.path.insert(0, '../..')
 
 from bayesbridge import BayesBridge
+from bayesbridge.model import CoxModel
 
 data_folder = 'saved_outputs/'
 test_combo = [
     ('linear', 'cg', 'dense', False),
     ('logit', 'direct', 'dense', False),
     ('logit', 'direct', 'dense', True),
-    ('logit', 'cg', 'sparse', False)
+    ('logit', 'cg', 'sparse', False),
+    ('cox', 'hmc', 'sparse', False)
 ]
 
 def test_gibbs():
@@ -28,8 +30,8 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
     thin = 1
     reg_exponent = 0.5
 
-    y, X = simulate_data(model, matrix_format)
-    bridge = BayesBridge(y, X, model=model)
+    outcome, X = simulate_data(model, matrix_format)
+    bridge = BayesBridge(outcome, X, model=model)
     init = {
         'tau': 1,
         'lambda': np.ones(X.shape[1])
@@ -45,7 +47,7 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
     )
 
     if restart_in_middle:
-        reinit_bridge = BayesBridge(y, X, model=model)
+        reinit_bridge = BayesBridge(outcome, X, model=model)
         mcmc_output = reinit_bridge.gibbs_additional_iter(
             mcmc_output, n_total_post_burnin - n_post_burnin, merge=True
         )
@@ -66,17 +68,19 @@ def simulate_data(model, matrix_format):
 
     X = np.random.randn(n, p)
     if model == 'linear':
-        y = np.dot(X, beta_true) + sigma_true * np.random.randn(n)
+        outcome = np.dot(X, beta_true) + sigma_true * np.random.randn(n)
     elif model == 'logit':
         mu = (1 + np.exp(- np.dot(X, beta_true))) ** -1
-        y = (np.random.binomial(1, mu), None)
+        outcome = (np.random.binomial(1, mu), None)
+    elif model == 'cox':
+        outcome = CoxModel.simulate_outcome(X, beta_true)
     else:
         raise NotImplementedError()
 
     if matrix_format == 'sparse':
         X = sp.sparse.csr_matrix(X)
 
-    return y, X
+    return outcome, X
 
 def load_data(sampling_method, model):
     return np.load(get_filename(sampling_method, model))
