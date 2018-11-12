@@ -119,6 +119,7 @@ class SparseRegressionCoefficientSampler():
         beta_precond, hmc_info = \
             hmc.generate_next_state(f, dt, n_step, beta_precond)
         beta = beta_precond * precond_scale
+        self.regcoef_summarizer.update(beta, gshrink, lshrink)
 
         info = {
             key: hmc_info[key]
