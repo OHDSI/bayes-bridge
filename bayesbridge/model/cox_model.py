@@ -316,8 +316,6 @@ class CoxModel(AbstractModel):
             normalizer_cumsum = np.cumsum(self.hazard_sum_over_risk_set ** -1)
             row_sum = normalizer_cumsum[self.n_appearance_in_risk_set - 1] \
                       * self.rel_hazard
-            if (self.risk_set_end_index[0] + 1) < len(self.rel_hazard):
-                row_sum[(self.risk_set_end_index[0] + 1):] = 0
             return row_sum
 
         def dot(self, v):
