@@ -126,11 +126,8 @@ def simulate_data(model, n_obs=100, n_pred=50, seed=None):
         event_time, censoring_time = CoxModel.simulate_outcome(X, beta)
         event_time, censoring_time, X = \
             CoxModel.permute_observations_by_event_and_censoring_time(event_time, censoring_time, X)
-        n_appearance = \
-            CoxModel.count_risk_set_appearance(event_time, censoring_time)
-        event_time = event_time[n_appearance >= 1]
-        censoring_time = censoring_time[n_appearance >= 1]
-        X = X[n_appearance >= 1, :]
+        event_time, censoring_time, X = \
+            CoxModel.drop_uninformative_observations(event_time, censoring_time, X)
         y = (event_time, censoring_time)
     else:
         raise NotImplementedError()

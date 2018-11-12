@@ -93,6 +93,28 @@ class CoxModel(AbstractModel):
         return event_time, censoring_time, X
 
     @staticmethod
+    def drop_uninformative_observations(event_time, censoring_time, X):
+
+        finite_event_time = event_time[event_time < float('inf')]
+        finite_censoring_time = censoring_time[censoring_time < float('inf')]
+
+        # Exclude those censored before the first event.
+        is_uninformative = (censoring_time < np.min(event_time))
+
+        # Exclude the last event if it is after the last censoring time.
+        last_event_time = np.max(finite_event_time)
+        if last_event_time > np.max(finite_censoring_time):
+            is_uninformative = np.logical_or(
+                is_uninformative, event_time == last_event_time
+            )
+
+        is_informative = np.logical_not(is_uninformative)
+        event_time = event_time[is_informative]
+        censoring_time = censoring_time[is_informative]
+        X = X[is_informative, :]
+        return event_time, censoring_time, X
+
+    @staticmethod
     def np_rank_by_value(arr):
         sort_arguments = np.argsort(arr)
         rank = np.arange(len(arr))[np.argsort(sort_arguments)]
