@@ -44,7 +44,7 @@ class CoxModel(AbstractModel):
         self.n_appearance_in_risk_set = n_appearance
         self.risk_set_start_index, self.risk_set_end_index = \
             self._find_risk_set_index(
-                event_time[:self.n_event], censoring_time)
+                event_time[:self.n_event], np.flip(censoring_time[self.n_event:]))
         self.X = X
         self.name = 'cox'
 
@@ -112,16 +112,23 @@ class CoxModel(AbstractModel):
         else:
             return t < censoring_time
 
-    def _find_risk_set_index(self, uncensored_event_time, censoring_time):
-        risk_set_start_index = np.array([
-            len(uncensored_event_time) - np.sum(t <= uncensored_event_time)
-            for t in uncensored_event_time
-        ])
-        risk_set_end_index = np.array([
-            -1 + np.sum(CoxModel._is_uncensored(censoring_time, t))
-            for t in uncensored_event_time
-        ])
-        return risk_set_start_index, risk_set_end_index
+    def _find_risk_set_index(self, event_time, censoring_time):
+        """ The parameters are assumed to have 'inf' removed and in the ascending order. """
+
+        n_event = len(event_time)
+        start_index = np.zeros(n_event, dtype=np.int)
+        for i in range(1, n_event):
+            if event_time[i - 1] == event_time[i]:
+                start_index[i] = start_index[i - 1]
+            else:
+                start_index[i] = i
+
+        n_censored = np.array([
+            np.searchsorted(censoring_time, t) for t in event_time
+        ], dtype=np.int) # Tied censoring time is considered to be in the risk set.
+        end_index = len(event_time) + len(censoring_time) - 1 - n_censored
+
+        return start_index, end_index
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
