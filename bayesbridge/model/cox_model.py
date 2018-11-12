@@ -27,7 +27,7 @@ class CoxModel(AbstractModel):
         if np.any(censoring_time[:-1] < censoring_time[1:]):
             raise ValueError(
                 "The observations need to be sorted so that the censoring times "
-                "are in the increasing order, from uncensored, last censored, "
+                "are in the decreasing order, from uncensored, last censored, "
                 "to the earliest censored."
             )
 
