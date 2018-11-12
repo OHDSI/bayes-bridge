@@ -126,13 +126,6 @@ class CoxModel(AbstractModel):
         # Exclude those censored before the first event.
         is_uninformative = (censoring_time < np.min(event_time))
 
-        # Exclude the last event if it is after the last censoring time.
-        last_event_time = np.max(finite_event_time)
-        if last_event_time > np.max(finite_censoring_time):
-            is_uninformative = np.logical_or(
-                is_uninformative, event_time == last_event_time
-            )
-
         if np.any(is_uninformative):
             warn_message_only(
                 "Some observations do not contribute to the likelihood, so "
