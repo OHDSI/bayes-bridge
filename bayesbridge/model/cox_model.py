@@ -169,7 +169,7 @@ class CoxModel(AbstractModel):
         Returns
         -------
         numpy array whose k-th element equals
-            np.sum(arr[start_index[k]:end_index[k]])
+            np.sum(arr[start_index[k]:(1 + end_index[k])])
         """
         sum_from_right = \
             np.cumsum(arr[start_index[-1]:])[end_index - start_index[-1]]

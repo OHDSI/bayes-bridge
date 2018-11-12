@@ -72,6 +72,14 @@ def test_cox_model_observation_reordering_and_risk_set_counting():
 
 
 def test_cox_model_sum_over_risk_set():
+    arr = np.array([1, 3, 2])
+    start_index = np.array([0, 1])
+    end_index = np.array([2, 1])
+    assert np.all(
+        CoxModel._sum_over_start_end(arr, start_index, end_index) == np.array([6, 3])
+    )
+
+def text_cox_model_sum_over_events():
 
     cox_model, beta = set_up_cox_model_test()
     _, hazard_increase, sum_over_risk_set \
