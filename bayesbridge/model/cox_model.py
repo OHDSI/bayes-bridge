@@ -55,7 +55,19 @@ class CoxModel(AbstractModel):
         self.name = 'cox'
 
     @staticmethod
-    def permute_observations_by_event_and_censoring_time(
+    def preprocess_data(event_time, censoring_time, X):
+        event_time, censoring_time, X = \
+            CoxModel._permute_observations_by_event_and_censoring_time(
+                event_time, censoring_time, X
+            )
+        event_time, censoring_time, X = \
+            CoxModel._drop_uninformative_observations(
+                event_time, censoring_time, X
+            )
+        return event_time, censoring_time, X
+
+    @staticmethod
+    def _permute_observations_by_event_and_censoring_time(
             event_time, censoring_time, X):
         """
         Permute the observations so that they are ordered from the earliest
@@ -75,6 +87,18 @@ class CoxModel(AbstractModel):
             )):
             raise ValueError("Censoring indicators are inconsistent.")
 
+        is_sorted = (
+            np.all(event_time[:-1] <= event_time[1:])
+            and np.all(censoring_time[:-1] >= censoring_time[1:])
+        )
+        if is_sorted:
+            return event_time, censoring_time, X
+
+        warn_message_only(
+            "The observations and design matrix will be sorted so that the event "
+            "times are in the ascending order and censoring times in the descending order."
+        )
+
         n_event = np.sum(event_time < float('inf'))
         event_rank = CoxModel.np_rank_by_value(event_time)
         censoring_rank = CoxModel.np_rank_by_value(censoring_time)
@@ -90,10 +114,11 @@ class CoxModel(AbstractModel):
             X = X.tocsr()[sort_ind, :]
         else:
             X = X[sort_ind, :]
+
         return event_time, censoring_time, X
 
     @staticmethod
-    def drop_uninformative_observations(event_time, censoring_time, X):
+    def _drop_uninformative_observations(event_time, censoring_time, X):
 
         finite_event_time = event_time[event_time < float('inf')]
         finite_censoring_time = censoring_time[censoring_time < float('inf')]
@@ -108,10 +133,16 @@ class CoxModel(AbstractModel):
                 is_uninformative, event_time == last_event_time
             )
 
-        is_informative = np.logical_not(is_uninformative)
-        event_time = event_time[is_informative]
-        censoring_time = censoring_time[is_informative]
-        X = X[is_informative, :]
+        if np.any(is_uninformative):
+            warn_message_only(
+                "Some observations do not contribute to the likelihood, so "
+                "they are being removed."
+            )
+            is_informative = np.logical_not(is_uninformative)
+            event_time = event_time[is_informative]
+            censoring_time = censoring_time[is_informative]
+            X = X[is_informative, :]
+
         return event_time, censoring_time, X
 
     @staticmethod

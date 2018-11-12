@@ -45,7 +45,7 @@ def test_cox_model_observation_reordering_and_risk_set_counting():
     )
     X = np.arange(len(event_time))[:, np.newaxis]
     event_time, censoring_time, X = \
-        CoxModel.permute_observations_by_event_and_censoring_time(
+        CoxModel._permute_observations_by_event_and_censoring_time(
             event_time, censoring_time, X
         )
     assert np.all(
@@ -80,7 +80,7 @@ def test_cox_model_drop_uninformative():
     )
     X = np.arange(4)[:, np.newaxis]
     event_time, censoring_time, X = \
-        CoxModel.drop_uninformative_observations(event_time, censoring_time, X)
+        CoxModel._drop_uninformative_observations(event_time, censoring_time, X)
     assert np.all(event_time == np.array([2, np.inf]))
     assert np.all(censoring_time == np.array([np.inf, 3]))
     assert np.all(X == np.array([0, 2])[:, np.newaxis])
@@ -140,9 +140,9 @@ def simulate_data(model, n_obs=100, n_pred=50, seed=None):
     elif model == 'cox':
         event_time, censoring_time = CoxModel.simulate_outcome(X, beta)
         event_time, censoring_time, X = \
-            CoxModel.permute_observations_by_event_and_censoring_time(event_time, censoring_time, X)
+            CoxModel._permute_observations_by_event_and_censoring_time(event_time, censoring_time, X)
         event_time, censoring_time, X = \
-            CoxModel.drop_uninformative_observations(event_time, censoring_time, X)
+            CoxModel._drop_uninformative_observations(event_time, censoring_time, X)
         y = (event_time, censoring_time)
     else:
         raise NotImplementedError()

@@ -51,25 +51,9 @@ class BayesBridge():
         if model == 'cox':
 
             event_time, censoring_time = outcome
-            if np.any(event_time[:-1] > event_time[1:]):
-                warn_message_only(
-                    "The event times are not sorted, sorting the outcome and design matrix....")
-                event_time, censoring_time, X = \
-                    CoxModel.permute_observations_by_event_and_censoring_time(
-                        event_time, censoring_time, X
-                    )
-
-            contribute_to_likelihood = (
-                CoxModel.count_risk_set_appearance(event_time, censoring_time) >= 1
+            event_time, censoring_time, X = CoxModel.preprocess_data(
+                event_time, censoring_time, X
             )
-            if not np.all(contribute_to_likelihood):
-                warn_message_only(
-                    "Some observations do not contribute to the likelihood. "
-                    "Removing them...."
-                )
-                event_time = event_time[contribute_to_likelihood]
-                censoring_time = censoring_time[contribute_to_likelihood]
-                X = X[contribute_to_likelihood, :]
 
         X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
 
