@@ -31,20 +31,26 @@ class CoxModel(AbstractModel):
                 "to the earliest censored."
             )
 
-        n_appearance = \
-            CoxModel.count_risk_set_appearance(event_time, censoring_time)
+        n_event = len(event_time) - np.sum(np.isinf(event_time))
+        risk_set_start_index, risk_set_end_index = \
+            self._find_risk_set_index(
+                event_time[:n_event],
+                np.flip(censoring_time[n_event:])
+            )
+        n_appearance = CoxModel.count_risk_set_appearance(
+            len(event_time), risk_set_start_index, risk_set_end_index
+        )
         if not np.all(n_appearance >= 1):
             raise ValueError(
                 "Some individuals never appear in the risk set. They have to be"
                 "removed before using the CoxModel class.")
 
-        self.n_event = len(event_time) - np.sum(np.isinf(event_time))
+        self.n_event = n_event
         self.event_time = event_time
         self.censoring_time = censoring_time
         self.n_appearance_in_risk_set = n_appearance
-        self.risk_set_start_index, self.risk_set_end_index = \
-            self._find_risk_set_index(
-                event_time[:self.n_event], np.flip(censoring_time[self.n_event:]))
+        self.risk_set_start_index = risk_set_start_index
+        self.risk_set_end_index = risk_set_end_index
         self.X = X
         self.name = 'cox'
 
@@ -93,24 +99,16 @@ class CoxModel(AbstractModel):
         return rank.astype('float')
 
     @staticmethod
-    def count_risk_set_appearance(event_time, censoring_time):
+    def count_risk_set_appearance(n_obs, start_index, end_index):
         """ This function assumes that the observations are already sorted in
         the way required by the class. """
 
         # The calculation can be done more efficiently.
-        n_appearance = np.zeros(len(censoring_time), dtype=np.int)
-        for t in event_time[event_time < float('inf')]:
-            uncensored = CoxModel._is_uncensored(censoring_time, t)
-            index = np.logical_and(uncensored, event_time >= t)
-            n_appearance[index] += 1
+        n_appearance = np.zeros(n_obs, dtype=np.int)
+        for i in range(len(start_index)):
+            if start_index[i] <= end_index[i]:
+                n_appearance[start_index[i]:(end_index[i] + 1)] += 1
         return n_appearance
-
-    @staticmethod
-    def _is_uncensored(censoring_time, t, tie_is_in_riskset=True):
-        if tie_is_in_riskset:
-            return t <= censoring_time
-        else:
-            return t < censoring_time
 
     def _find_risk_set_index(self, event_time, censoring_time):
         """ The parameters are assumed to have 'inf' removed and in the ascending order. """
