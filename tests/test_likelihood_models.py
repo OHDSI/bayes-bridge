@@ -71,6 +71,21 @@ def test_cox_model_observation_reordering_and_risk_set_counting():
     ) # Tied events are both considered to be in the risk set.
 
 
+def test_cox_model_drop_uninformative():
+    event_time = np.array(
+        [2, 4, np.inf, np.inf]
+    )
+    censoring_time = np.array(
+        [np.inf, np.inf, 3, 1]
+    )
+    X = np.arange(4)[:, np.newaxis]
+    event_time, censoring_time, X = \
+        CoxModel.drop_uninformative_observations(event_time, censoring_time, X)
+    assert np.all(event_time == np.array([2, np.inf]))
+    assert np.all(censoring_time == np.array([np.inf, 3]))
+    assert np.all(X == np.array([0, 2])[:, np.newaxis])
+
+
 def test_cox_model_sum_over_risk_set():
     arr = np.array([1, 3, 2])
     start_index = np.array([0, 1])
