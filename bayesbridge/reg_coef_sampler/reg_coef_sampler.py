@@ -92,9 +92,13 @@ class SparseRegressionCoefficientSampler():
 
         beta_condmean_guess = \
             self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
-        max_curvature, n_hessian_matvec = self.compute_precond_hessian_curvature(
-            beta_condmean_guess, model, precond_scale, precond_prior_prec
-        )
+        hessian_pc_estimate = self.regcoef_summarizer.estimate_precond_hessian_pc()
+        max_curvature, hessian_pc, n_hessian_matvec = \
+            self.compute_precond_hessian_curvature(
+                beta_condmean_guess, model, precond_scale, precond_prior_prec,
+                hessian_pc_estimate
+            )
+        self.regcoef_summarizer.update_precond_hessian_pc(hessian_pc)
 
         approx_stability_limit = 2 / np.sqrt(max_curvature)
         if model.name == 'cox':
@@ -149,7 +153,7 @@ class SparseRegressionCoefficientSampler():
         return precond_scale
 
     def compute_precond_hessian_curvature(
-            self, beta_location, model, precond_scale, precond_prior_prec):
+            self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
 
         loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
         info = {'n_iter': 0}
@@ -160,8 +164,11 @@ class SparseRegressionCoefficientSampler():
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
             (len(beta_location), len(beta_location)), precond_hessian_matvec
         )
-        eigval = sp.sparse.linalg.eigsh(
-            precond_hessian_op, k=1, tol=.1, return_eigenvectors=False)
+        if np.all(pc_estimate == 0):
+            pc_estimate = np.random.randn(len(beta_location))
+        eigval, eigvec = sp.sparse.linalg.eigsh(
+            precond_hessian_op, k=1, tol=.1, v0=pc_estimate)
             # We don't need a high (relative) accuracy.
         max_curvature = eigval[0]
-        return max_curvature, info['n_iter']
+        pc = np.squeeze(eigvec)
+        return max_curvature, pc, info['n_iter']
