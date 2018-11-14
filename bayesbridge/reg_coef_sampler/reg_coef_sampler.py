@@ -164,11 +164,11 @@ class SparseRegressionCoefficientSampler():
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
             (len(beta_location), len(beta_location)), precond_hessian_matvec
         )
-        if np.all(pc_estimate == 0):
+        if pc_estimate is None:
             pc_estimate = np.random.randn(len(beta_location))
         eigval, eigvec = sp.sparse.linalg.eigsh(
-            precond_hessian_op, k=1, tol=.1, v0=pc_estimate)
-            # We don't need a high (relative) accuracy.
+            precond_hessian_op, k=1, tol=.1, v0=pc_estimate
+        )   # We don't need a high (relative) accuracy.
         max_curvature = eigval[0]
         pc = np.squeeze(eigvec)
         return max_curvature, pc, info['n_iter']
