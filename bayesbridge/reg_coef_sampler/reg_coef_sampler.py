@@ -109,7 +109,8 @@ class SparseRegressionCoefficientSampler():
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
             # The multiplicative factors may require adjustment.
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
-        n_step = np.ceil(1 / dt * np.random.uniform(.8, 1.)).astype('int')
+        integration_time = np.pi / 2 * np.random.uniform(.8, 1.)
+        n_step = np.ceil(integration_time / dt).astype('int')
         n_step = min(n_step, max_step)
 
         beta_precond = beta / precond_scale
