@@ -53,8 +53,8 @@ class ConjugateGradientSampler():
         rtol = atol / np.linalg.norm(b)
         beta_scaled_init = beta_init / precond_scale
         beta_scaled, info = sp.sparse.linalg.cg(
-            Phi_precond_op, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
-            M=block_precond_op, callback=cg_callback
+            Phi_precond_op, b, x0=beta_scaled_init, maxiter=maxiter,
+            tol=rtol, atol=atol, M=block_precond_op, callback=cg_callback
         )
 
         if info != 0:
