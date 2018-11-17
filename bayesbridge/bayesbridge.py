@@ -156,13 +156,15 @@ class BayesBridge():
 
     def merge_outputs(self, mcmc_output, next_mcmc_output):
 
-        samples = mcmc_output['samples']
-        next_samples = next_mcmc_output['samples']
-        next_mcmc_output['samples'] = {
-            key : np.concatenate(
-                (samples[key], next_samples[key]), axis=-1
-            ) for key in samples.keys()
-        }
+        for output_key in ['samples']:
+            curr_output = mcmc_output[output_key]
+            next_output = next_mcmc_output[output_key]
+            next_mcmc_output[output_key] = {
+                key : np.concatenate(
+                    (curr_output[key], next_output[key]), axis=-1
+                ) for key in curr_output.keys()
+            }
+
         next_mcmc_output['n_post_burnin'] += mcmc_output['n_post_burnin']
         next_mcmc_output['runtime'] += mcmc_output['runtime']
 
