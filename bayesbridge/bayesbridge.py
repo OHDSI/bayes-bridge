@@ -244,12 +244,7 @@ class BayesBridge():
 
         runtime = time.time() - start_time
 
-        _markov_chain_state = {
-            'beta': beta,
-            'obs_prec': obs_prec,
-            'local_shrinkage': lshrink,
-            'global_shrinkage': gshrink,
-        }
+        _markov_chain_state = self.pack_parameters(beta, obs_prec, lshrink, gshrink)
 
         mcmc_output = {
             'samples': samples,
@@ -566,3 +561,13 @@ class BayesBridge():
         logp = loglik + prior_logp
 
         return logp
+
+    def pack_parameters(self, beta, obs_prec, lshrink, gshrink):
+        state = {
+            'beta': beta,
+            'local_shrinkage': lshrink,
+            'global_shrinkage': gshrink,
+        }
+        if self.model.name in ('linear', 'logit'):
+            state['obs_prec'] = obs_prec
+        return state
