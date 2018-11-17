@@ -1,15 +1,17 @@
 from math import exp, log, sqrt
+from bayesbridge.util import warn_message_only
 
 class StepsizeCalibrator():
 
-    def __init__(self, init_stepsize, n_calibration_steps,
-                 target_accept_prob=.9, method='robbins-monro'):
+    def __init__(self, init_stepsize, target_accept_prob=.9,
+                 method='robbins-monro', rm_options={}):
         """
 
         Parameters
         ----------
-        update_stat: callable
         method: str, {'robbins-monro', 'dual-average'}
+        rm_options: dict with keys 'decay_scale' or ('final', 'n_total_step')
+            Contains optional parameters for Robbins-Monro algorithm.
         """
         self.method = method
         if init_stepsize <= 0:
@@ -23,7 +25,7 @@ class StepsizeCalibrator():
 
         if method == 'robbins-monro':
             self.rm_stepsize = RobbinsMonroStepsize(
-                init=1., decay_speed=.1
+                init=1., decay_exponent=2/3, options=rm_options
             )
 
         # Parameters for the dual-averaging algorithm.
@@ -86,12 +88,45 @@ class StepsizeCalibrator():
 
 class RobbinsMonroStepsize():
 
-    def __init__(self, init=1., decay_speed=.1):
+    def __init__(self, init=1., decay_exponent=2./3., options={}):
+        """
+        Parameters
+        ----------
+        options: dict with keys ('decay_exponent', 'decay_scale', 'final', 'n_total_step')
+            Either 'decay_scale' or ('final', 'n_total_step') can be specified
+        """
+
+        if 'decay_exponent' in options:
+            decay_exponent = options['decay_exponent']
+
         self.n_iter = 0
         self.init = init
-        self.decay_speed = decay_speed
+        self.exponent = decay_exponent
+        self.scale = self.determine_decay_scale(init, decay_exponent, options)
+
+    def determine_decay_scale(self, init, decay_exponent, options):
+
+        if 'decay_scale' in options:
+            decay_scale = options['decay_scale']
+        elif ('final' in options) and ('n_total_step' in options):
+            if 'decay_scale' in options:
+                warn_message_only(
+                    "Decay scale and final stepsize cannot be both specified."
+                    "The decay scale parameter is ignored."
+                )
+            decay_scale = options['n_total_step'] / (
+                (init / options['final']) ** (1 / decay_exponent) - 1
+            )
+        else:
+            warn_message_only(
+                'The default stepsize sequence tends to decay too quicky; '
+                'consider manually setting the decay scale.'
+            )
+            decay_scale = 1.
+
+        return decay_scale
 
     def next(self):
-        stepsize = self.init / (1 + self.decay_speed * self.n_iter)
+        stepsize = self.init / (1 + self.n_iter / self.scale) ** self.exponent
         self.n_iter += 1
         return stepsize
