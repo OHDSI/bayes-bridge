@@ -13,8 +13,8 @@ class BivariateGaussian():
         self.Phi = np.linalg.inv(Sigma)
 
     def compute_logp_and_gradient(self, x):
-        logp = - np.inner(x, self.Phi.dot(x)) / 2
         grad = - self.Phi.dot(x)
+        logp = np.inner(x, grad) / 2
         return logp, grad
 
     def compute_marginal_pdf(self, x, axis):
@@ -60,14 +60,13 @@ class BivariateSkewNormal():
     through an orthogonal matrix).
     """
 
-    def __init__(self, shape=None, rotation=None):
-
-        if shape is None:
-            shape = np.array([1., 4.])
+    def __init__(self, shape=np.array([1., 4.]), rotation=None):
 
         if rotation is None:
-            n_param = 2
-            rotation, _ = np.linalg.qr(np.random.randn(n_param, n_param))
+            rotation = np.array([
+                [1., 1.],
+                [1., -1.]
+            ]) / np.sqrt(2)
 
         self.shape = shape
         self.rotation = rotation
