@@ -12,7 +12,7 @@ class BivariateGaussian():
         self.Sigma = Sigma
         self.Phi = np.linalg.inv(Sigma)
 
-    def compute_logp_and_gradient(self, x):
+    def compute_logp_and_gradient(self, x, logp_only=False):
         grad = - self.Phi.dot(x)
         logp = np.inner(x, grad) / 2
         return logp, grad
@@ -79,11 +79,13 @@ class BivariateSkewNormal():
             self.rotation, product_dist.compute_gradient
         )
 
-    def compute_logp_and_gradient(self, x):
-        return (
-            self.compute_logp(x),
-            self.compute_gradient(x)
-        )
+    def compute_logp_and_gradient(self, x, logp_only=False):
+        logp = self.compute_logp(x)
+        if logp_only:
+            grad = None
+        else:
+            grad = self.compute_gradient(x)
+        return logp, grad
 
     def compute_marginal_pdf(self, x, y):
         logp = np.zeros((len(x), len(y)))
