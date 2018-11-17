@@ -86,27 +86,12 @@ class StepsizeCalibrator():
 
 class RobbinsMonroStepsize():
 
-    def __init__(self, init=1., decay_speed=.1, slow_decay_window=0):
+    def __init__(self, init=1., decay_speed=.1):
         self.n_iter = 0
         self.init = init
         self.decay_speed = decay_speed
-        self.slow_decay_window = slow_decay_window
-        self.slope_factor = (
-            (decay_speed * slow_decay_window - 1)
-            / (decay_speed * slow_decay_window) ** 2
-        )
 
     def next(self):
-        """
-        Generates a sequence of numbers that decays linearly during the slow
-        decay window and then like init / (decay_speed * n_iter).
-        """
-        if self.n_iter < self.slow_decay_window:
-            # Linearly interpolate 'init' and 'init / decay_speed / slow_decay_window'
-            stepsize = self.init * (
-                1 - self.slope_factor * self.decay_speed * self.n_iter
-            )
-        else:
-            stepsize = self.init / self.decay_speed / self.n_iter
+        stepsize = self.init / (1 + self.decay_speed * self.n_iter)
         self.n_iter += 1
         return stepsize
