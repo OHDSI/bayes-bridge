@@ -21,12 +21,12 @@ class StepsizeAdapter():
         self.n_averaged = 0
         self.target_accept_prob = target_accept_prob
 
-        self.rm_stepsize = RobbinsMonroStepsize(
+        self.rm_stepsize = iter(RobbinsMonroStepsize(
             init=init_adaptsize,
             decay_exponent=adapt_decay_exponent,
             reference_iteration=reference_iteration,
             size_at_reference=adaptsize_at_reference
-        )
+        ))
 
     def get_current_stepsize(self, averaged=False):
         if averaged:
@@ -36,7 +36,7 @@ class StepsizeAdapter():
 
     def adapt_stepsize(self, accept_prob):
         self.n_averaged += 1
-        rm_stepsize = self.rm_stepsize.next()
+        rm_stepsize = next(self.rm_stepsize)
         self.log_stepsize += rm_stepsize * (accept_prob - self.target_accept_prob)
         weight = 1 / self.n_averaged
         self.log_stepsize_averaged = (
@@ -50,8 +50,6 @@ class RobbinsMonroStepsize():
 
     def __init__(self, init=1., decay_exponent=1.,
                  reference_iteration=None, size_at_reference=None):
-
-        self.n_iter = 0
         self.init = init
         self.exponent = decay_exponent
         self.scale = self.determine_decay_scale(
@@ -72,9 +70,17 @@ class RobbinsMonroStepsize():
 
         return decay_scale
 
-    def next(self):
-        stepsize = self.init / (1 + self.n_iter / self.scale) ** self.exponent
+    def __iter__(self):
+        self.n_iter = 0
+        return self
+
+    def __next__(self):
+        stepsize = self.calculate_stepsize(self.n_iter)
         self.n_iter += 1
+        return stepsize
+
+    def calculate_stepsize(self, n_iter):
+        stepsize = self.init / (1 + n_iter / self.scale) ** self.exponent
         return stepsize
 
 
