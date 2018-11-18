@@ -49,8 +49,8 @@ class StepsizeCalibrator():
             self.log_stepsize += rm_stepsize * (accept_prob - self.target_accept_prob)
             weight = 1 / self.n_averaged
             self.log_stepsize_averaged = (
-                weight * self.log_stepsize_averaged
-                + (1 - weight) * self.log_stepsize
+                weight * self.log_stepsize
+                + (1 - weight) * self.log_stepsize_averaged
             )
 
         elif self.method == 'dual-average':
