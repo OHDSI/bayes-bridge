@@ -3,11 +3,15 @@ from bayesbridge.util import warn_message_only
 
 class StepsizeAdapter():
 
-    def __init__(self, init_stepsize, target_accept_prob=.9, options={}):
+    def __init__(self, init_stepsize, target_accept_prob=.9,
+                 init_adaptsize=1., adapt_decay_exponent=1.,
+                 reference_iteration=100, adaptsize_at_reference=.05):
         """
         Parameters
         ----------
-        options: dict with keys 'decay_scale' or ('final', 'n_total_step')
+        reference_iteration & adaptsize_at_reference:
+            Stepsize sequence of Robbins-Monro algorithm will be set so that it
+            decreases to `adaptsize_at_refrence` after `reference_iteration`.
         """
         if init_stepsize <= 0:
             raise ValueError("The initial stepsize must be positive.")
@@ -18,7 +22,10 @@ class StepsizeAdapter():
         self.target_accept_prob = target_accept_prob
 
         self.rm_stepsize = RobbinsMonroStepsize(
-            init=1., decay_exponent=1., options=options
+            init=init_adaptsize,
+            decay_exponent=adapt_decay_exponent,
+            reference_iteration=reference_iteration,
+            size_at_reference=adaptsize_at_reference
         )
 
     def get_current_stepsize(self, averaged=False):
@@ -41,35 +48,21 @@ class StepsizeAdapter():
 
 class RobbinsMonroStepsize():
 
-    def __init__(self, init=1., decay_exponent=1., options={}):
-        """
-        Parameters
-        ----------
-        options: dict with keys ('decay_exponent', 'decay_scale', 'final', 'n_total_step')
-            Either 'decay_scale' or ('final', 'n_total_step') can be specified
-        """
-
-        if 'decay_exponent' in options:
-            decay_exponent = options['decay_exponent']
+    def __init__(self, init=1., decay_exponent=1.,
+                 reference_iteration=None, size_at_reference=None):
 
         self.n_iter = 0
         self.init = init
         self.exponent = decay_exponent
-        self.scale = self.determine_decay_scale(init, decay_exponent, options)
+        self.scale = self.determine_decay_scale(
+            init, decay_exponent, reference_iteration, size_at_reference
+        )
 
-    def determine_decay_scale(self, init, decay_exponent, options):
+    def determine_decay_scale(self, init, decay_exponent, ref_iter, size_at_ref):
 
-        if 'decay_scale' in options:
-            decay_scale = options['decay_scale']
-        elif ('final' in options) and ('n_total_step' in options):
-            if 'decay_scale' in options:
-                warn_message_only(
-                    "Decay scale and final stepsize cannot be both specified."
-                    "The decay scale parameter is ignored."
-                )
-            decay_scale = options['n_total_step'] / (
-                (init / options['final']) ** (1 / decay_exponent) - 1
-            )
+        if (ref_iter is not None) and (size_at_ref is not None):
+            decay_scale = \
+                ref_iter / ((init / size_at_ref) ** (1 / decay_exponent) - 1)
         else:
             warn_message_only(
                 'The default stepsize sequence tends to decay too quicky; '
