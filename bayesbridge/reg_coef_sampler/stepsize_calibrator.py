@@ -25,7 +25,7 @@ class StepsizeCalibrator():
 
         if method == 'robbins-monro':
             self.rm_stepsize = RobbinsMonroStepsize(
-                init=1., decay_exponent=2/3, options=rm_options
+                init=1., decay_exponent=1., options=rm_options
             )
 
         # Parameters for the dual-averaging algorithm.
@@ -88,7 +88,7 @@ class StepsizeCalibrator():
 
 class RobbinsMonroStepsize():
 
-    def __init__(self, init=1., decay_exponent=2./3., options={}):
+    def __init__(self, init=1., decay_exponent=1., options={}):
         """
         Parameters
         ----------
