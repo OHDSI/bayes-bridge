@@ -1,7 +1,7 @@
 from math import exp, log, sqrt
 from bayesbridge.util import warn_message_only
 
-class StepsizeCalibrator():
+class StepsizeAdapter():
 
     def __init__(self, init_stepsize, target_accept_prob=.9, options={}):
         """
@@ -27,7 +27,7 @@ class StepsizeCalibrator():
         else:
             return exp(self.log_stepsize)
 
-    def update_stepsize(self, accept_prob):
+    def adapt_stepsize(self, accept_prob):
         self.n_averaged += 1
         rm_stepsize = self.rm_stepsize.next()
         self.log_stepsize += rm_stepsize * (accept_prob - self.target_accept_prob)
@@ -85,7 +85,7 @@ class RobbinsMonroStepsize():
         return stepsize
 
 
-class DualAverageStepsizeCalibrator():
+class DualAverageStepsizeAdapter():
 
     def __init__(self, init_stepsize, target_accept_prob=.9):
 
@@ -112,7 +112,7 @@ class DualAverageStepsizeCalibrator():
         else:
             return exp(self.log_stepsize)
 
-    def update_stepsize(self, accept_prob):
+    def adapt_stepsize(self, accept_prob):
         self.n_averaged += 1
         self.latent_stat = self.update_latent_stat(
             accept_prob, self.target_accept_prob, self.latent_stat
