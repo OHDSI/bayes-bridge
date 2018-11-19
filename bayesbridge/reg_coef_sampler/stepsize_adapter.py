@@ -1,4 +1,4 @@
-from math import exp, log, sqrt
+from math import exp, log, log10, sqrt, copysign
 from bayesbridge.util import warn_message_only
 
 class StepsizeAdapter():
@@ -37,14 +37,57 @@ class StepsizeAdapter():
     def adapt_stepsize(self, accept_prob):
         self.n_averaged += 1
         rm_stepsize = next(self.rm_stepsizer)
-        self.log_stepsize += \
-            rm_stepsize * (accept_prob - self.target_accept_prob)
+        adaptsize = \
+            self.transform_to_adaptsize(accept_prob, self.target_accept_prob)
+        self.log_stepsize += rm_stepsize * adaptsize
         weight = 1 / self.n_averaged
         self.log_stepsize_averaged = (
             weight * self.log_stepsize
             + (1 - weight) * self.log_stepsize_averaged
         )
         return exp(self.log_stepsize)
+
+    def transform_to_adaptsize(
+            self, accept_prob, target, trans_type='linear'):
+        """
+        Parameters
+        ----------
+        trans_type: str, {'linear', 'sign', 'penalize-high-prob'}
+        """
+
+        if trans_type == 'linear':
+            adapt_size = accept_prob - target
+
+        elif trans_type == 'sign':
+            adapt_size = copysign(1., accept_prob - target)
+
+        elif trans_type == 'penalize-high-prob':
+            # Transforms accept_prob -> adapt_size so that it roughly interpolate
+            # the points (0, -1), (target, 0), and (1, 1). Transformation is
+            # linear near accept_prob = target but quickly goes up to
+            # adapt_size = 1 as (1 - accecpt_prob) becomes an order of manitude
+            # smaller than (1 - target).
+            if accept_prob <= target:
+                adapt_size = (accept_prob - target) / target
+            else:
+                epsilon = 2. ** -52
+                magnitude_diff = log10(
+                    (1. - (accept_prob - epsilon)) / (1 - target)
+                )
+                if magnitude_diff == 0:
+                    w = 0.
+                else:
+                    w = exp(magnitude_diff ** - 1)
+                adapt_size = (
+                    (1 - w) * (accept_prob - target) / target
+                    - w * magnitude_diff
+                )
+                adapt_size = min(1., adapt_size)
+
+        else:
+            raise NotImplementedError()
+
+        return adapt_size
 
 
 class RobbinsMonroStepsizer():
