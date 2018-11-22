@@ -5,6 +5,7 @@ from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
 from . import hamiltonian_monte_carlo as hmc
+from .stepsize_adapter import HmcStepsizeAdapter
 
 
 class SparseRegressionCoefficientSampler():
@@ -21,6 +22,9 @@ class SparseRegressionCoefficientSampler():
         )
         if sampling_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
+        elif sampling_method == 'hmc':
+            self.stability_adjustment_adapter = \
+                HmcStepsizeAdapter(init_stepsize=.3, target_accept_prob=.99)
 
     def get_internal_state(self):
         state = {}
@@ -102,10 +106,7 @@ class SparseRegressionCoefficientSampler():
         self.regcoef_summarizer.update_precond_hessian_pc(hessian_pc)
 
         approx_stability_limit = 2 / np.sqrt(max_curvature)
-        if model.name == 'cox':
-            adjustment_factor = .3
-        else:
-            adjustment_factor = .5
+        adjustment_factor = self.stability_adjustment_adapter.get_current_stepsize()
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
             # The multiplicative factors may require adjustment.
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
@@ -126,6 +127,7 @@ class SparseRegressionCoefficientSampler():
             hmc.generate_next_state(f, dt, n_step, beta_precond)
         beta = beta_precond * precond_scale
         self.regcoef_summarizer.update(beta, gshrink, lshrink)
+        self.stability_adjustment_adapter.adapt_stepsize(hmc_info['hamiltonian_error'])
 
         info = {
             key: hmc_info[key]
