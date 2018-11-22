@@ -24,12 +24,12 @@ class HmcStepsizeAdapter():
         self.target_log10_hamiltonian_error = log10(sqrt(1 - target_accept_prob))
             # Theoretically, average acceptance rate should be 1 - target_log10_hamiltonian_error ** 2
 
-        self.rm_stepsizer = iter(RobbinsMonroStepsizer(
+        self.rm_stepsizer = RobbinsMonroStepsizer(
             init=init_adaptsize,
             decay_exponent=adapt_decay_exponent,
             reference_iteration=reference_iteration,
             size_at_reference=adaptsize_at_reference
-        ))
+        )
 
     def get_current_stepsize(self, averaged=False):
         if averaged:
@@ -38,8 +38,8 @@ class HmcStepsizeAdapter():
             return exp(self.log_stepsize)
 
     def adapt_stepsize(self, hamiltonian_error):
+        rm_stepsize = self.rm_stepsizer.calculate_stepsize(self.n_averaged)
         self.n_averaged += 1
-        rm_stepsize = next(self.rm_stepsizer)
         adaptsize = self.transform_to_adaptsize(hamiltonian_error)
         self.log_stepsize += rm_stepsize * adaptsize
         weight = 1 / self.n_averaged
