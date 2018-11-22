@@ -6,7 +6,7 @@ class HmcStepsizeAdapter():
 
     def __init__(self, init_stepsize, target_accept_prob=.9,
                  init_adaptsize=1., adapt_decay_exponent=1.,
-                 reference_iteration=100, adaptsize_at_reference=.05):
+                 reference_iteration=500, adaptsize_at_reference=.05):
         """
         Parameters
         ----------
@@ -79,7 +79,7 @@ class HmcStepsizeAdapter():
             if log10_error > target:
                 adapt_size = (target - log10_error) / .301 # Convert to log2 scale.
             else:
-                adapt_size = (target - log10_error) / 2 # Convert to log100 scale.
+                adapt_size = (target - log10_error) / 3 # Convert to log1000 scale.
 
         else:
             raise NotImplementedError()
