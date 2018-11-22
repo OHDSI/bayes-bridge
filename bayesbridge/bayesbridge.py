@@ -225,7 +225,8 @@ class BayesBridge():
         for mcmc_iter in range(1, n_iter + 1):
 
             beta, info = self.update_beta(
-                beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize
+                beta, obs_prec, gshrink, lshrink, sampling_method,
+                precond_blocksize, mcmc_iter
             )
 
             obs_prec = self.update_obs_precision(beta)
@@ -364,7 +365,8 @@ class BayesBridge():
                * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
         return pg_mean
 
-    def update_beta(self, beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize):
+    def update_beta(self, beta, obs_prec, gshrink, lshrink, sampling_method,
+                    precond_blocksize, mcmc_iter):
 
         if sampling_method in ('direct', 'cg'):
 
@@ -380,8 +382,10 @@ class BayesBridge():
             )
 
         elif sampling_method == 'hmc':
+            repeat_till_accepted = (mcmc_iter <= 5)
+                # Avoid updating the global shrinkage paremeter with unreasonably sparse regression coefficients.
             beta, info = self.reg_coef_sampler.sample_by_hmc(
-                beta, gshrink, lshrink, self.model
+                beta, gshrink, lshrink, self.model, repeat_till_accepted=repeat_till_accepted
             )
 
         else:
