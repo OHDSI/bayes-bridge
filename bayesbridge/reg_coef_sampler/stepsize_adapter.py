@@ -1,6 +1,127 @@
 from math import exp, log, log10, sqrt, copysign
 from bayesbridge.util import warn_message_only
 
+
+class HmcStepsizeAdapter():
+
+    def __init__(self, init_stepsize, target_accept_prob=.9,
+                 init_adaptsize=1., adapt_decay_exponent=1.,
+                 reference_iteration=100, adaptsize_at_reference=.05):
+        """
+        Parameters
+        ----------
+        reference_iteration & adaptsize_at_reference:
+            Stepsize sequence of Robbins-Monro algorithm will be set so that it
+            decreases to `adaptsize_at_refrence` after `reference_iteration`.
+        """
+        if init_stepsize <= 0:
+            raise ValueError("The initial stepsize must be positive.")
+        log_init_stepsize = log(init_stepsize)
+        self.log_stepsize = log_init_stepsize
+        self.log_stepsize_averaged = log_init_stepsize
+        self.n_averaged = 0
+        self.target_log10_hamiltonian_error = log10(sqrt(1 - target_accept_prob))
+            # Theoretically, average acceptance rate should be 1 - target_log10_hamiltonian_error ** 2
+
+        self.rm_stepsizer = iter(RobbinsMonroStepsizer(
+            init=init_adaptsize,
+            decay_exponent=adapt_decay_exponent,
+            reference_iteration=reference_iteration,
+            size_at_reference=adaptsize_at_reference
+        ))
+
+    def get_current_stepsize(self, averaged=False):
+        if averaged:
+            return exp(self.log_stepsize_averaged)
+        else:
+            return exp(self.log_stepsize)
+
+    def adapt_stepsize(self, hamiltonian_error):
+        self.n_averaged += 1
+        rm_stepsize = next(self.rm_stepsizer)
+        adaptsize = self.transform_to_adaptsize(hamiltonian_error)
+        self.log_stepsize += rm_stepsize * adaptsize
+        weight = 1 / self.n_averaged
+        self.log_stepsize_averaged = (
+            weight * self.log_stepsize
+            + (1 - weight) * self.log_stepsize_averaged
+        )
+        return exp(self.log_stepsize)
+
+    def transform_to_adaptsize(
+            self, error, upper_bound=1., trans_type='piecewise'):
+        """
+        Parameters
+        ----------
+        trans_type: str, {'log-linear', 'sign', 'piecewise'}
+        """
+
+        if error == 0.:
+            log10_error = - float('inf')
+        else:
+            log10_error = log10(abs(error))
+
+        target = self.target_log10_hamiltonian_error
+        if trans_type == 'log-linear':
+            adapt_size = target - log10_error
+
+        elif trans_type == 'sign':
+            adapt_size = copysign(1., target - log10_error)
+
+        elif trans_type == 'piecewise':
+            # Increase the adjustment when the error is larger than the target.
+            if log10_error > target:
+                adapt_size = (target - log10_error) / .301 # Convert to log2 scale.
+            else:
+                adapt_size = (target - log10_error) / 2 # Convert to log100 scale.
+
+        else:
+            raise NotImplementedError()
+
+        if abs(adapt_size) > upper_bound:
+            adapt_size = copysign(1., adapt_size)
+
+        return adapt_size
+
+
+class RobbinsMonroStepsizer():
+
+    def __init__(self, init=1., decay_exponent=1.,
+                 reference_iteration=None, size_at_reference=None):
+        self.init = init
+        self.exponent = decay_exponent
+        self.scale = self.determine_decay_scale(
+            init, decay_exponent, reference_iteration, size_at_reference
+        )
+
+    def determine_decay_scale(self, init, decay_exponent, ref_iter, size_at_ref):
+
+        if (ref_iter is not None) and (size_at_ref is not None):
+            decay_scale = \
+                ref_iter / ((init / size_at_ref) ** (1 / decay_exponent) - 1)
+        else:
+            warn_message_only(
+                'The default stepsize sequence tends to decay too quicky; '
+                'consider manually setting the decay scale.'
+            )
+            decay_scale = 1.
+
+        return decay_scale
+
+    def __iter__(self):
+        self.n_iter = 0
+        return self
+
+    def __next__(self):
+        stepsize = self.calculate_stepsize(self.n_iter)
+        self.n_iter += 1
+        return stepsize
+
+    def calculate_stepsize(self, n_iter):
+        stepsize = self.init / (1 + n_iter / self.scale) ** self.exponent
+        return stepsize
+
+
 class StepsizeAdapter():
 
     def __init__(self, init_stepsize, target_accept_prob=.9,
@@ -88,44 +209,6 @@ class StepsizeAdapter():
             raise NotImplementedError()
 
         return adapt_size
-
-
-class RobbinsMonroStepsizer():
-
-    def __init__(self, init=1., decay_exponent=1.,
-                 reference_iteration=None, size_at_reference=None):
-        self.init = init
-        self.exponent = decay_exponent
-        self.scale = self.determine_decay_scale(
-            init, decay_exponent, reference_iteration, size_at_reference
-        )
-
-    def determine_decay_scale(self, init, decay_exponent, ref_iter, size_at_ref):
-
-        if (ref_iter is not None) and (size_at_ref is not None):
-            decay_scale = \
-                ref_iter / ((init / size_at_ref) ** (1 / decay_exponent) - 1)
-        else:
-            warn_message_only(
-                'The default stepsize sequence tends to decay too quicky; '
-                'consider manually setting the decay scale.'
-            )
-            decay_scale = 1.
-
-        return decay_scale
-
-    def __iter__(self):
-        self.n_iter = 0
-        return self
-
-    def __next__(self):
-        stepsize = self.calculate_stepsize(self.n_iter)
-        self.n_iter += 1
-        return stepsize
-
-    def calculate_stepsize(self, n_iter):
-        stepsize = self.init / (1 + n_iter / self.scale) ** self.exponent
-        return stepsize
 
 
 class DualAverageStepsizeAdapter():
