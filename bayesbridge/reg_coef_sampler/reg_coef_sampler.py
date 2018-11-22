@@ -87,7 +87,8 @@ class SparseRegressionCoefficientSampler():
 
         return beta, info
 
-    def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500):
+    def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500,
+                      repeat_till_accepted=False):
 
         precond_scale = self.compute_preconditioning_scale(gshrink, lshrink)
         precond_prior_prec = np.concatenate((
@@ -125,9 +126,24 @@ class SparseRegressionCoefficientSampler():
 
         beta_precond, hmc_info = \
             hmc.generate_next_state(f, dt, n_step, beta_precond)
+        accepted = hmc_info['accepted']
+        hamiltonian_error = hmc_info['hamiltonian_error']
+
+        if repeat_till_accepted:
+            while not accepted:
+                if abs(hamiltonian_error) > 1:
+                    adjustment_factor /= 2.
+                    dt /= 2.
+                beta_precond, hmc_info = \
+                    hmc.generate_next_state(f, dt, n_step, beta_precond)
+                accepted = hmc_info['accepted']
+                hamiltonian_error = hmc_info['hamiltonian_error']
+            self.stability_adjustment_adapter.reinitialize(adjustment_factor)
+        else:
+            self.stability_adjustment_adapter.adapt_stepsize(hamiltonian_error)
+
         beta = beta_precond * precond_scale
         self.regcoef_summarizer.update(beta, gshrink, lshrink)
-        self.stability_adjustment_adapter.adapt_stepsize(hmc_info['hamiltonian_error'])
 
         info = {
             key: hmc_info[key]
