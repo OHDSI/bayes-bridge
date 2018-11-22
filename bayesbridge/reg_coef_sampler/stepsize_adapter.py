@@ -37,6 +37,12 @@ class HmcStepsizeAdapter():
         else:
             return exp(self.log_stepsize)
 
+    def reinitialize(self, init_stepsize):
+        log_init_stepsize = log(init_stepsize)
+        self.log_stepsize = log_init_stepsize
+        self.log_stepsize_averaged = log_init_stepsize
+        self.n_averaged = 0
+
     def adapt_stepsize(self, hamiltonian_error):
         rm_stepsize = self.rm_stepsizer.calculate_stepsize(self.n_averaged)
         self.n_averaged += 1
