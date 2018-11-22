@@ -1,11 +1,13 @@
 import numpy as np
 import math
 import time
+from .stepsize_adapter import HmcStepsizeAdapter
 
 
 def generate_samples(
         f, theta0, dt_range, nstep_range, n_burnin, n_sample,
-        seed=None, n_update=0):
+        seed=None, n_update=0, adapt_stepsize=False, target_accept_prob=.9,
+        final_adaptsize=.05):
     """ Run HMC and return samples and some additional info. """
 
     np.random.seed(seed)
@@ -15,6 +17,12 @@ def generate_samples(
 
     if np.isscalar(nstep_range):
         nstep_range = np.array(2 * [nstep_range])
+
+    if adapt_stepsize:
+        max_stepsize_adapter = HmcStepsizeAdapter(
+            init_stepsize=1., target_accept_prob=target_accept_prob,
+            reference_iteration=n_burnin, adaptsize_at_reference=final_adaptsize
+        )
 
     theta = theta0
     if n_update > 0:
@@ -28,8 +36,10 @@ def generate_samples(
 
     tic = time.time()  # Start clock
     logp, grad = f(theta)
+    use_averaged_stepsize = False
     for i in range(n_sample + n_burnin):
         dt = np.random.uniform(dt_range[0], dt_range[1])
+        dt *= max_stepsize_adapter.get_current_stepsize(use_averaged_stepsize)
         nstep = np.random.randint(nstep_range[0], nstep_range[1] + 1)
         theta, info = generate_next_state(
             f, dt, nstep, theta, logp0=logp, grad0=grad
@@ -37,6 +47,10 @@ def generate_samples(
         logp, grad, pathlen, accept_prob[i] = (
             info[key] for key in ['logp', 'grad', 'n_grad_evals', 'accept_prob']
         )
+        if i < n_burnin:
+            max_stepsize_adapter.adapt_stepsize(info['hamiltonian_error'])
+        elif i == n_burnin - 1:
+            use_averaged_stepsize = True
         pathlen_ave = i / (i + 1) * pathlen_ave + 1 / (i + 1) * pathlen
         samples[:, i] = theta
         logp_samples[i] = logp
