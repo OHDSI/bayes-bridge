@@ -20,6 +20,7 @@ class HmcStepsizeAdapter():
         self.log_stepsize = log_init_stepsize
         self.log_stepsize_averaged = log_init_stepsize
         self.n_averaged = 0
+        self.target_accept_prob = target_accept_prob
         self.target_log10_hamiltonian_error = log10(sqrt(1 - target_accept_prob))
             # Theoretically, average acceptance rate should be 1 - target_log10_hamiltonian_error ** 2
 
@@ -55,6 +56,11 @@ class HmcStepsizeAdapter():
         ----------
         trans_type: str, {'log-linear', 'sign', 'piecewise'}
         """
+
+        if trans_type == 'probability':
+            accept_prob = min(1, exp(error))
+            adapt_size = accept_prob - self.target_accept_prob
+            return adapt_size
 
         if error == 0.:
             log10_error = - float('inf')
