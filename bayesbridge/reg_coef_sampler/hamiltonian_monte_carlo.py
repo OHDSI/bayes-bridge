@@ -72,9 +72,11 @@ def generate_next_state(
 
     if instability_detected:
         acceptprob = 0.
+        hamiltonian_error = - float('inf')
     else:
         log_joint = - compute_hamiltonian(logp, p)
-        acceptprob = min(1, np.exp(log_joint - log_joint0))
+        hamiltonian_error = log_joint - log_joint0
+        acceptprob = min(1, np.exp(hamiltonian_error))
 
     accepted = acceptprob > np.random.rand()
     if not accepted:
@@ -87,6 +89,7 @@ def generate_next_state(
         'grad': grad,
         'accepted': accepted,
         'accept_prob': acceptprob,
+        'hamiltonian_error': hamiltonian_error,
         'instability_detected': instability_detected,
         'n_grad_evals': n_grad_evals
     }
