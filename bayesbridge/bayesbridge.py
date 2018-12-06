@@ -243,7 +243,9 @@ class BayesBridge():
                 samples, mcmc_iter, n_burnin, thin, beta, lshrink, gshrink, obs_prec,
                 params_to_save, shrinkage_exponent
             )
-            self.store_sampling_info(sampling_info, info, mcmc_iter, sampling_method)
+            self.store_sampling_info(
+                sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method
+            )
 
         runtime = time.time() - start_time
 
@@ -529,9 +531,15 @@ class BayesBridge():
 
         return
 
-    def store_sampling_info(self, sampling_info, info, mcmc_iter, sampling_method):
+    def store_sampling_info(
+            self, sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method):
+
+        if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
+            return
+        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
+
         for key in self.get_sampling_info_keys(sampling_method):
-            sampling_info[key][mcmc_iter - 1] = info[key]
+            sampling_info[key][index] = info[key]
         return
 
     def compute_posterior_logprob(self, beta, gshrink, obs_prec, shrinkage_exponent):
