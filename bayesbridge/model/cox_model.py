@@ -176,14 +176,18 @@ class CoxModel(AbstractModel):
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
 
+        grad = None # defalt return value
+
         log_rel_hazard, rel_hazard, hazard_sum_over_risk_set \
             = self._compute_relative_hazard(beta)
+        if np.any(hazard_sum_over_risk_set == 0.):
+            loglik = - float('inf')
+            return loglik, grad
 
         loglik = np.sum(
             log_rel_hazard[:self.n_event] - np.log(hazard_sum_over_risk_set)
         )
 
-        grad = None
         if not loglik_only:
             hazard_matrix = self._HazardMultinomialProbMatrix(
                 rel_hazard, hazard_sum_over_risk_set,
