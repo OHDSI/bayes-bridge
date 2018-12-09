@@ -249,6 +249,13 @@ class CoxModel(AbstractModel):
 
         _, rel_hazard, hazard_sum_over_risk_set \
             = self._compute_relative_hazard(beta)
+        if np.any(hazard_sum_over_risk_set == 0.):
+            raise ValueError(
+                'Hessian operator cannot be computed likely due to an '
+                'unreasonable value of regression coefficients. This could '
+                'be caused by the likelihood and prior both being too weak '
+                'or by a poor initialization of the Markov chain.'
+            )
         W = self._HazardMultinomialProbMatrix(
             rel_hazard, hazard_sum_over_risk_set,
             self.risk_set_start_index, self.risk_set_end_index, self.n_appearance_in_risk_set
