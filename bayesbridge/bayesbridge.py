@@ -307,7 +307,7 @@ class BayesBridge():
         elif sampling_method == 'hmc':
             keys = [
                 'n_integrator_step', 'accepted', 'accept_prob', 'stepsize',
-                'n_hessian_matvec', 'stability_limit_est'
+                'n_hessian_matvec', 'stability_limit_est', 'stability_adjustment_factor'
             ]
         else:
             keys = []

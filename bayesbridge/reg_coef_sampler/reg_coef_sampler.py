@@ -153,6 +153,7 @@ class SparseRegressionCoefficientSampler():
         info['n_hessian_matvec'] = n_hessian_matvec
         info['stepsize'] = dt
         info['stability_limit_est'] = approx_stability_limit
+        info['stability_adjustment_factor'] = adjustment_factor
         return beta, info
 
     def compute_preconditioning_scale(self, gshrink, lshrink):
