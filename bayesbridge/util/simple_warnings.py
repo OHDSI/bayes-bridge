@@ -1,9 +1,14 @@
 import warnings
-from inspect import currentframe, getframeinfo
+
+
+def simplified_format(
+        message, category, filename, lineno, line=None):
+    to_print = '{:s}:{:d}: {:s}: {:s}\n'.format(
+        filename, lineno, category.__name__, str(message)
+    )
+    return to_print
+
+warnings.formatwarning = simplified_format
 
 def warn_message_only(message, category=UserWarning):
-    frameinfo = getframeinfo(currentframe())
-    warnings.showwarning(
-        message, category, frameinfo.filename, frameinfo.lineno,
-        file=None, line=''
-    )  # line='' supresses printing the line from codes.
+    warnings.warn(message, category, stacklevel=2)
