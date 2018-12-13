@@ -2,6 +2,7 @@ import numpy as np
 import math
 import time
 from .stepsize_adapter import HmcStepsizeAdapter
+from bayesbridge.util import warn_message_only
 
 
 def generate_samples(
@@ -123,14 +124,18 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol):
     min_h, max_h = 2 * [hamiltonian]
 
     # First integration step.
-    theta, p, logp, grad \
-        = integrator(f, dt, theta0, p0, grad0)
-    hamiltonian = compute_hamiltonian(logp, p)
-    hamiltonians[1] = hamiltonian
-    min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
-    n_grad_evals += 1
-    if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
-        instability_detected = True
+    if n_step == 0:
+        warn_message_only("The number of integration steps was set to be 0.")
+        theta, p, logp, grad = theta0, p0, logp0, grad0
+    else:
+        theta, p, logp, grad \
+            = integrator(f, dt, theta0, p0, grad0)
+        hamiltonian = compute_hamiltonian(logp, p)
+        hamiltonians[1] = hamiltonian
+        min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
+        n_grad_evals += 1
+        if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
+            instability_detected = True
 
     for i in range(1, n_step):
 
