@@ -118,7 +118,7 @@ def simulate_dynamics(f, dt, n_step, theta0, p0, logp0, grad0, hamiltonian_tol):
     instability_detected = False
 
     # Keep track of Hamiltonians along the trajectory.
-    hamiltonians = np.zeros(n_step + 1)
+    hamiltonians = np.full(n_step + 1, float('nan'))
     hamiltonian = compute_hamiltonian(logp0, p0)
     hamiltonians[0] = hamiltonian
     min_h, max_h = 2 * [hamiltonian]
