@@ -19,11 +19,10 @@ def generate_samples(
     if np.isscalar(nstep_range):
         nstep_range = np.array(2 * [nstep_range])
 
-    if adapt_stepsize:
-        max_stepsize_adapter = HmcStepsizeAdapter(
-            init_stepsize=1., target_accept_prob=target_accept_prob,
-            reference_iteration=n_burnin, adaptsize_at_reference=final_adaptsize
-        )
+    max_stepsize_adapter = HmcStepsizeAdapter(
+        init_stepsize=1., target_accept_prob=target_accept_prob,
+        reference_iteration=n_burnin, adaptsize_at_reference=final_adaptsize
+    )
 
     theta = theta0
     if n_update > 0:
@@ -48,7 +47,7 @@ def generate_samples(
         logp, grad, pathlen, accept_prob[i] = (
             info[key] for key in ['logp', 'grad', 'n_grad_evals', 'accept_prob']
         )
-        if i < n_burnin:
+        if i < n_burnin and adapt_stepsize:
             max_stepsize_adapter.adapt_stepsize(info['hamiltonian_error'])
         elif i == n_burnin - 1:
             use_averaged_stepsize = True
