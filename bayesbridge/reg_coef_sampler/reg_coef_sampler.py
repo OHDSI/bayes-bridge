@@ -107,7 +107,7 @@ class SparseRegressionCoefficientSampler():
         self.regcoef_summarizer.update_precond_hessian_pc(hessian_pc)
 
         approx_stability_limit = 2 / np.sqrt(max_curvature)
-        adjustment_factor = self.stability_adjustment_adapter.get_current_stepsize()
+        adjustment_factor = .3
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
             # The multiplicative factors may require adjustment.
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit

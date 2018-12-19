@@ -384,7 +384,7 @@ class BayesBridge():
             )
 
         elif sampling_method == 'hmc':
-            repeat_till_accepted = (mcmc_iter <= 5)
+            repeat_till_accepted = False
                 # Avoid updating the global shrinkage paremeter with unreasonably sparse regression coefficients.
             beta, info = self.reg_coef_sampler.sample_by_hmc(
                 beta, gshrink, lshrink, self.model, repeat_till_accepted=repeat_till_accepted
