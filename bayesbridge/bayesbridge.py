@@ -337,6 +337,19 @@ class BayesBridge():
             )
         else:
             obs_prec = None
+            
+        lshrink, gshrink = self.initialize_shrinkage_parameters(init)
+
+        init = {
+            'beta': beta,
+            'obs_prec': obs_prec,
+            'local_shrinkage': lshrink,
+            'global_shrinkage': gshrink
+        }
+
+        return beta, obs_prec, lshrink, gshrink, init
+
+    def initialize_shrinkage_parameters(self, init):
 
         if 'local_shrinkage' in init:
             lshrink = init['local_shrinkage']
@@ -350,14 +363,7 @@ class BayesBridge():
         else:
             gshrink = .01
 
-        init = {
-            'beta': beta,
-            'obs_prec': obs_prec,
-            'local_shrinkage': lshrink,
-            'global_shrinkage': gshrink
-        }
-
-        return beta, obs_prec, lshrink, gshrink, init
+        return lshrink, gshrink
 
     def update_beta(self, beta, obs_prec, gshrink, lshrink, sampling_method,
                     precond_blocksize, mcmc_iter):
