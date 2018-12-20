@@ -35,8 +35,8 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
     outcome, X = simulate_data(model, matrix_format)
     bridge = BayesBridge(outcome, X, model=model)
     init = {
-        'tau': 1,
-        'lambda': np.ones(X.shape[1])
+        'global_shrinkage': .01,
+        'local_shrinkage': np.ones(X.shape[1])
     }
 
     if restart_in_middle:
