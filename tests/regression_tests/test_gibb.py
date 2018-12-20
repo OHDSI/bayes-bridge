@@ -3,12 +3,13 @@ import scipy as sp
 import scipy.sparse
 import math
 import sys
-sys.path.insert(0, '../..')
+sys.path.append("..") # needed if pytest called from the parent directory
+sys.path.insert(0, '../..') # needed if pytest called from this directory.
 
 from bayesbridge import BayesBridge
 from bayesbridge.model import CoxModel
 
-data_folder = 'saved_outputs/'
+data_folder = 'saved_outputs'
 test_combo = [
     ('linear', 'cg', 'dense', False),
     ('logit', 'direct', 'dense', False),
@@ -17,11 +18,12 @@ test_combo = [
     ('cox', 'hmc', 'sparse', False)
 ]
 
-def test_gibbs():
+def test_gibbs(request):
 
+    test_dirname = request.fspath.dirname
     for model, sampling_method, matrix_format, restart_im_middle in test_combo:
         samples = run_gibbs(model, sampling_method, matrix_format, restart_im_middle)
-        assert is_same_as_prev_output(samples, sampling_method, model)
+        assert is_same_as_prev_output(samples, sampling_method, model, test_dirname)
 
 def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
 
@@ -82,19 +84,22 @@ def simulate_data(model, matrix_format):
 
     return outcome, X
 
-def load_data(sampling_method, model):
-    return np.load(get_filename(sampling_method, model))
+def load_data(sampling_method, model, test_dirname):
+    filepath = '/'.join([
+        test_dirname, data_folder, get_filename(sampling_method, model)
+    ])
+    return np.load(filepath)
 
 def get_filename(sampling_method, model):
-    return data_folder + '_'.join([
+    return '_'.join([
         model, sampling_method, 'samples.npy'
     ])
 
 def save_data(samples, sampling_method, model):
     np.save(get_filename(sampling_method, model), samples['beta'])
 
-def is_same_as_prev_output(samples, sampling_method, model):
-    prev_sample = load_data(sampling_method, model)
+def is_same_as_prev_output(samples, sampling_method, model, test_dirname):
+    prev_sample = load_data(sampling_method, model, test_dirname)
     return np.allclose(samples['beta'], prev_sample, rtol=.001, atol=10e-6)
 
 

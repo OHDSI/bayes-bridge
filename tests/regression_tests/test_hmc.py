@@ -6,13 +6,16 @@ import numpy as np
 import bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo as hmc
 from tests.distributions import BivariateGaussian
 
-data_folder = 'saved_outputs/'
-test_samples_file = data_folder + 'hmc_bivariate_gaussian_samples.npy'
+data_folder = 'saved_outputs'
+test_samples_file = 'hmc_bivariate_gaussian_samples.npy'
 
 
-def test_hmc():
+def test_hmc(request):
     samples = run_hmc()
-    prev_output = np.load(test_samples_file)
+    filepath = '/'.join([
+        request.fspath.dirname, data_folder, test_samples_file
+    ])
+    prev_output = np.load(filepath)
     assert np.allclose(samples[:, -1], prev_output, atol=1e-10, rtol=1e-10)
 
 
