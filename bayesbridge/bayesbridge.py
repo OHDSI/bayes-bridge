@@ -75,7 +75,6 @@ class BayesBridge():
         else:
             self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = n_coef_without_shrinkage
-        self.X = X
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
         self.prior_type = {}
@@ -331,9 +330,9 @@ class BayesBridge():
             if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         elif self.model.name == 'linear':
-            obs_prec = np.mean((self.model.y - self.X.dot(beta)) ** 2) ** -1
+            obs_prec = np.mean((self.model.y - self.model.X.dot(beta)) ** 2) ** -1
         elif self.model.name == 'logit':
-            obs_prec = self.compute_polya_gamma_mean(self.model.n_trial, self.X.dot(beta))
+            obs_prec = self.compute_polya_gamma_mean(self.model.n_trial, self.model.X.dot(beta))
         else:
             obs_prec = None
 
@@ -379,7 +378,7 @@ class BayesBridge():
                 y_gaussian = (self.model.n_success - self.model.n_trial / 2) / obs_prec
 
             beta, info = self.reg_coef_sampler.sample_gaussian_posterior(
-                y_gaussian, self.X, obs_prec, gshrink, lshrink,
+                y_gaussian, self.model.X, obs_prec, gshrink, lshrink,
                 sampling_method, precond_blocksize
             )
 
@@ -399,13 +398,13 @@ class BayesBridge():
 
         obs_prec = None
         if self.model.name == 'linear':
-            resid = self.model.y - self.X.dot(beta)
+            resid = self.model.y - self.model.X.dot(beta)
             scale = np.sum(resid ** 2) / 2
             obs_var = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
             obs_prec = 1 / obs_var
         elif self.model.name == 'logit':
             obs_prec = self.rg.polya_gamma(
-                self.model.n_trial, self.X.dot(beta),self.X.shape[0])
+                self.model.n_trial, self.model.X.dot(beta), self.model.X.shape[0])
 
         return obs_prec
 
@@ -550,7 +549,7 @@ class BayesBridge():
             loglik, _ = self.model.compute_loglik_and_gradient(beta, loglik_only=True)
         elif self.model.name == 'linear':
             loglik = len(self.model.y) * math.log(obs_prec) / 2 \
-                     - obs_prec * np.sum((self.model.y - self.X.dot(beta)) ** 2)
+                     - obs_prec * np.sum((self.model.y - self.model.X.dot(beta)) ** 2)
             prior_logp += math.log(obs_prec) / 2
 
         n_shrunk_coef = len(beta) - self.n_unshrunk
