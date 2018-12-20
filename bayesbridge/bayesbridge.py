@@ -332,7 +332,9 @@ class BayesBridge():
         elif self.model.name == 'linear':
             obs_prec = np.mean((self.model.y - self.model.X.dot(beta)) ** 2) ** -1
         elif self.model.name == 'logit':
-            obs_prec = self.compute_polya_gamma_mean(self.model.n_trial, self.model.X.dot(beta))
+            obs_prec = LogisticModel.compute_polya_gamma_mean(
+                self.model.n_trial, self.model.X.dot(beta)
+            )
         else:
             obs_prec = None
 
@@ -356,15 +358,6 @@ class BayesBridge():
         }
 
         return beta, obs_prec, lshrink, gshrink, init
-
-    def compute_polya_gamma_mean(self, shape, tilt):
-        min_magnitude = 1e-5
-        pg_mean = shape.copy() / 2
-        is_nonzero = (np.abs(tilt) > min_magnitude)
-        pg_mean[is_nonzero] \
-            *= 1 / tilt[is_nonzero] \
-               * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
-        return pg_mean
 
     def update_beta(self, beta, obs_prec, gshrink, lshrink, sampling_method,
                     precond_blocksize, mcmc_iter):

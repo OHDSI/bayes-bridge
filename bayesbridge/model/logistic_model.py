@@ -45,6 +45,16 @@ class LogisticModel(AbstractModel):
         return hessian_op
 
     @staticmethod
+    def compute_polya_gamma_mean(shape, tilt):
+        min_magnitude = 1e-5
+        pg_mean = shape.copy() / 2
+        is_nonzero = (np.abs(tilt) > min_magnitude)
+        pg_mean[is_nonzero] \
+            *= 1 / tilt[is_nonzero] \
+               * (np.exp(tilt[is_nonzero]) - 1) / (np.exp(tilt[is_nonzero]) + 1)
+        return pg_mean
+
+    @staticmethod
     def compute_predicted_prob(X, beta, truncate=False):
         logit_prob = X.dot(beta)
         return LogisticModel.convert_to_probability_scale(logit_prob, truncate)
