@@ -96,7 +96,8 @@ def get_filename(sampling_method, model):
     ])
 
 def save_data(samples, sampling_method, model):
-    np.save(get_filename(sampling_method, model), samples['beta'])
+    filepath = data_folder + '/' + get_filename(sampling_method, model)
+    np.save(filepath, samples['beta'])
 
 def is_same_as_prev_output(samples, sampling_method, model, test_dirname):
     prev_sample = load_data(sampling_method, model, test_dirname)
@@ -104,8 +105,8 @@ def is_same_as_prev_output(samples, sampling_method, model, test_dirname):
 
 
 if __name__ == '__main__':
-    update_output = False
-    if update_output:
+    option = sys.argv[-1]
+    if option == 'update':
         for model, sampling_method, matrix_format, restart_im_middle in test_combo:
             samples = run_gibbs(model, sampling_method, matrix_format, restart_im_middle)
             save_data(samples, sampling_method, model)
