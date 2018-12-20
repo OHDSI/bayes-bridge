@@ -206,7 +206,7 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         beta, obs_prec, lshrink, gshrink, init = \
-            self.initialize_chain(init)
+            self.initialize_chain(init, shrinkage_exponent)
 
         if not _add_iter_mode:
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
@@ -312,7 +312,7 @@ class BayesBridge():
             keys = []
         return keys
 
-    def initialize_chain(self, init):
+    def initialize_chain(self, init, shrinkage_exponent):
         # Choose the user-specified state if provided, the default ones otherwise.
 
         if 'beta' in init:
@@ -337,8 +337,8 @@ class BayesBridge():
             )
         else:
             obs_prec = None
-            
-        lshrink, gshrink = self.initialize_shrinkage_parameters(init)
+
+        lshrink, gshrink = self.initialize_shrinkage_parameters(init, shrinkage_exponent)
 
         init = {
             'beta': beta,
@@ -349,19 +349,35 @@ class BayesBridge():
 
         return beta, obs_prec, lshrink, gshrink, init
 
-    def initialize_shrinkage_parameters(self, init):
+    def initialize_shrinkage_parameters(
+            self, init, shrinkage_exponent, apriori_coef_magnitude=.01):
+        """
+        Current options allow specifying 1) shrinkage parameters directly,
+        2) regression coefficients only, and 3) none, which defaults to
+        initialization based on 'apriori_coef_magnitude'.
+        """
 
-        if 'local_shrinkage' in init:
+        if 'local_shrinkage' in init and  'global_shrinkage' in init:
             lshrink = init['local_shrinkage']
+            gshrink = init['global_shrinkage']
             if not len(lshrink) == (self.n_pred - self.n_unshrunk):
                 raise ValueError('An invalid initial state.')
-        else:
-            lshrink = np.ones(self.n_pred - self.n_unshrunk)
 
-        if 'global_shrinkage' in init:
-            gshrink = init['global_shrinkage']
+        elif 'beta' in init:
+            gshrink = self.update_global_shrinkage(
+                None, init['beta'][self.n_unshrunk:], shrinkage_exponent,
+                global_shrinkage_update='optimize'
+            )
+            lshrink = self.update_local_shrinkage(
+                gshrink, init['beta'][self.n_unshrunk:], shrinkage_exponent
+            )
         else:
-            gshrink = .01
+            power_exponential_mean = (
+                math.gamma(2 / shrinkage_exponent)
+                / math.gamma(1 / shrinkage_exponent)
+            )
+            gshrink = apriori_coef_magnitude / power_exponential_mean
+            lshrink = power_exponential_mean * np.ones(self.n_pred - self.n_unshrunk)
 
         return lshrink, gshrink
 
