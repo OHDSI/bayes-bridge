@@ -212,7 +212,7 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         beta, obs_prec, lshrink, gshrink, init = \
-            self.initialize_chain(init, shrinkage_exponent)
+            self.initialize_chain(init, shrinkage_exponent, n_init_optim_step)
 
         if not _add_iter_mode:
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
@@ -318,7 +318,7 @@ class BayesBridge():
             keys = []
         return keys
 
-    def initialize_chain(self, init, shrinkage_exponent):
+    def initialize_chain(self, init, shrinkage_exponent, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
 
         if 'beta' in init:
@@ -345,6 +345,14 @@ class BayesBridge():
             obs_prec = None
 
         lshrink, gshrink = self.initialize_shrinkage_parameters(init, shrinkage_exponent)
+
+        for _ in range(n_optim):
+            beta = self.reg_coef_sampler.search_mode(
+                beta, lshrink, gshrink, self.model
+            )
+            lshrink = self.update_local_shrinkage(
+                gshrink, beta[self.n_unshrunk:], shrinkage_exponent
+            )
 
         init = {
             'beta': beta,

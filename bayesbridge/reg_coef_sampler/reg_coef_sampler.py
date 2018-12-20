@@ -193,3 +193,6 @@ class SparseRegressionCoefficientSampler():
         max_curvature = eigval[0]
         pc = np.squeeze(eigvec)
         return max_curvature, pc, info['n_iter']
+
+    def search_mode(self, beta, lshrink, gshrink, model):
+        return beta
