@@ -172,7 +172,7 @@ class BayesBridge():
     def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', params_to_save=None,
-              _add_iter_mode=False):
+              n_init_optim_step=0, _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -187,6 +187,12 @@ class BayesBridge():
             size of the block preconditioner
         global_shrinkage_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
+        n_init_optim_step : int
+            If > 0, the Markov chain will be run after the specified number of
+            optimization steps in which the regression coefficients are
+            optimized conditionally on the shrinkage parameters. During the
+            optimization, the global shrinkage parameter is fixed while the
+            local ones are sampled.
 
         """
 
