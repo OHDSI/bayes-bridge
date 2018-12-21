@@ -184,8 +184,9 @@ class SparseRegressionCoefficientSampler():
         pc = np.squeeze(eigvec)
         return max_curvature, pc, get_iter_counts()
 
+    @staticmethod
     def get_precond_hessian_matvec(
-            self, model, beta_location, precond_scale, precond_prior_prec):
+            model, beta_location, precond_scale, precond_prior_prec):
 
         loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
         info = {'n_iter': 0}
@@ -198,8 +199,9 @@ class SparseRegressionCoefficientSampler():
 
         return precond_hessian_matvec, get_iter_counts
 
+    @staticmethod
     def get_precond_logprob_and_gradient(
-            self, model, precond_scale, precond_prior_prec):
+            model, precond_scale, precond_prior_prec):
 
         def f(beta_precond):
             beta = beta_precond * precond_scale
