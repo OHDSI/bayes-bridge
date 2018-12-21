@@ -90,8 +90,12 @@ class SparseRegressionCoefficientSampler():
     def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500,
                       repeat_till_accepted=False):
 
+        beta_precond_post_sd = \
+            self.regcoef_summarizer.estimate_beta_precond_scale_sd()
         precond_scale, precond_prior_prec = \
-            self.compute_preconditioning_scale(gshrink, lshrink)
+            self.compute_preconditioning_scale(
+                gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
+            )
 
         beta_condmean_guess = \
             self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
@@ -147,20 +151,22 @@ class SparseRegressionCoefficientSampler():
         info['stability_adjustment_factor'] = adjustment_factor
         return beta, info
 
-    def compute_preconditioning_scale(self, gshrink, lshrink):
+    @staticmethod
+    def compute_preconditioning_scale(
+            gshrink, lshrink, regcoef_precond_post_sd, prior_sd_for_unshrunk):
 
-        beta_precond_post_sd = \
-            self.regcoef_summarizer.estimate_beta_precond_scale_sd()
+        n_coef = len(regcoef_precond_post_sd)
+        n_unshrunk =  n_coef - len(lshrink)
 
-        precond_scale = np.ones(len(beta_precond_post_sd))
-        precond_scale[self.n_unshrunk:] = gshrink * lshrink
-        if self.n_unshrunk > 0:
+        precond_scale = np.ones(n_coef)
+        precond_scale[n_unshrunk:] = gshrink * lshrink
+        if n_unshrunk > 0:
             target_sd_scale = 2.
-            precond_scale[:self.n_unshrunk] = \
-                target_sd_scale * beta_precond_post_sd[:self.n_unshrunk]
+            precond_scale[:n_unshrunk] = \
+                target_sd_scale * regcoef_precond_post_sd[:n_unshrunk]
 
         precond_prior_prec = np.concatenate((
-            (self.prior_sd_for_unshrunk / precond_scale[:self.n_unshrunk]) ** -2,
+            (prior_sd_for_unshrunk / precond_scale[:n_unshrunk]) ** -2,
             np.ones(len(lshrink))
         ))
 
