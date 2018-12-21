@@ -28,6 +28,8 @@ class ConjugateGradientSampler():
         beta_scaled_sd : vector of length X.shape[1]
             Used to estimate a good preconditioning scale for the coefficient
             without shrinkage. Used only if precond_by in ('prior', 'prior+block').
+        precond_by : {'prior', 'diag'}
+            'prior+block' option is currently not supported.
         """
 
         if seed is not None:
@@ -140,7 +142,8 @@ class ConjugateGradientSampler():
     def compute_block_preconditioner(
             self, omega, X, D, precond_scale, indices):
 
-        # TODO: debug this method.
+        # TODO: update this method according to the introduction of the
+        # design matrix class.
         weighted_X_subset = X.matmul_by_diag(omega ** (1 / 2), from_='left')
         weighted_X_subset_scaled = \
             weighted_X_subset.matmul_by_diag(precond_scale[indices], from_='right')
