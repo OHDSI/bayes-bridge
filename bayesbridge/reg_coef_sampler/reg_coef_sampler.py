@@ -113,13 +113,7 @@ class SparseRegressionCoefficientSampler():
         n_step = min(n_step, max_step)
 
         beta_precond = beta / precond_scale
-        def f(beta_precond):
-            beta = beta_precond * precond_scale
-            logp, grad_wrt_beta = model.compute_loglik_and_gradient(beta)
-            grad = precond_scale * grad_wrt_beta # Chain rule.
-            logp += np.sum(- precond_prior_prec * beta_precond ** 2) / 2
-            grad += - precond_prior_prec * beta_precond
-            return logp, grad
+        f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
 
         beta_precond, hmc_info = \
             hmc.generate_next_state(f, dt, n_step, beta_precond)
@@ -175,12 +169,9 @@ class SparseRegressionCoefficientSampler():
     def compute_precond_hessian_curvature(
             self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
 
-        loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
-        info = {'n_iter': 0}
-        def precond_hessian_matvec(beta):
-            info['n_iter'] += 1
-            return precond_prior_prec * beta \
-                - precond_scale * loglik_hessian_matvec(precond_scale * beta)
+        precond_hessian_matvec, get_iter_counts = self.get_precond_hessian_matvec(
+            model, beta_location, precond_scale, precond_prior_prec
+        )
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
             (len(beta_location), len(beta_location)), precond_hessian_matvec
         )
@@ -191,7 +182,34 @@ class SparseRegressionCoefficientSampler():
         )   # We don't need a high (relative) accuracy.
         max_curvature = eigval[0]
         pc = np.squeeze(eigvec)
-        return max_curvature, pc, info['n_iter']
+        return max_curvature, pc, get_iter_counts()
+
+    def get_precond_hessian_matvec(
+            self, model, beta_location, precond_scale, precond_prior_prec):
+
+        loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
+        info = {'n_iter': 0}
+        def precond_hessian_matvec(beta_precond):
+            info['n_iter'] += 1
+            return precond_prior_prec * beta_precond \
+                   - precond_scale * loglik_hessian_matvec(
+                precond_scale * beta_precond)
+        get_iter_counts = lambda : info['n_iter']
+
+        return precond_hessian_matvec, get_iter_counts
+
+    def get_precond_logprob_and_gradient(
+            self, model, precond_scale, precond_prior_prec):
+
+        def f(beta_precond):
+            beta = beta_precond * precond_scale
+            logp, grad_wrt_beta = model.compute_loglik_and_gradient(beta)
+            grad = precond_scale * grad_wrt_beta  # Chain rule.
+            logp += np.sum(- precond_prior_prec * beta_precond ** 2) / 2
+            grad += - precond_prior_prec * beta_precond
+            return logp, grad
+
+        return f
 
     def search_mode(self, beta, lshrink, gshrink, model):
         return beta
