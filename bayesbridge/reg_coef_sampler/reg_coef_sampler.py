@@ -158,9 +158,6 @@ class SparseRegressionCoefficientSampler():
 
     def compute_preconditioning_scale(self, gshrink, lshrink):
 
-        # TODO: this piece of codes for computing the preconditioned Hessian is
-        # very similar to the CG sampler preconditioning. Perhaps we can unify them?
-
         beta_precond_post_sd = \
             self.regcoef_summarizer.estimate_beta_precond_scale_sd()
 
