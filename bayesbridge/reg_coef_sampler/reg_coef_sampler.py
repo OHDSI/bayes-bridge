@@ -90,11 +90,8 @@ class SparseRegressionCoefficientSampler():
     def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500,
                       repeat_till_accepted=False):
 
-        precond_scale = self.compute_preconditioning_scale(gshrink, lshrink)
-        precond_prior_prec = np.concatenate((
-            (self.prior_sd_for_unshrunk / precond_scale[:self.n_unshrunk]) ** -2,
-            np.ones(len(lshrink))
-        ))
+        precond_scale, precond_prior_prec = \
+            self.compute_preconditioning_scale(gshrink, lshrink)
 
         beta_condmean_guess = \
             self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
@@ -168,7 +165,12 @@ class SparseRegressionCoefficientSampler():
             precond_scale[:self.n_unshrunk] = \
                 target_sd_scale * beta_precond_post_sd[:self.n_unshrunk]
 
-        return precond_scale
+        precond_prior_prec = np.concatenate((
+            (self.prior_sd_for_unshrunk / precond_scale[:self.n_unshrunk]) ** -2,
+            np.ones(len(lshrink))
+        ))
+
+        return precond_scale, precond_prior_prec
 
     def compute_precond_hessian_curvature(
             self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
