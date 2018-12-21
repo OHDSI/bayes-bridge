@@ -10,12 +10,12 @@ class ConjugateGradientSampler():
         self.n_coef_wo_shrinkage = n_coef_wo_shrinkage
 
     def sample(
-            self, X, omega, D, z,
+            self, X, omega, prior_prec_sqrt, z,
             beta_init=None, precond_by='prior', precond_blocksize=0, beta_scaled_sd=None,
             maxiter=None, atol=10e-6, seed=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-           Sigma^{-1} = X' Omega X + D^2, mu = Sigma z
+           Sigma^{-1} = X' Omega X + prior_prec_sqrt^2, mu = Sigma z
         where D is assumed to be diagonal. For numerical stability, the code first sample
         from the scaled parameter beta / precond_scale.
 
@@ -38,13 +38,13 @@ class ConjugateGradientSampler():
         # Define a preconditioned linear operator.
         Phi_precond_op, precond_scale, block_precond_op = \
             self.precondition_linear_system(
-                D, omega, X, precond_by,
+                prior_prec_sqrt, omega, X, precond_by,
                 precond_blocksize, beta_scaled_sd
             )
 
         # Draw a target vector.
         v = X.Tdot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
-            + D * np.random.randn(X.shape[1])
+            + prior_prec_sqrt * np.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
         # Callback function to count the number of PCG iterations.
@@ -73,18 +73,18 @@ class ConjugateGradientSampler():
         return beta, cg_info
 
     def precondition_linear_system(
-            self, D, omega, X, precond_by,
+            self, prior_prec_sqrt, omega, X, precond_by,
             precond_blocksize, beta_scaled_sd):
 
         # Compute the preconditioners.
         precond_scale, block_precond_op = self.choose_preconditioner(
-            D, omega, X, precond_by, precond_blocksize, beta_scaled_sd
+            prior_prec_sqrt, omega, X, precond_by, precond_blocksize, beta_scaled_sd
         )
 
         # Define a preconditioned linear operator.
-        D_scaled_sq = (precond_scale * D) ** 2
+        precond_prior_prec = (precond_scale * prior_prec_sqrt) ** 2
         def Phi_precond(x):
-            Phi_x = D_scaled_sq * x \
+            Phi_x = precond_prior_prec * x \
                     + precond_scale * X.Tdot(omega * X.dot(precond_scale * x))
             return Phi_x
         Phi_precond_op = sp.sparse.linalg.LinearOperator(
@@ -92,11 +92,11 @@ class ConjugateGradientSampler():
         )
         return Phi_precond_op, precond_scale, block_precond_op
 
-    def choose_preconditioner(self, D, omega, X,
+    def choose_preconditioner(self, prior_prec_sqrt, omega, X,
                               precond_by, precond_blocksize, beta_scaled_sd):
 
         precond_scale = self.choose_diag_preconditioner(
-            D, omega, X, precond_by, beta_scaled_sd)
+            prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd)
 
         block_precond_op = None
         if precond_by == 'prior+block' and precond_blocksize > 0:
@@ -105,21 +105,21 @@ class ConjugateGradientSampler():
             subset_indices = np.argsort(pred_importance)[-precond_blocksize:]
             subset_indices = np.sort(subset_indices)
             block_precond_op = self.compute_block_preconditioner(
-                omega, X, D, precond_scale, subset_indices
+                omega, X, prior_prec_sqrt, precond_scale, subset_indices
             )
 
         return precond_scale, block_precond_op
 
     def choose_diag_preconditioner(
-            self, D, omega, X, precond_by='diag',
+            self, prior_prec_sqrt, omega, X, precond_by='diag',
             beta_scaled_sd=None):
         # Compute the diagonal (sqrt) preconditioner.
 
         if precond_by in ('prior', 'prior+block'):
 
-            precond_scale = np.ones(len(D))
+            precond_scale = np.ones(len(prior_prec_sqrt))
             precond_scale[self.n_coef_wo_shrinkage:] = \
-                D[self.n_coef_wo_shrinkage:] ** -1
+                prior_prec_sqrt[self.n_coef_wo_shrinkage:] ** -1
             if self.n_coef_wo_shrinkage > 0:
                 target_sd_scale = 2.
                     # Larger than 1 because it is better to err on the side
@@ -128,7 +128,7 @@ class ConjugateGradientSampler():
                     target_sd_scale * beta_scaled_sd[:self.n_coef_wo_shrinkage]
 
         elif precond_by == 'diag':
-            diag = D ** 2 + X.compute_fisher_info(weight=omega, diag_only=True)
+            diag = prior_prec_sqrt ** 2 + X.compute_fisher_info(weight=omega, diag_only=True)
             precond_scale = 1 / np.sqrt(diag)
 
         elif precond_by is None:
@@ -140,7 +140,7 @@ class ConjugateGradientSampler():
         return precond_scale
 
     def compute_block_preconditioner(
-            self, omega, X, D, precond_scale, indices):
+            self, omega, X, prior_prec_sqrt, precond_scale, indices):
 
         # TODO: update this method according to the introduction of the
         # design matrix class.
@@ -150,7 +150,7 @@ class ConjugateGradientSampler():
         weighted_X_subset_scaled = weighted_X_subset_scaled.toarray()
 
         B = weighted_X_subset_scaled.T.dot(weighted_X_subset_scaled) \
-            + np.diag((D[indices] * precond_scale[indices]) ** 2)
+            + np.diag((prior_prec_sqrt[indices] * precond_scale[indices]) ** 2)
 
         B_cho_factor = sp.linalg.cho_factor(B)
         def B_inv_on_indices(x):
