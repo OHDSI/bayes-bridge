@@ -2,7 +2,6 @@ import numpy as np
 import scipy as sp
 import scipy.sparse
 from .cg_sampler import ConjugateGradientSampler
-from . import prior_preconditioner as preconditioner
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
 from . import hamiltonian_monte_carlo as hmc
@@ -91,11 +90,7 @@ class SparseRegressionCoefficientSampler():
     def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500,
                       repeat_till_accepted=False):
 
-        beta_precond_post_sd = \
-            self.regcoef_summarizer.estimate_beta_precond_scale_sd()
-        precond_scale = preconditioner.compute_preconditioning_scale(
-            gshrink, lshrink, beta_precond_post_sd
-        )
+        precond_scale = self.compute_preconditioning_scale(gshrink, lshrink)
         precond_prior_prec = np.concatenate((
             (self.prior_sd_for_unshrunk / precond_scale[:self.n_unshrunk]) ** -2,
             np.ones(len(lshrink))
@@ -160,6 +155,23 @@ class SparseRegressionCoefficientSampler():
         info['stability_limit_est'] = approx_stability_limit
         info['stability_adjustment_factor'] = adjustment_factor
         return beta, info
+
+    def compute_preconditioning_scale(self, gshrink, lshrink):
+
+        # TODO: this piece of codes for computing the preconditioned Hessian is
+        # very similar to the CG sampler preconditioning. Perhaps we can unify them?
+
+        beta_precond_post_sd = \
+            self.regcoef_summarizer.estimate_beta_precond_scale_sd()
+
+        precond_scale = np.ones(len(beta_precond_post_sd))
+        precond_scale[self.n_unshrunk:] = gshrink * lshrink
+        if self.n_unshrunk > 0:
+            target_sd_scale = 2.
+            precond_scale[:self.n_unshrunk] = \
+                target_sd_scale * beta_precond_post_sd[:self.n_unshrunk]
+
+        return precond_scale
 
     def compute_precond_hessian_curvature(
             self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
