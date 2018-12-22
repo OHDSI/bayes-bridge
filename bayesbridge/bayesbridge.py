@@ -133,7 +133,7 @@ class BayesBridge():
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-            init, self.prior_sd_for_unshrunk, sampling_method
+            self.n_pred, self.prior_sd_for_unshrunk, sampling_method
         )
         self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
 
@@ -210,14 +210,14 @@ class BayesBridge():
 
         n_iter = n_burnin + n_post_burnin
 
+        if not _add_iter_mode:
+            self.reg_coef_sampler = SparseRegressionCoefficientSampler(
+                self.n_pred, self.prior_sd_for_unshrunk, sampling_method
+            )
+
         # Initial state of the Markov chain
         beta, obs_prec, lshrink, gshrink, init = \
             self.initialize_chain(init, shrinkage_exponent, n_init_optim_step)
-
-        if not _add_iter_mode:
-            self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-                init, self.prior_sd_for_unshrunk, sampling_method
-            )
 
         # Pre-allocate
         samples = {}

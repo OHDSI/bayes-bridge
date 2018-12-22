@@ -2,10 +2,9 @@ import numpy as np
 
 class RegressionCoeffficientPosteriorSummarizer():
 
-    def __init__(self, beta, gshrink, lshrunk, pc_summary_method='average'):
-        self.n_unshrunk = len(beta) - len(lshrunk)
-        beta_scaled = self.scale_beta(beta, gshrink, lshrunk)
-        self.beta_scaled_summarizer = OntheflySummarizer(beta_scaled)
+    def __init__(self, n_coef, n_unshrunk, pc_summary_method='average'):
+        self.n_unshrunk = n_unshrunk
+        self.beta_scaled_summarizer = OntheflySummarizer(n_coef)
         self.pc_summarizer = DirectionSummarizer(pc_summary_method)
 
     def scale_beta(self, beta, gshrunk, lshrunk):
@@ -63,7 +62,7 @@ class OntheflySummarizer():
     random sequence.
     """
 
-    def __init__(self, theta, sd_prior_samplesize=5):
+    def __init__(self, n_param, sd_prior_samplesize=5):
         """
 
         Params
@@ -75,11 +74,11 @@ class OntheflySummarizer():
             'prior_samplesize' previous values.
         """
         self.sd_prior_samplesize = sd_prior_samplesize
-        self.sd_prior_guess = np.ones(len(theta))
+        self.sd_prior_guess = np.ones(n_param)
         self.n_averaged = 0
         self.stats = {
-            'mean': np.zeros(len(theta)),
-            'square': np.ones(len(theta))
+            'mean': np.zeros(n_param),
+            'square': np.ones(n_param)
         }
 
     def update_stats(self, theta):

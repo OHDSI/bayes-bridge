@@ -10,15 +10,14 @@ from .stepsize_adapter import HmcStepsizeAdapter
 
 class SparseRegressionCoefficientSampler():
 
-    def __init__(self, init, prior_sd_for_unshrunk, sampling_method):
+    def __init__(self, n_coef, prior_sd_for_unshrunk, sampling_method):
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = len(prior_sd_for_unshrunk)
 
         # Object for keeping track of running average.
         self.regcoef_summarizer = RegressionCoeffficientPosteriorSummarizer(
-            init['beta'], init['global_shrinkage'], init['local_shrinkage'],
-            pc_summary_method='average'
+            n_coef, self.n_unshrunk, pc_summary_method='average'
         )
         if sampling_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
