@@ -6,19 +6,22 @@ import numpy as np
 import numpy.random
 import scipy as sp
 import scipy.sparse
+from functools import partial
 from .derivative_tester \
     import numerical_grad_is_close, numerical_direc_deriv_is_close
 from simulate_data import simulate_design
-from bayesbridge.model import LogisticModel, CoxModel
+from bayesbridge.model import LinearModel, LogisticModel, CoxModel
 from bayesbridge.design_matrix import SparseDesignMatrix, DenseDesignMatrix
 
 
-def test_logitstic_model_gradient():
-    y, X, beta = simulate_data(model='logit', seed=0)
-    n_trial, n_success = y
-    logit_model = LogisticModel(n_success, X, n_trial)
-    f = logit_model.compute_loglik_and_gradient
+def test_linear_model_gradient_and_hessian():
+    y, X, beta = simulate_data(model='linear', seed=0)
+    obs_prec = 1.
+    linear_model = LinearModel(y, X)
+    f = partial(linear_model.compute_loglik_and_gradient, obs_prec=obs_prec)
+    hessian_matvec = linear_model.get_hessian_matvec_operator(beta, obs_prec)
     assert numerical_grad_is_close(f, beta)
+    assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
 
 
 def test_logitstic_model_hessian_matvec():
@@ -135,7 +138,9 @@ def simulate_data(model, n_obs=100, n_pred=50, seed=None):
 
     beta = np.random.randn(n_pred)
     n_trial = None
-    if model == 'logit':
+    if model == 'linear':
+        y = LinearModel.simulate_outcome(X, beta, noise_sd=1.)
+    elif model == 'logit':
         n_trial = np.random.binomial(np.arange(n_obs) + 1, .5)
         n_success = LogisticModel.simulate_outcome(n_trial, X, beta)
         y = (n_trial, n_success)
