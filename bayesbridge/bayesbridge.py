@@ -574,12 +574,8 @@ class BayesBridge():
 
         prior_logp = 0
 
-        if self.model.name in ('logit', 'cox'):
-            loglik, _ = self.model.compute_loglik_and_gradient(beta, loglik_only=True)
-        elif self.model.name == 'linear':
-            loglik = len(self.model.y) * math.log(obs_prec) / 2 \
-                     - obs_prec * np.sum((self.model.y - self.model.X.dot(beta)) ** 2) / 2
-            prior_logp += math.log(obs_prec) / 2
+        params = [beta] if self.model.name != 'linear' else [beta, obs_prec]
+        loglik, _ = self.model.compute_loglik_and_gradient(*params, loglik_only=True)
 
         n_shrunk_coef = len(beta) - self.n_unshrunk
 
