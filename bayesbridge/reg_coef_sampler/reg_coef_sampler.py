@@ -174,8 +174,9 @@ class SparseRegressionCoefficientSampler():
     def compute_precond_hessian_curvature(
             self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
 
-        precond_hessian_matvec, iter_count = self.get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec
+        iter_count = {'n_iter': 0}
+        precond_hessian_matvec = self.get_precond_hessian_matvec(
+            model, beta_location, precond_scale, precond_prior_prec, iter_count
         )
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
             (len(beta_location), len(beta_location)), precond_hessian_matvec
@@ -191,17 +192,17 @@ class SparseRegressionCoefficientSampler():
 
     @staticmethod
     def get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec):
+            model, beta_location, precond_scale, precond_prior_prec, iter_count={}):
 
         loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
-        iter_count = {'n_iter': 0}
+        iter_count['n_iter'] = 0
         def precond_hessian_matvec(beta_precond):
             iter_count['n_iter'] += 1
             return precond_prior_prec * beta_precond \
                    - precond_scale * loglik_hessian_matvec(
                 precond_scale * beta_precond)
 
-        return precond_hessian_matvec, iter_count
+        return precond_hessian_matvec
 
     @staticmethod
     def get_precond_logprob_and_gradient(
