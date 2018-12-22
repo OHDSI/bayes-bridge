@@ -6,6 +6,7 @@ from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummar
 from .direct_gaussian_sampler import generate_gaussian_with_weight
 from . import hamiltonian_monte_carlo as hmc
 from .stepsize_adapter import HmcStepsizeAdapter
+from bayesbridge.util import warn_message_only
 
 
 class SparseRegressionCoefficientSampler():
@@ -219,5 +220,61 @@ class SparseRegressionCoefficientSampler():
 
         return f
 
-    def search_mode(self, beta, lshrink, gshrink, model):
+    def search_mode(self, beta, lshrink, gshrink, model, optim_maxiter=10):
+
+        beta_precond_post_sd = np.ones(beta.size)
+            # No Monte Carlo estimate yet, so make some reasonable guess. It
+            # probably should depend on the outcome and design matrix.
+        precond_scale, precond_prior_prec = \
+            self.compute_preconditioning_scale(
+                gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
+            )
+
+        f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
+        hessian_matvec_key = 'n_hessian_matvec'
+        info = {
+            hessian_matvec_key: 0, # Counts the number of matrix-vector multiplications by the Hessian.
+            'n_logp_eval': 0,
+            'n_grad_eval': 0,
+        }
+        def compute_negative_logp(beta_precond):
+            # Negative log-density
+            info['n_logp_eval'] += 1
+            return - f(beta_precond)[0]
+        def compute_negative_grad(beta_precond):
+            info['n_grad_eval'] += 1
+            return - f(beta_precond)[1]
+        def get_precond_hessian_matvec(precond_location, v):
+            hessian_eval_location = precond_scale * precond_location
+            hessian_matvec = self.get_precond_hessian_matvec(
+                model, hessian_eval_location, precond_scale, precond_prior_prec,
+                iter_count=info, count_key=hessian_matvec_key
+            )
+            return hessian_matvec(v)
+
+        """
+        Find the mode via the trust region CG-Newton method. Start with a 
+        generous trust radius as Newton iterations without constraints should be
+        fine.
+        """
+        init_trust_radius = 1.96 * np.sqrt(len(beta))
+        beta_precond = beta / precond_scale
+        optim_options = {
+            'maxiter': optim_maxiter,
+            'initial_trust_radius': init_trust_radius,
+            'max_trust_radius': 4. * init_trust_radius,
+        }
+        optim_result = sp.optimize.minimize(
+            compute_negative_logp, beta_precond, method='trust-ncg',
+            jac=compute_negative_grad, hessp=get_precond_hessian_matvec, options=optim_options
+        )
+        if not optim_result.success:
+            warn_message_only(
+                "The regression coefficient mode (conditionally on the shrinkage "
+                "parameters could not be located within {:d} iterations of "
+                "second-order optimization steps. Proceeding with the current "
+                "best estimate.".format(optim_maxiter)
+            )
+        beta = precond_scale * optim_result.x
+
         return beta
