@@ -25,9 +25,12 @@ class LinearModel(AbstractModel):
     def compute_hessian(self, beta):
         pass
 
-    def get_hessian_matvec_operator(self, beta):
-        pass
+    def get_hessian_matvec_operator(self, beta, obs_prec):
+        hessian_op = lambda v: - obs_prec * self.X.Tdot(self.X.dot(v))
+        return hessian_op
 
     @staticmethod
-    def simulate_outcome():
-        pass
+    def simulate_outcome(X, beta, noise_sd, seed=None):
+        np.random.seed(seed)
+        y = X.dot(beta) + noise_sd * np.random.randn(X.shape[0])
+        return y
