@@ -231,24 +231,18 @@ class SparseRegressionCoefficientSampler():
             )
 
         f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
-        hessian_matvec_key = 'n_hessian_matvec'
-        info = {
-            hessian_matvec_key: 0, # Counts the number of matrix-vector multiplications by the Hessian.
-            'n_logp_eval': 0,
-            'n_grad_eval': 0,
-        }
+        n_iter = [0]
+        def increment_niter(arg):
+            n_iter[0] += 1
         def compute_negative_logp(beta_precond):
             # Negative log-density
-            info['n_logp_eval'] += 1
             return - f(beta_precond)[0]
         def compute_negative_grad(beta_precond):
-            info['n_grad_eval'] += 1
             return - f(beta_precond)[1]
         def get_precond_hessian_matvec(precond_location, v):
             hessian_eval_location = precond_scale * precond_location
             hessian_matvec = self.get_precond_hessian_matvec(
-                model, hessian_eval_location, precond_scale, precond_prior_prec,
-                iter_count=info, count_key=hessian_matvec_key
+                model, hessian_eval_location, precond_scale, precond_prior_prec
             )
             return hessian_matvec(v)
 
@@ -266,7 +260,8 @@ class SparseRegressionCoefficientSampler():
         }
         optim_result = sp.optimize.minimize(
             compute_negative_logp, beta_precond, method='trust-ncg',
-            jac=compute_negative_grad, hessp=get_precond_hessian_matvec, options=optim_options
+            jac=compute_negative_grad, hessp=get_precond_hessian_matvec,
+            options=optim_options, callback=increment_niter
         )
         if not optim_result.success:
             warn_message_only(
@@ -276,5 +271,8 @@ class SparseRegressionCoefficientSampler():
                 "best estimate.".format(optim_maxiter)
             )
         beta = precond_scale * optim_result.x
-
+        info = {
+            key: n_iter[0] + 1
+            for key in ['n_hessian_matvec', 'n_logp_eval', 'n_grad_eval']
+        }
         return beta
