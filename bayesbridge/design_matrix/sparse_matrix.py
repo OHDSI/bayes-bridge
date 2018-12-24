@@ -10,14 +10,17 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         ------
         X : scipy sparse matrix
         """
+        super().__init__()
         self.X_row_major = X.tocsr()
         self.X_col_major = X.tocsc()
         self.shape = self.X_row_major.shape
 
     def dot(self, v):
+        super().dot(None)
         return self.X_row_major.dot(v)
 
     def Tdot(self, v):
+        super().Tdot(None)
         return self.X_col_major.T.dot(v)
 
     def compute_fisher_info(self, weight, diag_only=False):

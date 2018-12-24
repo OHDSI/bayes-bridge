@@ -10,14 +10,16 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         X : numpy array
         order : str, {'row_major', 'col_major', None}
         """
-
+        super().__init__()
         self.X = X
         self.shape = self.X.shape
 
     def dot(self, v):
+        super().dot(None)
         return self.X.dot(v)
 
     def Tdot(self, v):
+        super().Tdot(None)
         return self.X.T.dot(v)
 
     def compute_fisher_info(self, weight, diag_only=False):
