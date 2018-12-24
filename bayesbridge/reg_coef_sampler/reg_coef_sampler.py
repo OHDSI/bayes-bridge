@@ -193,13 +193,12 @@ class SparseRegressionCoefficientSampler():
 
     @staticmethod
     def get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec,
-            iter_count={}, count_key='n_iter'):
+            model, beta_location, precond_scale, precond_prior_prec, iter_count={}):
 
         loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
-        iter_count[count_key] = 0
+        iter_count['n_iter'] = 0
         def precond_hessian_matvec(beta_precond):
-            iter_count[count_key] += 1
+            iter_count['n_iter'] += 1
             return precond_prior_prec * beta_precond \
                    - precond_scale * loglik_hessian_matvec(
                 precond_scale * beta_precond)
