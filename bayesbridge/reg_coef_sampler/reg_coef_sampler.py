@@ -262,6 +262,7 @@ class SparseRegressionCoefficientSampler():
             'max_trust_radius': 4. * init_trust_radius,
         }
         model.X.memoize_dot(True)
+        model.X.reset_matvec_count()
             # Avoid matrix-vector multiplication with the same input.
         optim_result = sp.optimize.minimize(
             compute_negative_logp, beta_precond, method='trust-ncg',
