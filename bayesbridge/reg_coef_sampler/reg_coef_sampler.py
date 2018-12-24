@@ -257,11 +257,14 @@ class SparseRegressionCoefficientSampler():
             'initial_trust_radius': init_trust_radius,
             'max_trust_radius': 4. * init_trust_radius,
         }
+        model.X.memoize_dot(True)
+            # Avoid matrix-vector multiplication with the same input.
         optim_result = sp.optimize.minimize(
             compute_negative_logp, beta_precond, method='trust-ncg',
             jac=compute_negative_grad, hessp=get_precond_hessian_matvec,
             options=optim_options, callback=increment_niter
         )
+        model.X.memoize_dot(False)
         if not optim_result.success:
             warn_message_only(
                 "The regression coefficient mode (conditionally on the shrinkage "

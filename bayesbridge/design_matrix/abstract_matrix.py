@@ -1,4 +1,5 @@
 import abc
+import numpy as np
 
 class AbstractDesignMatrix():
 
@@ -6,15 +7,27 @@ class AbstractDesignMatrix():
         self.dot_count = 0
         self.Tdot_count = 0
         self.shape = X.shape
+        self.memoized = False
+        self.X_dot_v = None # For memoization
+        self.v_prev = None # For memoization
 
     @abc.abstractmethod
-    def dot(self, v):
-        self.dot_count += 1
+    def dot(self, v, output_is_cached):
+        if not output_is_cached:
+            self.dot_count += 1
 
     @abc.abstractmethod
     def Tdot(self, v):
         """ Multiply by the transpose of the matrix. """
         self.Tdot_count += 1
+
+    def memoize_dot(self, flag=True):
+        self.memoized = flag
+        if self.v_prev is None:
+            self.v_prev = np.full(self.shape[1], float('nan'))
+        if not flag:
+            self.X_dot_v = None
+            self.v_prev = None
 
     @abc.abstractmethod
     def compute_fisher_info(self, weight, diag_only):
