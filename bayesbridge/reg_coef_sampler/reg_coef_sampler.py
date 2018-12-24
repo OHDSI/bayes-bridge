@@ -223,7 +223,8 @@ class SparseRegressionCoefficientSampler():
 
         return f
 
-    def search_mode(self, beta, lshrink, gshrink, model, optim_maxiter=10):
+    def search_mode(self, beta, lshrink, gshrink, model,
+                    optim_maxiter=10, require_trust_region=True):
 
         beta_precond_post_sd = np.ones(beta.size)
             # No Monte Carlo estimate yet, so make some reasonable guess. It
@@ -249,23 +250,24 @@ class SparseRegressionCoefficientSampler():
             )
             return hessian_matvec(v)
 
-        """
-        Find the mode via the trust region CG-Newton method. Start with a 
-        generous trust radius as Newton iterations without constraints should be
-        fine.
-        """
-        init_trust_radius = 1.96 * np.sqrt(len(beta))
         beta_precond = beta / precond_scale
-        optim_options = {
-            'maxiter': optim_maxiter,
-            'initial_trust_radius': init_trust_radius,
-            'max_trust_radius': 4. * init_trust_radius,
-        }
+        optim_options = {'maxiter': optim_maxiter}
+        if require_trust_region:
+            optim_method = 'trust-ncg'
+            # Start with a generous trust radius as Newton iterations without
+            # constraints should be fine.
+            init_trust_radius = 1.96 * np.sqrt(len(beta))
+            optim_options.update({
+                'initial_trust_radius': init_trust_radius,
+                'max_trust_radius': 4. * init_trust_radius
+            })
+        else:
+            optim_method = 'Newton-CG'
         model.X.memoize_dot(True)
         model.X.reset_matvec_count()
             # Avoid matrix-vector multiplication with the same input.
         optim_result = sp.optimize.minimize(
-            compute_negative_logp, beta_precond, method='trust-ncg',
+            compute_negative_logp, beta_precond, method=optim_method,
             jac=compute_negative_grad, hessp=get_precond_hessian_matvec,
             options=optim_options, callback=increment_niter
         )
