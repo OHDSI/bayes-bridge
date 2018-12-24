@@ -209,12 +209,16 @@ class SparseRegressionCoefficientSampler():
     def get_precond_logprob_and_gradient(
             model, precond_scale, precond_prior_prec):
 
-        def f(beta_precond):
+        def f(beta_precond, loglik_only=False):
             beta = beta_precond * precond_scale
-            logp, grad_wrt_beta = model.compute_loglik_and_gradient(beta)
-            grad = precond_scale * grad_wrt_beta  # Chain rule.
+            logp, grad_wrt_beta = \
+                model.compute_loglik_and_gradient(beta, loglik_only)
             logp += np.sum(- precond_prior_prec * beta_precond ** 2) / 2
-            grad += - precond_prior_prec * beta_precond
+            if loglik_only:
+                grad = None
+            else:
+                grad = precond_scale * grad_wrt_beta  # Chain rule.
+                grad += - precond_prior_prec * beta_precond
             return logp, grad
 
         return f
@@ -235,7 +239,7 @@ class SparseRegressionCoefficientSampler():
             n_iter[0] += 1
         def compute_negative_logp(beta_precond):
             # Negative log-density
-            return - f(beta_precond)[0]
+            return - f(beta_precond, loglik_only=True)[0]
         def compute_negative_grad(beta_precond):
             return - f(beta_precond)[1]
         def get_precond_hessian_matvec(precond_location, v):
