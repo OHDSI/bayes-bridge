@@ -10,10 +10,9 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         ------
         X : scipy sparse matrix
         """
-        super().__init__()
+        super().__init__(X)
         self.X_row_major = X.tocsr()
         self.X_col_major = X.tocsc()
-        self.shape = self.X_row_major.shape
 
     def dot(self, v):
         super().dot(None)

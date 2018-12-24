@@ -10,9 +10,8 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         X : numpy array
         order : str, {'row_major', 'col_major', None}
         """
-        super().__init__()
+        super().__init__(X)
         self.X = X
-        self.shape = self.X.shape
 
     def dot(self, v):
         super().dot(None)

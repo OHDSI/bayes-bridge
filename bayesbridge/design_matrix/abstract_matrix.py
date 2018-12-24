@@ -2,9 +2,10 @@ import abc
 
 class AbstractDesignMatrix():
 
-    def __init__(self):
+    def __init__(self, X):
         self.dot_count = 0
         self.Tdot_count = 0
+        self.shape = X.shape
 
     @abc.abstractmethod
     def dot(self, v):
