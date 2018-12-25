@@ -235,9 +235,6 @@ class SparseRegressionCoefficientSampler():
             )
 
         f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
-        n_iter = [0]
-        def increment_niter(arg):
-            n_iter[0] += 1
         def compute_negative_logp(beta_precond):
             # Negative log-density
             return - f(beta_precond, loglik_only=True)[0]
@@ -269,7 +266,7 @@ class SparseRegressionCoefficientSampler():
         optim_result = sp.optimize.minimize(
             compute_negative_logp, beta_precond, method=optim_method,
             jac=compute_negative_grad, hessp=get_precond_hessian_matvec,
-            options=optim_options, callback=increment_niter
+            options=optim_options
         )
         model.X.memoize_dot(False)
         if not optim_result.success:
@@ -281,7 +278,7 @@ class SparseRegressionCoefficientSampler():
             )
         beta = precond_scale * optim_result.x
         info = {
-            'n_optim_iter': n_iter[0],
+            'n_optim_iter': optim_result.nit,
             'n_design_matvec': model.X.n_matvec,
         }
         return beta
