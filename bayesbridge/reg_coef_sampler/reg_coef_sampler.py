@@ -281,7 +281,7 @@ class SparseRegressionCoefficientSampler():
             )
         beta = precond_scale * optim_result.x
         info = {
-            key: n_iter[0] + 1
-            for key in ['n_hessian_matvec', 'n_logp_eval', 'n_grad_eval']
+            'n_optim_iter': n_iter[0],
+            'n_design_matvec': model.X.n_matvec,
         }
         return beta
