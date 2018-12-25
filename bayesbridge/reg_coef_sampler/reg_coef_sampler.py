@@ -278,7 +278,12 @@ class SparseRegressionCoefficientSampler():
             )
         beta = precond_scale * optim_result.x
         info = {
-            'n_optim_iter': optim_result.nit,
+            'is_success': optim_result.success,
+            'n_optim_iter': optim_result['nit'],
+            'n_logp_eval': optim_result['nfev'],
+            'n_grad_eval': optim_result['njev'],
+            'n_hess_eval': optim_result['nhev'],
+                # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
             'n_design_matvec': model.X.n_matvec,
         }
         return beta
