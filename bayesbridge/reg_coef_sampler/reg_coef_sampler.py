@@ -251,7 +251,7 @@ class SparseRegressionCoefficientSampler():
                 "The regression coefficient mode (conditionally on the shrinkage "
                 "parameters could not be located within {:d} iterations of optimization "
                 "steps. Proceeding with the current best estimate.".format(
-                    optim_options['maxiter']
+                    optim_result.nit
                 )
             )
         beta = precond_scale * optim_result.x
