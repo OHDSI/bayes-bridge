@@ -257,13 +257,12 @@ class SparseRegressionCoefficientSampler():
             return hessian_matvec(v)
 
         beta_precond = beta / precond_scale
-        optim_options = {
-            'maxiter': optim_maxiter,
-            'gtol': 10 ** -6 / np.sqrt(len(beta)), # In analogy with the CG-sampler.
-            'xtol': 10 ** -6 / np.sqrt(len(beta)),
-        }
+        optim_options = {'maxiter': optim_maxiter}
+        tol = 10 ** -6 / np.sqrt(len(beta)) # In analogy with the CG-sampler.
         if not use_second_order_method:
             optim_method = 'CG'
+            get_precond_hessian_matvec = None
+            optim_options['gtol'] = tol
         else:
             if require_trust_region:
                 optim_method = 'trust-ncg'
@@ -271,11 +270,13 @@ class SparseRegressionCoefficientSampler():
                 # constraints should be fine.
                 init_trust_radius = 1.96 * np.sqrt(len(beta))
                 optim_options.update({
+                    'gtol': tol,
                     'initial_trust_radius': init_trust_radius,
                     'max_trust_radius': 4. * init_trust_radius
                 })
             else:
                 optim_method = 'Newton-CG'
+                optim_options['xtol'] = tol
 
         model.X.memoize_dot(True)
         model.X.reset_matvec_count()
