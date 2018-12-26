@@ -226,58 +226,17 @@ class SparseRegressionCoefficientSampler():
     def search_mode(self, beta, lshrink, gshrink, model, optim_maxiter=None,
                     use_second_order_method=True, require_trust_region=True):
 
-        if optim_maxiter is None:
-            if use_second_order_method:
-                optim_maxiter = 15
-            else:
-                optim_maxiter = 250
-
         if (not use_second_order_method) and require_trust_region:
             warn_message_only("Trust regions are used only for second order methods.")
 
-        beta_precond_post_sd = np.ones(beta.size)
-            # No Monte Carlo estimate yet, so make some reasonable guess. It
-            # probably should depend on the outcome and design matrix.
-        precond_scale, precond_prior_prec = \
-            self.compute_preconditioning_scale(
-                gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
-            )
+        precond_scale, compute_negative_logp, compute_negative_grad, get_precond_hessian_matvec \
+            = self.define_function_for_optim(beta, lshrink, gshrink, model)
 
-        f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
-        def compute_negative_logp(beta_precond):
-            # Negative log-density
-            return - f(beta_precond, loglik_only=True)[0]
-        def compute_negative_grad(beta_precond):
-            return - f(beta_precond)[1]
-        def get_precond_hessian_matvec(precond_location, v):
-            hessian_eval_location = precond_scale * precond_location
-            hessian_matvec = self.get_precond_hessian_matvec(
-                model, hessian_eval_location, precond_scale, precond_prior_prec
-            )
-            return hessian_matvec(v)
+        optim_method, optim_options = self.choose_optim_method_and_options(
+            optim_maxiter, use_second_order_method, require_trust_region, n_param=len(beta)
+        )
 
         beta_precond = beta / precond_scale
-        optim_options = {'maxiter': optim_maxiter}
-        tol = 10 ** -6 / np.sqrt(len(beta)) # In analogy with the CG-sampler.
-        if not use_second_order_method:
-            optim_method = 'CG'
-            get_precond_hessian_matvec = None
-            optim_options['gtol'] = tol
-        else:
-            if require_trust_region:
-                optim_method = 'trust-ncg'
-                # Start with a generous trust radius as Newton iterations without
-                # constraints should be fine.
-                init_trust_radius = 1.96 * np.sqrt(len(beta))
-                optim_options.update({
-                    'gtol': tol,
-                    'initial_trust_radius': init_trust_radius,
-                    'max_trust_radius': 4. * init_trust_radius
-                })
-            else:
-                optim_method = 'Newton-CG'
-                optim_options['xtol'] = tol
-
         model.X.memoize_dot(True)
         model.X.reset_matvec_count()
             # Avoid matrix-vector multiplication with the same input.
@@ -291,7 +250,9 @@ class SparseRegressionCoefficientSampler():
             warn_message_only(
                 "The regression coefficient mode (conditionally on the shrinkage "
                 "parameters could not be located within {:d} iterations of optimization "
-                "steps. Proceeding with the current best estimate.".format(optim_maxiter)
+                "steps. Proceeding with the current best estimate.".format(
+                    optim_options['maxiter']
+                )
             )
         beta = precond_scale * optim_result.x
         info = {
@@ -304,3 +265,64 @@ class SparseRegressionCoefficientSampler():
             'n_design_matvec': model.X.n_matvec,
         }
         return beta
+
+    def define_function_for_optim(self, beta, lshrink, gshrink, model):
+
+        beta_precond_post_sd = np.ones(beta.size)
+        # No Monte Carlo estimate yet, so make some reasonable guess. It
+        # probably should depend on the outcome and design matrix.
+        precond_scale, precond_prior_prec = \
+            self.compute_preconditioning_scale(
+                gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
+            )
+
+        f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
+
+        def compute_negative_logp(beta_precond):
+            # Negative log-density
+            return - f(beta_precond, loglik_only=True)[0]
+
+        def compute_negative_grad(beta_precond):
+            return - f(beta_precond)[1]
+
+        def get_precond_hessian_matvec(precond_location, v):
+            hessian_eval_location = precond_scale * precond_location
+            hessian_matvec = self.get_precond_hessian_matvec(
+                model, hessian_eval_location, precond_scale, precond_prior_prec
+            )
+            return hessian_matvec(v)
+
+        return precond_scale, compute_negative_logp, compute_negative_grad, get_precond_hessian_matvec
+
+    def choose_optim_method_and_options(
+            self, optim_maxiter, use_second_order_method, require_trust_region, n_param):
+
+        if optim_maxiter is None:
+            if use_second_order_method:
+                optim_maxiter = 15
+            else:
+                optim_maxiter = 250
+
+        optim_options = {'maxiter': optim_maxiter}
+        tol = 10 ** -6 / np.sqrt(n_param)  # In analogy with the CG-sampler.
+
+        if not use_second_order_method:
+            optim_method = 'CG'
+            get_precond_hessian_matvec = None
+            optim_options['gtol'] = tol
+        else:
+            if require_trust_region:
+                optim_method = 'trust-ncg'
+                # Start with a generous trust radius as Newton iterations without
+                # constraints should be fine.
+                init_trust_radius = 1.96 * np.sqrt(n_param)
+                optim_options.update({
+                    'gtol': tol,
+                    'initial_trust_radius': init_trust_radius,
+                    'max_trust_radius': 4. * init_trust_radius
+                })
+            else:
+                optim_method = 'Newton-CG'
+                optim_options['xtol'] = tol
+
+        return optim_method, optim_options
