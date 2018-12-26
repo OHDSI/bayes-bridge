@@ -248,7 +248,11 @@ class SparseRegressionCoefficientSampler():
             return hessian_matvec(v)
 
         beta_precond = beta / precond_scale
-        optim_options = {'maxiter': optim_maxiter}
+        optim_options = {
+            'maxiter': optim_maxiter,
+            'gtol': 10 ** -6 / np.sqrt(len(beta)), # In analogy with the CG-sampler.
+            'xtol': 10 ** -6 / np.sqrt(len(beta)),
+        }
         if require_trust_region:
             optim_method = 'trust-ncg'
             # Start with a generous trust radius as Newton iterations without
