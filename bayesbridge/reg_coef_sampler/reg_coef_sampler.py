@@ -224,7 +224,8 @@ class SparseRegressionCoefficientSampler():
         return f
 
     def search_mode(self, beta, lshrink, gshrink, model, optim_maxiter=None,
-                    use_second_order_method=True, require_trust_region=True):
+                    use_second_order_method=True, require_trust_region=True,
+                    warn_optim_failure=False):
 
         if (not use_second_order_method) and require_trust_region:
             warn_message_only("Trust regions are used only for second order methods.")
@@ -246,7 +247,7 @@ class SparseRegressionCoefficientSampler():
             options=optim_options
         )
         model.X.memoize_dot(False)
-        if not optim_result.success:
+        if (not optim_result.success) and warn_optim_failure:
             warn_message_only(
                 "The regression coefficient mode (conditionally on the shrinkage "
                 "parameters could not be located within {:d} iterations of optimization "
