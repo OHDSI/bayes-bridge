@@ -257,6 +257,7 @@ class SparseRegressionCoefficientSampler():
         beta = precond_scale * optim_result.x
         info = {
             'is_success': optim_result.success,
+            'method': optim_method,
             'n_optim_iter': optim_result['nit'],
             'n_logp_eval': optim_result['nfev'],
             'n_grad_eval': optim_result['njev'],
