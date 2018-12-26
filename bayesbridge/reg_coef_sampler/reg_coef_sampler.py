@@ -240,6 +240,8 @@ class SparseRegressionCoefficientSampler():
 
         precond_scale, compute_negative_logp, compute_negative_grad, get_precond_hessian_matvec \
             = self.define_function_for_optim(beta, lshrink, gshrink, obs_prec, model)
+        if not use_second_order_method:
+            get_precond_hessian_matvec = None
 
         optim_method, optim_options = self.choose_optim_method_and_options(
             optim_maxiter, use_second_order_method, require_trust_region, n_param=len(beta)
@@ -321,7 +323,6 @@ class SparseRegressionCoefficientSampler():
 
         if not use_second_order_method:
             optim_method = 'CG'
-            get_precond_hessian_matvec = None
             optim_options['gtol'] = tol
         else:
             if require_trust_region:
