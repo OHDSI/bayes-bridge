@@ -198,9 +198,11 @@ class BayesBridge():
 
         if _add_iter_mode:
             n_init_optim_step = 0
-
-        if not _add_iter_mode:
+        else:
             self.rg.set_seed(seed)
+            self.reg_coef_sampler = SparseRegressionCoefficientSampler(
+                self.n_pred, self.prior_sd_for_unshrunk, sampling_method
+            )
 
         if params_to_save == 'all':
             params_to_save = [
@@ -212,11 +214,6 @@ class BayesBridge():
             params_to_save = ['beta', 'global_shrinkage', 'logp']
 
         n_iter = n_burnin + n_post_burnin
-
-        if not _add_iter_mode:
-            self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-                self.n_pred, self.prior_sd_for_unshrunk, sampling_method
-            )
 
         # Initial state of the Markov chain
         beta, obs_prec, lshrink, gshrink, init, initial_optim_info = \
