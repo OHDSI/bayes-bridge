@@ -223,8 +223,17 @@ class SparseRegressionCoefficientSampler():
 
         return f
 
-    def search_mode(self, beta, lshrink, gshrink, model,
-                    optim_maxiter=10, require_trust_region=True):
+    def search_mode(self, beta, lshrink, gshrink, model, optim_maxiter=None,
+                    use_second_order_method=True, require_trust_region=True):
+
+        if optim_maxiter is None:
+            if use_second_order_method:
+                optim_maxiter = 15
+            else:
+                optim_maxiter = 250
+
+        if (not use_second_order_method) and require_trust_region:
+            warn_message_only("Trust regions are used only for second order methods.")
 
         beta_precond_post_sd = np.ones(beta.size)
             # No Monte Carlo estimate yet, so make some reasonable guess. It
@@ -253,17 +262,21 @@ class SparseRegressionCoefficientSampler():
             'gtol': 10 ** -6 / np.sqrt(len(beta)), # In analogy with the CG-sampler.
             'xtol': 10 ** -6 / np.sqrt(len(beta)),
         }
-        if require_trust_region:
-            optim_method = 'trust-ncg'
-            # Start with a generous trust radius as Newton iterations without
-            # constraints should be fine.
-            init_trust_radius = 1.96 * np.sqrt(len(beta))
-            optim_options.update({
-                'initial_trust_radius': init_trust_radius,
-                'max_trust_radius': 4. * init_trust_radius
-            })
+        if not use_second_order_method:
+            optim_method = 'CG'
         else:
-            optim_method = 'Newton-CG'
+            if require_trust_region:
+                optim_method = 'trust-ncg'
+                # Start with a generous trust radius as Newton iterations without
+                # constraints should be fine.
+                init_trust_radius = 1.96 * np.sqrt(len(beta))
+                optim_options.update({
+                    'initial_trust_radius': init_trust_radius,
+                    'max_trust_radius': 4. * init_trust_radius
+                })
+            else:
+                optim_method = 'Newton-CG'
+
         model.X.memoize_dot(True)
         model.X.reset_matvec_count()
             # Avoid matrix-vector multiplication with the same input.
@@ -276,9 +289,8 @@ class SparseRegressionCoefficientSampler():
         if not optim_result.success:
             warn_message_only(
                 "The regression coefficient mode (conditionally on the shrinkage "
-                "parameters could not be located within {:d} iterations of "
-                "second-order optimization steps. Proceeding with the current "
-                "best estimate.".format(optim_maxiter)
+                "parameters could not be located within {:d} iterations of optimization "
+                "steps. Proceeding with the current best estimate.".format(optim_maxiter)
             )
         beta = precond_scale * optim_result.x
         info = {
@@ -286,7 +298,7 @@ class SparseRegressionCoefficientSampler():
             'n_optim_iter': optim_result['nit'],
             'n_logp_eval': optim_result['nfev'],
             'n_grad_eval': optim_result['njev'],
-            'n_hess_eval': optim_result['nhev'],
+            'n_hess_eval': optim_result.get('nhev', 0),
                 # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
             'n_design_matvec': model.X.n_matvec,
         }
