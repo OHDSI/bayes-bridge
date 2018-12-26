@@ -196,6 +196,9 @@ class BayesBridge():
 
         """
 
+        if _add_iter_mode:
+            n_init_optim_step = 0
+
         if not _add_iter_mode:
             self.rg.set_seed(seed)
 
