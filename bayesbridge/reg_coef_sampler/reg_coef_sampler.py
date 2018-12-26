@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import scipy.sparse
+from functools import partial
 from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
@@ -193,26 +194,33 @@ class SparseRegressionCoefficientSampler():
 
     @staticmethod
     def get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec, iter_count={}):
+            model, beta_location, precond_scale, precond_prior_prec, obs_prec=None, iter_count={}):
 
-        loglik_hessian_matvec = model.get_hessian_matvec_operator(beta_location)
+        if model.name == 'linear':
+            args = [beta_location, obs_prec]
+        else:
+            args = [beta_location]
+        loglik_hessian_matvec = model.get_hessian_matvec_operator(*args)
         iter_count['n_iter'] = 0
         def precond_hessian_matvec(beta_precond):
             iter_count['n_iter'] += 1
             return precond_prior_prec * beta_precond \
-                   - precond_scale * loglik_hessian_matvec(
-                precond_scale * beta_precond)
+                   - precond_scale * loglik_hessian_matvec(precond_scale * beta_precond)
 
         return precond_hessian_matvec
 
     @staticmethod
     def get_precond_logprob_and_gradient(
-            model, precond_scale, precond_prior_prec):
+            model, precond_scale, precond_prior_prec, obs_prec=None):
 
+        compute_loglik_and_gradient = model.compute_loglik_and_gradient
+        if model.name == 'linear':
+            compute_loglik_and_gradient \
+                = partial(compute_loglik_and_gradient, obs_prec=obs_prec)
         def f(beta_precond, loglik_only=False):
             beta = beta_precond * precond_scale
             logp, grad_wrt_beta = \
-                model.compute_loglik_and_gradient(beta, loglik_only)
+                compute_loglik_and_gradient(beta, loglik_only=loglik_only)
             logp += np.sum(- precond_prior_prec * beta_precond ** 2) / 2
             if loglik_only:
                 grad = None
@@ -223,7 +231,7 @@ class SparseRegressionCoefficientSampler():
 
         return f
 
-    def search_mode(self, beta, lshrink, gshrink, model, optim_maxiter=None,
+    def search_mode(self, beta, lshrink, gshrink, obs_prec, model, optim_maxiter=None,
                     use_second_order_method=True, require_trust_region=True,
                     warn_optim_failure=False):
 
@@ -231,7 +239,7 @@ class SparseRegressionCoefficientSampler():
             warn_message_only("Trust regions are used only for second order methods.")
 
         precond_scale, compute_negative_logp, compute_negative_grad, get_precond_hessian_matvec \
-            = self.define_function_for_optim(beta, lshrink, gshrink, model)
+            = self.define_function_for_optim(beta, lshrink, gshrink, obs_prec, model)
 
         optim_method, optim_options = self.choose_optim_method_and_options(
             optim_maxiter, use_second_order_method, require_trust_region, n_param=len(beta)
@@ -268,7 +276,7 @@ class SparseRegressionCoefficientSampler():
         }
         return beta, info
 
-    def define_function_for_optim(self, beta, lshrink, gshrink, model):
+    def define_function_for_optim(self, beta, lshrink, gshrink, obs_prec, model):
 
         beta_precond_post_sd = np.ones(beta.size)
         # No Monte Carlo estimate yet, so make some reasonable guess. It
@@ -278,8 +286,9 @@ class SparseRegressionCoefficientSampler():
                 gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
             )
 
-        f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
-
+        f = self.get_precond_logprob_and_gradient(
+            model, precond_scale, precond_prior_prec, obs_prec
+        )
         def compute_negative_logp(beta_precond):
             # Negative log-density
             return - f(beta_precond, loglik_only=True)[0]
@@ -287,10 +296,12 @@ class SparseRegressionCoefficientSampler():
         def compute_negative_grad(beta_precond):
             return - f(beta_precond)[1]
 
+
         def get_precond_hessian_matvec(precond_location, v):
             hessian_eval_location = precond_scale * precond_location
             hessian_matvec = self.get_precond_hessian_matvec(
-                model, hessian_eval_location, precond_scale, precond_prior_prec
+                model, hessian_eval_location, precond_scale, precond_prior_prec,
+                obs_prec=obs_prec
             )
             return hessian_matvec(v)
 
