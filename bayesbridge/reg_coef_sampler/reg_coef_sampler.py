@@ -238,10 +238,10 @@ class SparseRegressionCoefficientSampler():
         if (not use_second_order_method) and require_trust_region:
             warn_message_only("Trust regions are used only for second order methods.")
 
-        precond_scale, compute_negative_logp, compute_negative_grad, get_precond_hessian_matvec \
+        precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec \
             = self.define_function_for_optim(beta, lshrink, gshrink, obs_prec, model)
         if not use_second_order_method:
-            get_precond_hessian_matvec = None
+            precond_hessian_matvec = None
 
         optim_method, optim_options = self.choose_optim_method_and_options(
             optim_maxiter, use_second_order_method, require_trust_region, n_param=len(beta)
@@ -253,7 +253,7 @@ class SparseRegressionCoefficientSampler():
             # Avoid matrix-vector multiplication with the same input.
         optim_result = sp.optimize.minimize(
             compute_negative_logp, beta_precond, method=optim_method,
-            jac=compute_negative_grad, hessp=get_precond_hessian_matvec,
+            jac=compute_negative_grad, hessp=precond_hessian_matvec,
             options=optim_options
         )
         model.X.memoize_dot(False)
@@ -299,7 +299,7 @@ class SparseRegressionCoefficientSampler():
             return - f(beta_precond)[1]
 
 
-        def get_precond_hessian_matvec(precond_location, v):
+        def precond_hessian_matvec(precond_location, v):
             hessian_eval_location = precond_scale * precond_location
             hessian_matvec = self.get_precond_hessian_matvec(
                 model, hessian_eval_location, precond_scale, precond_prior_prec,
@@ -307,7 +307,7 @@ class SparseRegressionCoefficientSampler():
             )
             return hessian_matvec(v)
 
-        return precond_scale, compute_negative_logp, compute_negative_grad, get_precond_hessian_matvec
+        return precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec
 
     def choose_optim_method_and_options(
             self, optim_maxiter, use_second_order_method, require_trust_region, n_param):
