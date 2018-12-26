@@ -265,7 +265,7 @@ class SparseRegressionCoefficientSampler():
                 # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
             'n_design_matvec': model.X.n_matvec,
         }
-        return beta
+        return beta, info
 
     def define_function_for_optim(self, beta, lshrink, gshrink, model):
 

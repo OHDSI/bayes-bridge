@@ -216,7 +216,7 @@ class BayesBridge():
             )
 
         # Initial state of the Markov chain
-        beta, obs_prec, lshrink, gshrink, init = \
+        beta, obs_prec, lshrink, gshrink, init, initial_optim_info = \
             self.initialize_chain(init, shrinkage_exponent, n_init_optim_step)
 
         # Pre-allocate
@@ -269,6 +269,7 @@ class BayesBridge():
             'sampling_method': sampling_method,
             'runtime': runtime,
             'global_shrinkage_update': global_shrinkage_update,
+            'initial_optimization_info': initial_optim_info,
             'reg_coef_sampling_info': sampling_info,
             '_markov_chain_state': _markov_chain_state,
             '_random_gen_state': self.rg.get_state(),
@@ -346,10 +347,17 @@ class BayesBridge():
 
         lshrink, gshrink = self.initialize_shrinkage_parameters(init, shrinkage_exponent)
 
-        for _ in range(n_optim):
-            beta = self.reg_coef_sampler.search_mode(
+        info_keys = ['is_success', 'n_design_matvec', 'n_optim_iter']
+        optim_info = {
+            key: np.zeros(n_optim, dtype=np.int) for key in info_keys
+        }
+        optim_info['n_optim'] = n_optim
+        for i in range(n_optim):
+            beta, info = self.reg_coef_sampler.search_mode(
                 beta, lshrink, gshrink, self.model
             )
+            for key in info_keys:
+                optim_info[key][i] = info[key]
             lshrink = self.update_local_shrinkage(
                 gshrink, beta[self.n_unshrunk:], shrinkage_exponent
             )
@@ -361,7 +369,7 @@ class BayesBridge():
             'global_shrinkage': gshrink
         }
 
-        return beta, obs_prec, lshrink, gshrink, init
+        return beta, obs_prec, lshrink, gshrink, init, optim_info
 
     def initialize_shrinkage_parameters(
             self, init, shrinkage_exponent, apriori_coef_magnitude=.01):
