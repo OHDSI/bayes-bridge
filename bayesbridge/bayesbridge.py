@@ -172,7 +172,7 @@ class BayesBridge():
     def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', params_to_save=None,
-              n_init_optim_step=0, _add_iter_mode=False):
+              n_init_optim_step=10, _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
 
