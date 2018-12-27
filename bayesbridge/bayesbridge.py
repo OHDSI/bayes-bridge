@@ -68,8 +68,8 @@ class BayesBridge():
             raise NotImplementedError()
 
         if np.isscalar(prior_sd_for_unshrunk):
-            self.prior_sd_for_unshrunk = prior_sd_for_unshrunk \
-                                         * np.ones(n_coef_without_shrinkage)
+            self.prior_sd_for_unshrunk = \
+                prior_sd_for_unshrunk * np.ones(n_coef_without_shrinkage)
         else:
             self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = n_coef_without_shrinkage
@@ -142,7 +142,8 @@ class BayesBridge():
             mcmc_output.clear()
 
         next_mcmc_output = self.gibbs(
-            0, n_iter, thin, shrinkage_exponent, init, sampling_method=sampling_method,
+            0, n_iter, thin, shrinkage_exponent, init,
+            sampling_method=sampling_method,
             precond_blocksize=precond_blocksize,
             global_shrinkage_update=global_shrinkage_update,
             params_to_save=params_to_save,
@@ -566,8 +567,6 @@ class MarkovChainManager():
         for key in self.get_sampling_info_keys(sampling_method):
             sampling_info[key] = np.zeros(n_sample)
 
-        return
-
     def get_sampling_info_keys(self, sampling_method):
         if sampling_method == 'cg':
             keys = ['n_cg_iter']
@@ -607,18 +606,15 @@ class MarkovChainManager():
         if 'logp' in params_to_save:
             samples['logp'][index] = logp
 
-        return
-
     def store_sampling_info(
             self, sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method):
 
         if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
             return
-        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
 
+        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
         for key in self.get_sampling_info_keys(sampling_method):
             sampling_info[key][index] = info[key]
-        return
 
     def pack_parameters(self, beta, obs_prec, lshrink, gshrink):
         state = {
