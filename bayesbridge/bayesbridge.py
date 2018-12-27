@@ -79,6 +79,9 @@ class BayesBridge():
         self.prior_param = {}
         self.set_default_priors(self.prior_type, self.prior_param)
         self.rg = BasicRandom()
+        self.manager = MarkovChainManager(
+            self.n_obs, self.n_pred, self.n_unshrunk, model
+        )
 
     def add_intercept(self, X, n_coef_without_shrinkage, prior_sd_for_unshrunk):
         if sp.sparse.issparse(X):
@@ -147,23 +150,7 @@ class BayesBridge():
         )
         if merge:
             next_mcmc_output \
-                = self.merge_outputs(mcmc_output, next_mcmc_output)
-
-        return next_mcmc_output
-
-    def merge_outputs(self, mcmc_output, next_mcmc_output):
-
-        for output_key in ['samples']:
-            curr_output = mcmc_output[output_key]
-            next_output = next_mcmc_output[output_key]
-            next_mcmc_output[output_key] = {
-                key : np.concatenate(
-                    (curr_output[key], next_output[key]), axis=-1
-                ) for key in curr_output.keys()
-            }
-
-        next_mcmc_output['n_post_burnin'] += mcmc_output['n_post_burnin']
-        next_mcmc_output['runtime'] += mcmc_output['runtime']
+                = self.manager.merge_outputs(mcmc_output, next_mcmc_output)
 
         return next_mcmc_output
 
@@ -220,8 +207,9 @@ class BayesBridge():
         # Pre-allocate
         samples = {}
         sampling_info = {}
-        self.pre_allocate(samples, sampling_info,
-                          n_post_burnin, thin, params_to_save, sampling_method)
+        self.manager.pre_allocate(
+            samples, sampling_info, n_post_burnin, thin, params_to_save, sampling_method
+        )
 
         # Start Gibbs sampling
         start_time = time.time()
@@ -241,17 +229,22 @@ class BayesBridge():
             lshrink = self.update_local_shrinkage(
                 gshrink, beta[self.n_unshrunk:], shrinkage_exponent)
 
-            self.store_current_state(
-                samples, mcmc_iter, n_burnin, thin, beta, lshrink, gshrink, obs_prec,
-                params_to_save, shrinkage_exponent
+            logp = self.compute_posterior_logprob(
+                beta, gshrink, obs_prec, shrinkage_exponent
             )
-            self.store_sampling_info(
+
+            self.manager.store_current_state(
+                samples, mcmc_iter, n_burnin, thin, beta, lshrink, gshrink,
+                obs_prec, logp, params_to_save
+            )
+            self.manager.store_sampling_info(
                 sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method
             )
 
         runtime = time.time() - start_time
 
-        _markov_chain_state = self.pack_parameters(beta, obs_prec, lshrink, gshrink)
+        _markov_chain_state = \
+            self.manager.pack_parameters(beta, obs_prec, lshrink, gshrink)
 
         mcmc_output = {
             'samples': samples,
@@ -276,45 +269,6 @@ class BayesBridge():
             mcmc_output['precond_blocksize'] = precond_blocksize
 
         return mcmc_output
-
-    def pre_allocate(self, samples, sampling_info, n_post_burnin, thin, params_to_save, sampling_method):
-
-        n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
-
-        if 'beta' in params_to_save:
-            samples['beta'] = np.zeros((self.n_pred, n_sample))
-
-        if 'local_shrinkage' in params_to_save:
-            samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
-
-        if 'global_shrinkage' in params_to_save:
-            samples['global_shrinkage'] = np.zeros(n_sample)
-
-        if 'obs_prec' in params_to_save:
-            if self.model.name == 'linear':
-                samples['obs_prec'] = np.zeros(n_sample)
-            elif self.model.name == 'logit':
-                samples['obs_prec'] = np.zeros((self.n_obs, n_sample))
-
-        if 'logp' in params_to_save:
-            samples['logp'] = np.zeros(n_sample)
-
-        for key in self.get_sampling_info_keys(sampling_method):
-            sampling_info[key] = np.zeros(n_sample)
-
-        return
-
-    def get_sampling_info_keys(self, sampling_method):
-        if sampling_method == 'cg':
-            keys = ['n_cg_iter']
-        elif sampling_method == 'hmc':
-            keys = [
-                'n_integrator_step', 'accepted', 'accept_prob', 'stepsize',
-                'n_hessian_matvec', 'stability_limit_est', 'stability_adjustment_factor'
-            ]
-        else:
-            keys = []
-        return keys
 
     def initialize_chain(self, init, shrinkage_exponent, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
@@ -512,7 +466,6 @@ class BayesBridge():
 
         return gshrink
 
-
     def update_local_shrinkage(self, gshrink, beta_with_shrinkage, shrinkage_exponent):
 
         lshrink_sq = 1 / np.array([
@@ -532,47 +485,6 @@ class BayesBridge():
             lshrink[np.isinf(lshrink)] = 2.0 / gshrink
 
         return lshrink
-
-    def store_current_state(
-            self, samples, mcmc_iter, n_burnin, thin, beta, lshrink,
-            gshrink, obs_prec, params_to_save, shrinkage_exponent):
-
-        if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
-            return
-
-        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
-
-        if 'beta' in params_to_save:
-            samples['beta'][:, index] = beta
-
-        if 'local_shrinkage' in params_to_save:
-            samples['local_shrinkage'][:, index] = lshrink
-
-        if 'global_shrinkage' in params_to_save:
-            samples['global_shrinkage'][index] = gshrink
-
-        if 'obs_prec' in params_to_save:
-            if self.model.name == 'linear':
-                samples['obs_prec'][index] = obs_prec
-            elif self.model.name == 'logit':
-                samples['obs_prec'][:, index] = obs_prec
-
-        if 'logp' in params_to_save:
-            samples['logp'][index] = \
-                self.compute_posterior_logprob(beta, gshrink, obs_prec, shrinkage_exponent)
-
-        return
-
-    def store_sampling_info(
-            self, sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method):
-
-        if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
-            return
-        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
-
-        for key in self.get_sampling_info_keys(sampling_method):
-            sampling_info[key][index] = info[key]
-        return
 
     def compute_posterior_logprob(self, beta, gshrink, obs_prec, shrinkage_exponent):
 
@@ -604,12 +516,116 @@ class BayesBridge():
 
         return logp
 
+
+class MarkovChainManager():
+
+    def __init__(self, n_obs, n_pred, n_unshrunk, model_name):
+        self.n_obs = n_obs
+        self.n_pred = n_pred
+        self.n_unshrunk = n_unshrunk
+        self.model_name = model_name
+
+    def merge_outputs(self, mcmc_output, next_mcmc_output):
+
+        for output_key in ['samples']:
+            curr_output = mcmc_output[output_key]
+            next_output = next_mcmc_output[output_key]
+            next_mcmc_output[output_key] = {
+                key : np.concatenate(
+                    (curr_output[key], next_output[key]), axis=-1
+                ) for key in curr_output.keys()
+            }
+
+        next_mcmc_output['n_post_burnin'] += mcmc_output['n_post_burnin']
+        next_mcmc_output['runtime'] += mcmc_output['runtime']
+
+        return next_mcmc_output
+
+    def pre_allocate(self, samples, sampling_info, n_post_burnin, thin, params_to_save, sampling_method):
+
+        n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
+
+        if 'beta' in params_to_save:
+            samples['beta'] = np.zeros((self.n_pred, n_sample))
+
+        if 'local_shrinkage' in params_to_save:
+            samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
+
+        if 'global_shrinkage' in params_to_save:
+            samples['global_shrinkage'] = np.zeros(n_sample)
+
+        if 'obs_prec' in params_to_save:
+            if self.model_name == 'linear':
+                samples['obs_prec'] = np.zeros(n_sample)
+            elif self.model_name == 'logit':
+                samples['obs_prec'] = np.zeros((self.n_obs, n_sample))
+
+        if 'logp' in params_to_save:
+            samples['logp'] = np.zeros(n_sample)
+
+        for key in self.get_sampling_info_keys(sampling_method):
+            sampling_info[key] = np.zeros(n_sample)
+
+        return
+
+    def get_sampling_info_keys(self, sampling_method):
+        if sampling_method == 'cg':
+            keys = ['n_cg_iter']
+        elif sampling_method == 'hmc':
+            keys = [
+                'n_integrator_step', 'accepted', 'accept_prob', 'stepsize',
+                'n_hessian_matvec', 'stability_limit_est', 'stability_adjustment_factor'
+            ]
+        else:
+            keys = []
+        return keys
+
+    def store_current_state(
+            self, samples, mcmc_iter, n_burnin, thin, beta, lshrink,
+            gshrink, obs_prec, logp, params_to_save):
+
+        if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
+            return
+
+        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
+
+        if 'beta' in params_to_save:
+            samples['beta'][:, index] = beta
+
+        if 'local_shrinkage' in params_to_save:
+            samples['local_shrinkage'][:, index] = lshrink
+
+        if 'global_shrinkage' in params_to_save:
+            samples['global_shrinkage'][index] = gshrink
+
+        if 'obs_prec' in params_to_save:
+            if self.model_name == 'linear':
+                samples['obs_prec'][index] = obs_prec
+            elif self.model_name == 'logit':
+                samples['obs_prec'][:, index] = obs_prec
+
+        if 'logp' in params_to_save:
+            samples['logp'][index] = logp
+
+        return
+
+    def store_sampling_info(
+            self, sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method):
+
+        if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
+            return
+        index = math.floor((mcmc_iter - n_burnin) / thin) - 1
+
+        for key in self.get_sampling_info_keys(sampling_method):
+            sampling_info[key][index] = info[key]
+        return
+
     def pack_parameters(self, beta, obs_prec, lshrink, gshrink):
         state = {
             'beta': beta,
             'local_shrinkage': lshrink,
             'global_shrinkage': gshrink,
         }
-        if self.model.name in ('linear', 'logit'):
+        if self.model_name in ('linear', 'logit'):
             state['obs_prec'] = obs_prec
         return state
