@@ -342,7 +342,7 @@ class BayesBridge():
         elif 'beta' in init:
             gshrink = self.update_global_shrinkage(
                 None, init['beta'][self.n_unshrunk:], shrinkage_exponent,
-                global_shrinkage_update='optimize'
+                method='optimize'
             )
             lshrink = self.update_local_shrinkage(
                 gshrink, init['beta'][self.n_unshrunk:], shrinkage_exponent
