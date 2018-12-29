@@ -304,12 +304,10 @@ class SparseRegressionCoefficientSampler():
 
         optim_options = {'maxiter': optim_maxiter}
         tol = 10 ** -6 / np.sqrt(n_param)  # In analogy with the CG-sampler.
-        logp_var = n_param / 4 # Assuming Gaussianity of the posterior.
-        ftol = .05 * np.sqrt(logp_var)
 
         if not use_second_order_method:
             optim_method = 'L-BFGS-B'
-            optim_options['ftol'] = ftol
+            optim_options['gtol'] = tol
             optim_options['maxcor'] = 200
         else:
             if require_trust_region:
