@@ -254,7 +254,8 @@ class SparseRegressionCoefficientSampler():
             'method': optim_method,
             'n_optim_iter': optim_result['nit'],
             'n_logp_eval': optim_result['nfev'],
-            'n_grad_eval': optim_result['njev'],
+            'n_grad_eval': optim_result.get('njev', 0),
+                # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
             'n_hess_eval': optim_result.get('nhev', 0),
                 # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
             'n_design_matvec': model.X.n_matvec,
@@ -305,8 +306,9 @@ class SparseRegressionCoefficientSampler():
         tol = 10 ** -6 / np.sqrt(n_param)  # In analogy with the CG-sampler.
 
         if not use_second_order_method:
-            optim_method = 'CG'
+            optim_method = 'L-BFGS-B'
             optim_options['gtol'] = tol
+            optim_options['maxcor'] = 200
         else:
             if require_trust_region:
                 optim_method = 'trust-ncg'
