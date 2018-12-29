@@ -252,7 +252,7 @@ class SparseRegressionCoefficientSampler():
         info = {
             'is_success': optim_result.success,
             'method': optim_method,
-            'n_optim_iter': optim_result['nit'],
+            'n_iter': optim_result['nit'],
             'n_logp_eval': optim_result['nfev'],
             'n_grad_eval': optim_result.get('njev', 0),
                 # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)

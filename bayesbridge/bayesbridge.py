@@ -299,7 +299,7 @@ class BayesBridge():
 
         lshrink, gshrink = self.initialize_shrinkage_parameters(init, shrinkage_exponent)
 
-        info_keys = ['is_success', 'n_design_matvec', 'n_optim_iter']
+        info_keys = ['is_success', 'n_design_matvec', 'n_iter']
         optim_info = {
             key: np.zeros(n_optim, dtype=np.int) for key in info_keys
         }
@@ -314,7 +314,7 @@ class BayesBridge():
             lshrink = self.update_local_shrinkage(
                 gshrink, beta[self.n_unshrunk:], shrinkage_exponent
             )
-
+            
         init = {
             'beta': beta,
             'obs_prec': obs_prec,
