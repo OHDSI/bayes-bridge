@@ -1,7 +1,7 @@
 import numpy as np
 import math
 import time
-from .stepsize_adapter import HmcStepsizeAdapter
+from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.stepsize_adapter import HmcStepsizeAdapter
 from bayesbridge.util import warn_message_only
 
 
