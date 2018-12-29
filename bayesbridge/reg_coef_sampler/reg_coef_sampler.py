@@ -215,19 +215,19 @@ class SparseRegressionCoefficientSampler():
         return f
 
     def search_mode(self, beta, lshrink, gshrink, obs_prec, model, optim_maxiter=None,
-                    use_second_order_method=False, require_trust_region=False,
+                    use_newton_method=False, require_trust_region=False,
                     warn_optim_failure=False):
 
-        if (not use_second_order_method) and require_trust_region:
-            warn_message_only("Trust regions are used only for second order methods.")
+        if (not use_newton_method) and require_trust_region:
+            warn_message_only("Trust regions are used only for Newton methods.")
 
         precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec \
             = self.define_function_for_optim(beta, lshrink, gshrink, obs_prec, model)
-        if not use_second_order_method:
+        if not use_newton_method:
             precond_hessian_matvec = None
 
         optim_method, optim_options = self.choose_optim_method_and_options(
-            optim_maxiter, use_second_order_method, require_trust_region, n_param=len(beta)
+            optim_maxiter, use_newton_method, require_trust_region, n_param=len(beta)
         )
 
         beta_precond = beta / precond_scale
@@ -294,10 +294,10 @@ class SparseRegressionCoefficientSampler():
         return precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec
 
     def choose_optim_method_and_options(
-            self, optim_maxiter, use_second_order_method, require_trust_region, n_param):
+            self, optim_maxiter, use_newton_method, require_trust_region, n_param):
 
         if optim_maxiter is None:
-            if use_second_order_method:
+            if use_newton_method:
                 optim_maxiter = 15
             else:
                 optim_maxiter = 250
@@ -305,7 +305,7 @@ class SparseRegressionCoefficientSampler():
         optim_options = {'maxiter': optim_maxiter}
         tol = 10 ** -6 / np.sqrt(n_param)  # In analogy with the CG-sampler.
 
-        if not use_second_order_method:
+        if not use_newton_method:
             optim_method = 'L-BFGS-B'
             optim_options['gtol'] = tol
             optim_options['maxcor'] = 200
