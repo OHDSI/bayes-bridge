@@ -1,6 +1,6 @@
 import numpy as np
 
-from .derivative_tester import numerical_grad_is_close
+from tests.derivative_tester import numerical_grad_is_close
 from .distributions import BivariateGaussian, BivariateSkewNormal
 
 def test_bi_gaussian():

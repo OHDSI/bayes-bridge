@@ -4,7 +4,7 @@ sys.path.append("../..") # needed if pytest called from this directory.
 
 import numpy as np
 from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo import hmc
-from tests.distributions import BivariateGaussian
+from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.tests.distributions import BivariateGaussian
 
 data_folder = 'saved_outputs'
 test_samples_file = 'hmc_bivariate_gaussian_samples.npy'
