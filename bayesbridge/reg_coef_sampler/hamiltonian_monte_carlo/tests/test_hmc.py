@@ -1,10 +1,6 @@
-import sys
-sys.path.append(".") # needed if pytest called from the parent directory
-sys.path.append("..") # needed if pytest called from this directory.
-
 import numpy as np
-import bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.hmc as hmc
-from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.tests.distributions import BivariateGaussian
+from .. import hmc
+from .distributions import BivariateGaussian
 
 
 def test_early_termination_symmetry():
