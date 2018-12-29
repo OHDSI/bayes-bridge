@@ -215,7 +215,7 @@ class SparseRegressionCoefficientSampler():
         return f
 
     def search_mode(self, beta, lshrink, gshrink, obs_prec, model, optim_maxiter=None,
-                    use_second_order_method=True, require_trust_region=True,
+                    use_second_order_method=False, require_trust_region=False,
                     warn_optim_failure=False):
 
         if (not use_second_order_method) and require_trust_region:

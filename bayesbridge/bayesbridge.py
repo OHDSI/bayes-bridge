@@ -306,8 +306,7 @@ class BayesBridge():
         optim_info['n_optim'] = n_optim
         for i in range(n_optim):
             beta, info = self.reg_coef_sampler.search_mode(
-                beta, lshrink, gshrink, obs_prec, self.model,
-                require_trust_region=(self.model.name != 'linear')
+                beta, lshrink, gshrink, obs_prec, self.model
             )
             for key in info_keys:
                 optim_info[key][i] = info[key]
