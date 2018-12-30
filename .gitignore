@@ -3,3 +3,4 @@
 **/build
 **/.pytest_cache
 **/.ipynb_checkpoints
+bayesbridge/reg_coef_sampler/hamiltonian_monte_carlo/tests
