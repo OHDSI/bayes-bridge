@@ -1,5 +1,5 @@
 from math import exp, log, log10, sqrt, copysign
-from bayesbridge.util import warn_message_only
+from .util import warn_message_only
 
 
 class HmcStepsizeAdapter():

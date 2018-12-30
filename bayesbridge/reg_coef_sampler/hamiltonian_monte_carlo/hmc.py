@@ -2,7 +2,7 @@ import numpy as np
 import math
 import time
 from .stepsize_adapter import HmcStepsizeAdapter
-from bayesbridge.util import warn_message_only
+from .util import warn_message_only
 
 
 def generate_samples(
