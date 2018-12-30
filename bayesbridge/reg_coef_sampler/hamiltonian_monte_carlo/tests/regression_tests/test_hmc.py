@@ -1,8 +1,11 @@
 import sys
+sys.path.append('..')
+sys.path.append('../..')
+sys.path.append('../../..')
 
 import numpy as np
-from ... import hmc
-from ..distributions import BivariateGaussian
+from hamiltonian_monte_carlo import hmc
+from hamiltonian_monte_carlo.tests.distributions import BivariateGaussian
 
 data_folder = 'saved_outputs'
 test_samples_file = 'hmc_bivariate_gaussian_samples.npy'
