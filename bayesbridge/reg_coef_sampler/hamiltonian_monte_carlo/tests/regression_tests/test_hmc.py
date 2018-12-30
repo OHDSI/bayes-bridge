@@ -41,4 +41,5 @@ if __name__ == '__main__':
     option = sys.argv[-1]
     if option == 'update':
         samples = run_hmc()
-        np.save(test_samples_file, samples[:, -1])
+        filepath = '/'.join([data_folder, test_samples_file])
+        np.save(filepath, samples[:, -1])
