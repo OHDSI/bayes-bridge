@@ -156,7 +156,7 @@ def simulate_dynamics(f, dt, n_step, q0, p0, logp0, grad0, hamiltonian_tol):
             break
 
     info = {
-        'logp_trajectory': - hamiltonians,
+        'energy_trajectory': hamiltonians,
         'n_grad_evals': n_grad_evals,
         'instability_detected': instability_detected,
     }
