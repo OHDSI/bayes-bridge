@@ -159,9 +159,8 @@ class SparseRegressionCoefficientSampler():
     def compute_precond_hessian_curvature(
             self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
 
-        iter_count = {'n_iter': 0}
-        precond_hessian_matvec = self.get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec, iter_count
+        precond_hessian_matvec, matvec_counter = self.get_precond_hessian_matvec(
+            model, beta_location, precond_scale, precond_prior_prec
         )
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
             (len(beta_location), len(beta_location)), precond_hessian_matvec
@@ -173,24 +172,24 @@ class SparseRegressionCoefficientSampler():
         )   # We don't need a high (relative) accuracy.
         max_curvature = eigval[0]
         pc = np.squeeze(eigvec)
-        return max_curvature, pc, iter_count['n_iter']
+        return max_curvature, pc, matvec_counter[0]
 
     @staticmethod
     def get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec, obs_prec=None, iter_count={}):
+            model, beta_location, precond_scale, precond_prior_prec, obs_prec=None):
 
         if model.name == 'linear':
             args = [beta_location, obs_prec]
         else:
             args = [beta_location]
         loglik_hessian_matvec = model.get_hessian_matvec_operator(*args)
-        iter_count['n_iter'] = 0
+        matvec_counter = [0]
         def precond_hessian_matvec(beta_precond):
-            iter_count['n_iter'] += 1
+            matvec_counter[0] += 1
             return precond_prior_prec * beta_precond \
                    - precond_scale * loglik_hessian_matvec(precond_scale * beta_precond)
 
-        return precond_hessian_matvec
+        return precond_hessian_matvec, matvec_counter
 
     @staticmethod
     def get_precond_logprob_and_gradient(
@@ -285,7 +284,7 @@ class SparseRegressionCoefficientSampler():
 
         def precond_hessian_matvec(precond_location, v):
             hessian_eval_location = precond_scale * precond_location
-            hessian_matvec = self.get_precond_hessian_matvec(
+            hessian_matvec, _ = self.get_precond_hessian_matvec(
                 model, hessian_eval_location, precond_scale, precond_prior_prec,
                 obs_prec=obs_prec
             )
