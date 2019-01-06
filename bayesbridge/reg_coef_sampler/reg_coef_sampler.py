@@ -172,6 +172,13 @@ class SparseRegressionCoefficientSampler():
         )   # We don't need a high (relative) accuracy.
         max_curvature = eigval[0]
         pc = np.squeeze(eigvec)
+        if max_curvature <= 0:
+            raise ArithmeticError(
+                "Numerical instability occured during the Lancoz iteration and "
+                "a negative curvature value returned for a log-concave distribution. "
+                "Likely caused by divergence of regression coefficients to infinity. "
+                "Check the input data and / or place an informative prior."
+            )
         return max_curvature, pc, matvec_counter[0]
 
     @staticmethod
