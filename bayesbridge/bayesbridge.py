@@ -347,14 +347,20 @@ class BayesBridge():
                 gshrink, init['beta'][self.n_unshrunk:], shrinkage_exponent
             )
         else:
-            power_exponential_mean = (
-                math.gamma(2 / shrinkage_exponent)
-                / math.gamma(1 / shrinkage_exponent)
-            )
+            power_exponential_mean \
+                = self.compute_power_exp_ave_magnitude(shrinkage_exponent)
             gshrink = apriori_coef_magnitude / power_exponential_mean
             lshrink = power_exponential_mean * np.ones(self.n_pred - self.n_unshrunk)
 
         return lshrink, gshrink
+
+    @staticmethod
+    def compute_power_exp_ave_magnitude(exponent, scale=1.):
+        """
+        Returns the expected value of the absolute value of a random variable
+        with density proportional to exp( - |x / scale|^exponent ).
+        """
+        return scale * math.gamma(2 / exponent) / math.gamma(1 / exponent)
 
     def update_beta(self, beta, obs_prec, gshrink, lshrink, sampling_method, precond_blocksize):
 
