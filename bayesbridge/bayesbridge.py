@@ -405,8 +405,8 @@ class BayesBridge():
             self, gshrink, beta_with_shrinkage, shrinkage_exponent, method='sample'):
         # :param method: {"sample", "optimize", None}
 
-        lower_bd = min(10e-4, .1 / len(beta_with_shrinkage))
-            # TODO: make it an optional parameter.
+        lower_bd = 1 / len(beta_with_shrinkage) / self.compute_power_exp_ave_magnitude(shrinkage_exponent)
+            # Solve for $ (expected value of coefficient given global shrinkage) = p^{-1} $.
 
         if method == 'optimize':
             gshrink = self.monte_carlo_em_global_shrinkage(
@@ -425,8 +425,6 @@ class BayesBridge():
                     phi = self.rg.np_random.gamma(shape, scale=scale)
                     gshrink = 1 / phi ** (1 / shrinkage_exponent)
 
-                gshrink = max(gshrink, lower_bd)
-
             elif self.prior_type['global_shrinkage'] == 'half-cauchy':
 
                 gshrink = self.slice_sample_global_shrinkage(
@@ -434,6 +432,13 @@ class BayesBridge():
                 )
             else:
                 raise NotImplementedError()
+
+        if gshrink < lower_bd:
+            gshrink = lower_bd
+            warn_message_only(
+                "The global shrinkage parameter update returned an unreasonably "
+                "small value. Returning a specified lower bound value instead."
+            )
 
         return gshrink
 
