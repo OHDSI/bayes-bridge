@@ -117,7 +117,7 @@ def generate_next_state(
     return q, info
 
 
-def simulate_dynamics(f, dt, n_step, q0, p0, logp0, grad0, hamiltonian_tol):
+def simulate_dynamics(f, dt, n_step, q0, p0, logp0, grad0, hamiltonian_tol=float('inf')):
 
     n_grad_evals = 0
     instability_detected = False
