@@ -6,7 +6,8 @@ from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
 from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo import hmc
-from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.stepsize_adapter import HmcStepsizeAdapter
+from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.stepsize_adapter \
+    import HamiltonianBasedStepsizeAdapter
 from bayesbridge.util import warn_message_only
 
 
@@ -25,7 +26,7 @@ class SparseRegressionCoefficientSampler():
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
         elif sampling_method == 'hmc':
             self.stability_adjustment_adapter = \
-                HmcStepsizeAdapter(init_stepsize=.3, target_accept_prob=.99)
+                HamiltonianBasedStepsizeAdapter(init_stepsize=.3, target_accept_prob=.95)
 
     def get_internal_state(self):
         state = {}
