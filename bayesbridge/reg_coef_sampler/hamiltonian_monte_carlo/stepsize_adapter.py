@@ -1,8 +1,13 @@
 from math import exp, log, log10, sqrt, copysign
 from .util import warn_message_only
+import scipy.stats as stats
 
 
-class HmcStepsizeAdapter():
+class HamiltonianBasedStepsizeAdapter():
+    """
+    Updates the stepsize of an HMC integrator so that the average Hamiltonian
+    error matches a pre-specified target value.
+    """
 
     def __init__(self, init_stepsize, target_accept_prob=.9,
                  init_adaptsize=1., adapt_decay_exponent=1.,
@@ -21,8 +26,8 @@ class HmcStepsizeAdapter():
         self.log_stepsize_averaged = log_init_stepsize
         self.n_averaged = 0
         self.target_accept_prob = target_accept_prob
-        self.target_log10_hamiltonian_error = log10(sqrt(1 - target_accept_prob))
-            # Theoretically, average acceptance rate should be 1 - target_log10_hamiltonian_error ** 2
+        self.target_log10_hamiltonian_error \
+            = self.convert_to_log_hamiltonian_error(target_accept_prob)
 
         self.rm_stepsizer = RobbinsMonroStepsizer(
             init=init_adaptsize,
@@ -30,6 +35,25 @@ class HmcStepsizeAdapter():
             reference_iteration=reference_iteration,
             size_at_reference=adaptsize_at_reference
         )
+
+    @staticmethod
+    def convert_to_log_hamiltonian_error(target_accept_prob):
+        """ Calculate the target squared Hamiltonian error in the log scale.
+
+        Under a high-dimensional limit of i.i.d. parameters, the Hamiltonian
+        error is distributed as
+            Normal(mean = - delta / 2, var = delta),
+        and the corresponding average acceptance rate is
+            2 GausssianCDF(- sqrt(delta) / 2).
+        So we solve for `delta` that theoretically achieves the target acceptance
+        rate and try to calibrate the average square error of the Hamiltonian
+        to be the theoretical value (delta^2 / 4 + delta).
+        """
+        if target_accept_prob <= 0 or target_accept_prob >= 1:
+            raise ValueError("Target probability must be within (0, 1).")
+        delta = 4 * stats.norm.ppf(target_accept_prob / 2) ** 2
+        target_log10_hamiltonian_error = .5 * log10(delta + delta ** 2 / 4)
+        return target_log10_hamiltonian_error
 
     def get_current_stepsize(self, averaged=False):
         if averaged:
@@ -96,6 +120,31 @@ class HmcStepsizeAdapter():
         return adapt_size
 
 
+def initialize_stepsize(compute_acceptprob, dt=1.0):
+    """ Heuristic for choosing an initial value of dt
+
+    Parameters
+    ----------
+    compute_acceptprob: callable
+        Computes the acceptance probability of the proposal one-step HMC proposal.
+    """
+
+    # Figure out what direction we should be moving dt.
+    acceptprob = compute_acceptprob(dt)
+    direc = 2 * int(acceptprob > 0.5) - 1
+
+    # Keep moving dt in that direction until acceptprob crosses 0.5.
+    while acceptprob == 0 or (2 * acceptprob) ** direc > 1:
+        dt = dt * (2 ** direc)
+        acceptprob = compute_acceptprob(dt)
+        if acceptprob == 0 and direc == 1:
+            # The last doubling of stepsize was too much.
+            dt /= 2
+            break
+
+    return dt
+
+
 class RobbinsMonroStepsizer():
 
     def __init__(self, init=1., decay_exponent=1.,
@@ -134,7 +183,7 @@ class RobbinsMonroStepsizer():
         return stepsize
 
 
-class StepsizeAdapter():
+class RobbinsMonroStepsizeAdapter():
 
     def __init__(self, init_stepsize, target_accept_prob=.9,
                  init_adaptsize=1., adapt_decay_exponent=1.,

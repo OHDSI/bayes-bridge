@@ -1,7 +1,7 @@
 import numpy as np
 import math
 import time
-from .stepsize_adapter import HmcStepsizeAdapter
+from .stepsize_adapter import HamiltonianBasedStepsizeAdapter, initialize_stepsize
 from .util import warn_message_only
 from .dynamics import HamiltonianDynamics
 
@@ -13,25 +13,37 @@ draw_momentum = dynamics.draw_momentum
 
 
 def generate_samples(
-        f, q0, dt_range, nstep_range, n_burnin, n_sample,
+        f, q0, n_burnin, n_sample, nstep_range, dt_range=None,
         seed=None, n_update=0, adapt_stepsize=False, target_accept_prob=.9,
         final_adaptsize=.05):
     """ Run HMC and return samples and some additional info. """
 
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
+
+    q = q0
+    logp, grad = f(q)
 
     if np.isscalar(dt_range):
         dt_range = np.array(2 * [dt_range])
 
+    elif dt_range is None:
+        p = draw_momentum(len(q))
+        logp_joint0 = - compute_hamiltonian(logp, p)
+        dt = initialize_stepsize(
+            lambda dt: compute_onestep_accept_prob(dt, f, q, p, grad, logp_joint0)
+        )
+        dt_range = dt * np.array([.8, 1.0])
+        adapt_stepsize = True
+
     if np.isscalar(nstep_range):
         nstep_range = np.array(2 * [nstep_range])
 
-    max_stepsize_adapter = HmcStepsizeAdapter(
+    max_stepsize_adapter = HamiltonianBasedStepsizeAdapter(
         init_stepsize=1., target_accept_prob=target_accept_prob,
         reference_iteration=n_burnin, adaptsize_at_reference=final_adaptsize
     )
 
-    q = q0
     if n_update > 0:
         n_per_update = math.ceil((n_burnin + n_sample) / n_update)
     else:
@@ -42,7 +54,6 @@ def generate_samples(
     accept_prob = np.zeros(n_sample + n_burnin)
 
     tic = time.time()  # Start clock
-    logp, grad = f(q)
     use_averaged_stepsize = False
     for i in range(n_sample + n_burnin):
         dt = np.random.uniform(dt_range[0], dt_range[1])
@@ -67,6 +78,13 @@ def generate_samples(
     time_elapsed = toc - tic
 
     return samples, logp_samples, accept_prob, time_elapsed
+
+
+def compute_onestep_accept_prob(dt, f, q0, p0, grad0, logp_joint0):
+    _, p, logp, _ = integrator(f, dt, q0, p0, grad0)
+    logp_joint = - compute_hamiltonian(logp, p)
+    accept_prob = np.exp(logp_joint - logp_joint0)
+    return accept_prob
 
 
 def generate_next_state(
