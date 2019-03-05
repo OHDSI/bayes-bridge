@@ -35,7 +35,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return result
 
     def Tdot(self, v):
-        super().Tdot(None)
+        self.Tdot_count += 1
         X = self.X_row_major
         return mkl_csr_matvec(X, v, transpose=True) if self.use_mkl else X.T.dot(v)
 

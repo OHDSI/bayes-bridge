@@ -27,7 +27,7 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         return result
 
     def Tdot(self, v):
-        super().Tdot(None)
+        self.Tdot_count += 1
         return self.X.T.dot(v)
 
     def compute_fisher_info(self, weight, diag_only=False):

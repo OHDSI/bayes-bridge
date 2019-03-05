@@ -18,7 +18,7 @@ class AbstractDesignMatrix():
     @abc.abstractmethod
     def Tdot(self, v):
         """ Multiply by the transpose of the matrix. """
-        self.Tdot_count += 1
+        pass
 
     def memoize_dot(self, flag=True):
         self.memoized = flag
