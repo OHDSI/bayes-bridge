@@ -12,9 +12,8 @@ class AbstractDesignMatrix():
         self.v_prev = None # For memoization
 
     @abc.abstractmethod
-    def dot(self, v, output_is_cached):
-        if not output_is_cached:
-            self.dot_count += 1
+    def dot(self, v):
+        pass
 
     @abc.abstractmethod
     def Tdot(self, v):

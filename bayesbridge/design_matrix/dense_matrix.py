@@ -14,18 +14,16 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         self.X = X
 
     def dot(self, v):
-        same_input = False
+
+        if self.memoized and np.all(self.v_prev == v):
+            return self.X_dot_v
+
+        result = self.X.dot(v)
         if self.memoized:
-            same_input = np.all(self.v_prev == v)
-            if same_input:
-                result = self.X_dot_v
-            else:
-                result = self.X.dot(v)
-                self.X_dot_v = result
+            self.X_dot_v = result
             self.v_prev = v
-        else:
-            result = self.X.dot(v)
-        super().dot(None, same_input)
+        self.dot_count += 1
+
         return result
 
     def Tdot(self, v):
