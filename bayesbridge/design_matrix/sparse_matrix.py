@@ -1,25 +1,32 @@
 import numpy as np
 import scipy.sparse as sparse
 from .abstract_matrix import AbstractDesignMatrix
+from .mkl_matvec import mkl_csr_matvec
+
 
 class SparseDesignMatrix(AbstractDesignMatrix):
 
-    def __init__(self, X):
+    def __init__(self, X, use_mkl=True, dot_format='csr', Tdot_format='csr'):
         """
         Params:
         ------
-        X : scipy sparse matrix
+        X_row_major : scipy sparse matrix
         """
         super().__init__(X)
+        if dot_format == 'csc' or Tdot_format == 'csc':
+            raise NotImplementedError(
+                "Current dot operations are only implemented for the CSR format."
+            )
         self.X_row_major = X.tocsr()
-        self.X_col_major = X.tocsc()
+        self.use_mkl = use_mkl
 
     def dot(self, v):
 
         if self.memoized and np.all(self.v_prev == v):
             return self.X_dot_v
 
-        result = self.X_row_major.dot(v)
+        X = self.X_row_major
+        result = mkl_csr_matvec(X, v) if self.use_mkl else X.dot(v)
         if self.memoized:
             self.X_dot_v = result
             self.v_prev = v
@@ -29,7 +36,8 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def Tdot(self, v):
         super().Tdot(None)
-        return self.X_col_major.T.dot(v)
+        X = self.X_row_major
+        return mkl_csr_matvec(X, v, transpose=True) if self.use_mkl else X.T.dot(v)
 
     def compute_fisher_info(self, weight, diag_only=False):
 
