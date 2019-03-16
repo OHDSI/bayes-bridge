@@ -158,7 +158,7 @@ class BayesBridge():
     def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', params_to_save=None,
-              n_init_optim_step=10, _add_iter_mode=False):
+              n_init_optim_step=10, n_status_update=0, _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -179,7 +179,8 @@ class BayesBridge():
             optimized conditionally on the shrinkage parameters. During the
             optimization, the global shrinkage parameter is fixed while the
             local ones are sampled.
-
+        n_status_update : int
+            Number of updates to print on stdout during the sampler run.
         """
 
         if _add_iter_mode:
@@ -200,10 +201,12 @@ class BayesBridge():
             params_to_save = ['beta', 'global_shrinkage', 'logp']
 
         n_iter = n_burnin + n_post_burnin
+        start_time = time.time()
 
         # Initial state of the Markov chain
         beta, obs_prec, lshrink, gshrink, init, initial_optim_info = \
             self.initialize_chain(init, shrinkage_exponent, n_init_optim_step)
+        self.print_status(n_status_update, 0, n_iter, start_time, msg_type='optim')
 
         # Pre-allocate
         samples = {}
@@ -213,7 +216,6 @@ class BayesBridge():
         )
 
         # Start Gibbs sampling
-        start_time = time.time()
         for mcmc_iter in range(1, n_iter + 1):
 
             beta, info = self.update_beta(
@@ -241,6 +243,7 @@ class BayesBridge():
             self.manager.store_sampling_info(
                 sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method
             )
+            self.print_status(n_status_update, mcmc_iter, n_iter, start_time)
 
         runtime = time.time() - start_time
 
@@ -270,6 +273,29 @@ class BayesBridge():
             mcmc_output['precond_blocksize'] = precond_blocksize
 
         return mcmc_output
+
+    def print_status(self, n_status_update, mcmc_iter, n_iter, start_time,
+                     msg_type='sampling', time_format='second'):
+
+        if n_status_update == 0:
+            return
+        n_iter_per_update = int(n_iter / n_status_update)
+        if mcmc_iter % n_iter_per_update != 0:
+            return
+
+        if msg_type == 'optim':
+            msg = "Initial optimization took "
+        else:
+            msg = "{:d} Gibbs iterations complete: so far took ".format(mcmc_iter)
+        time_elapsed = time.time() - start_time
+        if time_format == 'second':
+            msg += "{:.3g} seconds.".format(time_elapsed)
+        elif time_format == 'minute':
+            msg += "{:.3g} minutes.".format(time_elapsed / 60)
+        else:
+            raise ValueError()
+
+        print(msg)
 
     def initialize_chain(self, init, shrinkage_exponent, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
