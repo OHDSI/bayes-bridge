@@ -82,6 +82,8 @@ class BayesBridge():
         self.manager = MarkovChainManager(
             self.n_obs, self.n_pred, self.n_unshrunk, model
         )
+        self._prev_timestamp = None # For status update during Gibbs
+        self._curr_timestamp = None
 
     def add_intercept(self, X, n_coef_without_shrinkage, prior_sd_for_unshrunk):
         if sp.sparse.issparse(X):
@@ -202,11 +204,13 @@ class BayesBridge():
 
         n_iter = n_burnin + n_post_burnin
         start_time = time.time()
+        self._prev_timestamp = start_time
 
         # Initial state of the Markov chain
         beta, obs_prec, lshrink, gshrink, init, initial_optim_info = \
             self.initialize_chain(init, shrinkage_exponent, n_init_optim_step)
-        self.print_status(n_status_update, 0, n_iter, start_time, msg_type='optim')
+        self.print_status(
+            n_status_update, 0, n_iter, msg_type='optim', time_format='second')
 
         # Pre-allocate
         samples = {}
@@ -243,7 +247,7 @@ class BayesBridge():
             self.manager.store_sampling_info(
                 sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method
             )
-            self.print_status(n_status_update, mcmc_iter, n_iter, start_time)
+            self.print_status(n_status_update, mcmc_iter, n_iter)
 
         runtime = time.time() - start_time
 
@@ -274,8 +278,8 @@ class BayesBridge():
 
         return mcmc_output
 
-    def print_status(self, n_status_update, mcmc_iter, n_iter, start_time,
-                     msg_type='sampling', time_format='second'):
+    def print_status(self, n_status_update, mcmc_iter, n_iter,
+                     msg_type='sampling', time_format='minute'):
 
         if n_status_update == 0:
             return
@@ -283,19 +287,25 @@ class BayesBridge():
         if mcmc_iter % n_iter_per_update != 0:
             return
 
-        if msg_type == 'optim':
-            msg = "Initial optimization took "
-        else:
-            msg = "{:d} Gibbs iterations complete: so far took ".format(mcmc_iter)
-        time_elapsed = time.time() - start_time
+        self._curr_timestamp = time.time()
+
+        time_elapsed = self._curr_timestamp - self._prev_timestamp
         if time_format == 'second':
-            msg += "{:.3g} seconds.".format(time_elapsed)
+            time_str = "{:.3g} seconds".format(time_elapsed)
         elif time_format == 'minute':
-            msg += "{:.3g} minutes.".format(time_elapsed / 60)
+            time_str = "{:.3g} minutes".format(time_elapsed / 60)
         else:
             raise ValueError()
 
+        if msg_type == 'optim':
+            msg = "Initial optimization took " + time_str + "."
+        else:
+            msg = " ".join((
+                "{:d} Gibbs iterations complete:".format(mcmc_iter),
+                time_str, "has elasped since the last update."
+            ))
         print(msg)
+        self._prev_timestamp = self._curr_timestamp
 
     def initialize_chain(self, init, shrinkage_exponent, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
