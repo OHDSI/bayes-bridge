@@ -203,6 +203,7 @@ class BayesBridge():
             params_to_save = ['beta', 'global_shrinkage', 'logp']
 
         n_iter = n_burnin + n_post_burnin
+        n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
         self._prev_timestamp = start_time
 
