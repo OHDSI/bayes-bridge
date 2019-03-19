@@ -361,12 +361,12 @@ class BayesBridge():
 
         return beta, obs_prec, lshrink, gshrink, init, optim_info
 
-    def initialize_shrinkage_parameters(
-            self, init, shrinkage_exponent, apriori_coef_magnitude=.01):
+    def initialize_shrinkage_parameters(self, init, shrinkage_exponent):
         """
         Current options allow specifying 1) shrinkage parameters directly,
-        2) regression coefficients only, and 3) none, which defaults to
-        initialization based on 'apriori_coef_magnitude'.
+        2) regression coefficients only, and 3) the product of local and global
+        shrinkage parameters given as init['apriori_coef_scale'] or the default
+        value.
         """
 
         if 'local_shrinkage' in init and  'global_shrinkage' in init:
@@ -384,9 +384,13 @@ class BayesBridge():
                 gshrink, init['beta'][self.n_unshrunk:], shrinkage_exponent
             )
         else:
+            if 'apriori_coef_scale' in init:
+                apriori_coef_scale = init['apriori_coef_scale']
+            else:
+                apriori_coef_scale = .01
             power_exponential_mean \
                 = self.compute_power_exp_ave_magnitude(shrinkage_exponent)
-            gshrink = apriori_coef_magnitude / power_exponential_mean
+            gshrink = apriori_coef_scale / power_exponential_mean
             lshrink = power_exponential_mean * np.ones(self.n_pred - self.n_unshrunk)
 
         return lshrink, gshrink
