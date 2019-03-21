@@ -105,7 +105,8 @@ class BayesBridge():
         return prior_type, prior_param
 
     def gibbs_additional_iter(
-            self, mcmc_output, n_iter, merge=False, deallocate=False):
+            self, mcmc_output, n_iter, n_status_update=0,
+            merge=False, deallocate=False):
         """
         Continue running the Gibbs sampler from the previous state.
 
@@ -149,6 +150,7 @@ class BayesBridge():
             precond_blocksize=precond_blocksize,
             global_shrinkage_update=global_shrinkage_update,
             params_to_save=params_to_save,
+            n_status_update=n_status_update,
             _add_iter_mode=True
         )
         if merge:
