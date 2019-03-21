@@ -104,6 +104,8 @@ class BayesBridge():
         # prior_param['global_shrinkage'] = {'scale': 1.0}
         return prior_type, prior_param
 
+    # TODO: write a test to ensure that the output when resuming the Gibbs
+    # sampler coincide with that without interruption.
     def gibbs_additional_iter(
             self, mcmc_output, n_iter, n_status_update=0,
             merge=False, deallocate=False):
