@@ -30,15 +30,17 @@ class SparseRegressionCoefficientSampler():
 
     def get_internal_state(self):
         state = {}
-        attr = 'cg_initializer'
-        if hasattr(self, attr):
-            state[attr] = getattr(self, attr)
+        attributes = ['regcoef_summarizer', 'stability_adjustment_adapter']
+        for attr in attributes:
+            if hasattr(self, attr):
+                state[attr] = getattr(self, attr)
         return state
 
     def set_internal_state(self, state):
-        attr = 'cg_initializer'
-        if hasattr(self, attr):
-            setattr(self, attr, state[attr])
+        attributes = ['regcoef_summarizer', 'stability_adjustment_adapter']
+        for attr in attributes:
+            if hasattr(self, attr):
+                setattr(self, attr, state[attr])
 
     def sample_gaussian_posterior(
             self, y, X, obs_prec, gshrink, lshrink,

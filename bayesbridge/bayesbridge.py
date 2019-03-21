@@ -589,7 +589,7 @@ class MarkovChainManager():
 
     def merge_outputs(self, mcmc_output, next_mcmc_output):
 
-        for output_key in ['samples']:
+        for output_key in ['samples', 'reg_coef_sampling_info']:
             curr_output = mcmc_output[output_key]
             next_output = next_mcmc_output[output_key]
             next_mcmc_output[output_key] = {
@@ -600,6 +600,9 @@ class MarkovChainManager():
 
         next_mcmc_output['n_post_burnin'] += mcmc_output['n_post_burnin']
         next_mcmc_output['runtime'] += mcmc_output['runtime']
+
+        for output_key in ['initial_optimization_info', 'seed']:
+            next_mcmc_output[output_key] = mcmc_output[output_key]
 
         return next_mcmc_output
 
