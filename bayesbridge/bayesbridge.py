@@ -212,8 +212,9 @@ class BayesBridge():
         # Initial state of the Markov chain
         beta, obs_prec, lshrink, gshrink, init, initial_optim_info = \
             self.initialize_chain(init, shrinkage_exponent, n_init_optim_step)
-        self.print_status(
-            n_status_update, 0, n_iter, msg_type='optim', time_format='second')
+        if n_init_optim_step > 0:
+            self.print_status(
+                n_status_update, 0, n_iter, msg_type='optim', time_format='second')
 
         # Pre-allocate
         samples = {}
