@@ -237,7 +237,8 @@ class BayesBridge():
             # Draw from gshrink | \beta and then lshrink | gshrink, \beta.
             # (The order matters.)
             gshrink = self.update_global_shrinkage(
-                gshrink, beta[self.n_unshrunk:], shrinkage_exponent, global_shrinkage_update)
+                gshrink, beta[self.n_unshrunk:], shrinkage_exponent,
+                method=global_shrinkage_update)
 
             lshrink = self.update_local_shrinkage(
                 gshrink, beta[self.n_unshrunk:], shrinkage_exponent)
@@ -452,13 +453,15 @@ class BayesBridge():
         return obs_prec
 
     def update_global_shrinkage(
-            self, gshrink, beta_with_shrinkage, shrinkage_exponent, method='sample'):
+            self, gshrink, beta_with_shrinkage, shrinkage_exponent,
+            coef_expected_magnitude_lower_bd=.001, method='sample'):
         # :param method: {"sample", "optimize", None}
 
         if beta_with_shrinkage.size == 0:
             return 1. # arbitrary float value as a placeholder
 
-        lower_bd = 1 / len(beta_with_shrinkage) / self.compute_power_exp_ave_magnitude(shrinkage_exponent)
+        lower_bd = coef_expected_magnitude_lower_bd \
+                   / self.compute_power_exp_ave_magnitude(shrinkage_exponent)
             # Solve for $ (expected value of coefficient given global shrinkage) = p^{-1} $.
 
         if method == 'optimize':
