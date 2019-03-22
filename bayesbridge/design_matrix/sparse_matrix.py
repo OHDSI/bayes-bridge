@@ -6,25 +6,37 @@ from .mkl_matvec import mkl_csr_matvec
 
 class SparseDesignMatrix(AbstractDesignMatrix):
 
-    def __init__(self, X, use_mkl=True, centered=False,
+    def __init__(self, X, use_mkl=True, centered=False, add_intercept=True,
                  dot_format='csr', Tdot_format='csr'):
         """
         Params:
         ------
-        X_row_major : scipy sparse matrix
+        X : scipy sparse matrix
         """
         super().__init__(X)
         if dot_format == 'csc' or Tdot_format == 'csc':
             raise NotImplementedError(
                 "Current dot operations are only implemented for the CSR format."
             )
-        self.X_row_major = X.tocsr()
+
         self.use_mkl = use_mkl
+
         self.centered = centered
         if centered:
-            self.X_colmean = np.squeeze(np.array(X.mean(axis=0)))
+            self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
         else:
-            self.X_colmean = np.zeros(self.X_row_major.shape[1])
+            self.column_offset = np.zeros(X.shape[1])
+
+        if add_intercept:
+            self.column_offset = np.concatenate(([0], self.column_offset))
+            intercept_column = np.ones((X.shape[0], 1))
+            X = sparse.hstack((intercept_column, X))
+
+        self.X_row_major = X.tocsr()
+
+    @property
+    def shape(self):
+        return self.X_row_major.shape
 
     def dot(self, v):
 
@@ -34,7 +46,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         X = self.X_row_major
         result = mkl_csr_matvec(X, v) \
             if self.use_mkl else X.dot(v)
-        result -= np.inner(self.X_colmean, v)
+        result -= np.inner(self.column_offset, v)
         if self.memoized:
             self.X_dot_v = result
             self.v_prev = v
@@ -47,7 +59,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         X = self.X_row_major
         result = mkl_csr_matvec(X, v, transpose=True) \
             if self.use_mkl else X.T.dot(v)
-        result -= self.X_colmean * np.sum(v)
+        result -= self.column_offset * np.sum(v)
         return result
 
     def compute_fisher_info(self, weight, diag_only=False):
@@ -70,7 +82,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
     def toarray(self):
-        return self.X_row_major.toarray() - self.X_colmean[np.newaxis, :]
+        return self.X_row_major.toarray() - self.column_offset[np.newaxis, :]
 
     def extract_matrix(self, order=None):
         pass

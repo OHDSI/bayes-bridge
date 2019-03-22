@@ -6,10 +6,13 @@ class AbstractDesignMatrix():
     def __init__(self, X):
         self.dot_count = 0
         self.Tdot_count = 0
-        self.shape = X.shape
         self.memoized = False
         self.X_dot_v = None # For memoization
         self.v_prev = None # For memoization
+
+    @property
+    def shape(self):
+        pass
 
     @abc.abstractmethod
     def dot(self, v):
