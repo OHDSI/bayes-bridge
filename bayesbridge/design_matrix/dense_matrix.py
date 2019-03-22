@@ -3,7 +3,7 @@ from .abstract_matrix import AbstractDesignMatrix
 
 class DenseDesignMatrix(AbstractDesignMatrix):
     
-    def __init__(self, X):
+    def __init__(self, X, centered=False, add_intercept=True):
         """
         Params:
         ------
@@ -11,7 +11,15 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         order : str, {'row_major', 'col_major', None}
         """
         super().__init__(X)
+        if centered:
+            X -= np.mean(X, axis=0)[np.newaxis, :]
+        if add_intercept:
+            X = np.hstack((np.ones((X.shape[0], 1)), X))
         self.X = X
+
+    @property
+    def shape(self):
+        return self.X.shape
 
     def dot(self, v):
 
