@@ -6,7 +6,8 @@ from .mkl_matvec import mkl_csr_matvec
 
 class SparseDesignMatrix(AbstractDesignMatrix):
 
-    def __init__(self, X, use_mkl=True, dot_format='csr', Tdot_format='csr'):
+    def __init__(self, X, use_mkl=True, centered=False,
+                 dot_format='csr', Tdot_format='csr'):
         """
         Params:
         ------
@@ -19,6 +20,11 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             )
         self.X_row_major = X.tocsr()
         self.use_mkl = use_mkl
+        self.centered = centered
+        if centered:
+            self.X_colmean = np.squeeze(np.array(X.mean(axis=0)))
+        else:
+            self.X_colmean = np.zeros(self.X_row_major.shape[1])
 
     def dot(self, v):
 
@@ -26,7 +32,9 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             return self.X_dot_v
 
         X = self.X_row_major
-        result = mkl_csr_matvec(X, v) if self.use_mkl else X.dot(v)
+        result = mkl_csr_matvec(X, v) \
+            if self.use_mkl else X.dot(v)
+        result -= np.inner(self.X_colmean, v)
         if self.memoized:
             self.X_dot_v = result
             self.v_prev = v
@@ -37,9 +45,16 @@ class SparseDesignMatrix(AbstractDesignMatrix):
     def Tdot(self, v):
         self.Tdot_count += 1
         X = self.X_row_major
-        return mkl_csr_matvec(X, v, transpose=True) if self.use_mkl else X.T.dot(v)
+        result = mkl_csr_matvec(X, v, transpose=True) \
+            if self.use_mkl else X.T.dot(v)
+        result -= self.X_colmean * np.sum(v)
+        return result
 
     def compute_fisher_info(self, weight, diag_only=False):
+
+        if self.centered:
+            raise NotImplementedError(
+                "Operation not yet supported for a centered design.")
 
         weight_mat = self.create_diag_matrix(weight)
 
@@ -55,7 +70,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
     def toarray(self):
-        return self.X_row_major.toarray()
+        return self.X_row_major.toarray() - self.X_colmean[np.newaxis, :]
 
     def extract_matrix(self, order=None):
         pass
