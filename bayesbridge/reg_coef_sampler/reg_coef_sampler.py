@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import scipy as sp
 import scipy.sparse
@@ -214,9 +215,9 @@ class SparseRegressionCoefficientSampler():
             logp, grad_wrt_beta = \
                 compute_loglik_and_gradient(beta, loglik_only=loglik_only)
             logp += np.sum(- precond_prior_prec * beta_precond ** 2) / 2
-            if loglik_only:
-                grad = None
-            else:
+
+            grad = None
+            if not loglik_only and math.isfinite(logp):
                 grad = precond_scale * grad_wrt_beta  # Chain rule.
                 grad += - precond_prior_prec * beta_precond
             return logp, grad
