@@ -41,11 +41,9 @@ class AbstractDesignMatrix():
         return self.dot_count + self.Tdot_count
 
     def get_dot_count(self):
-        """ Returns a 2-dimensional numpy array. """
         return self.dot_count, self.Tdot_count
 
     def reset_matvec_count(self, count=0):
-        """ Returns a 2-dimensional numpy array. """
         if not hasattr(count, "__len__"):
             count = 2 * [count]
         self.dot_count = count[0]
