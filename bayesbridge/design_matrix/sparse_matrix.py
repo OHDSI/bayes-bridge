@@ -6,7 +6,7 @@ from .mkl_matvec import mkl_csr_matvec
 
 class SparseDesignMatrix(AbstractDesignMatrix):
 
-    def __init__(self, X, use_mkl=True, centered=False, add_intercept=True,
+    def __init__(self, X, use_mkl=True, center_predictor=False, add_intercept=True,
                  dot_format='csr', Tdot_format='csr'):
         """
         Params:
@@ -21,8 +21,8 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
         self.use_mkl = use_mkl
 
-        self.centered = centered
-        if centered:
+        self.centered = center_predictor
+        if center_predictor:
             self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
         else:
             self.column_offset = np.zeros(X.shape[1])
