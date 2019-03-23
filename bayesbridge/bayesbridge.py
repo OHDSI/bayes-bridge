@@ -17,7 +17,8 @@ class BayesBridge():
 
     def __init__(self, outcome, X, model='linear',
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
-                 add_intercept=True):
+                 prior_sd_for_intercept=float('inf'), add_intercept=None,
+                 center_predictor=False):
         """
         Params
         ------
@@ -44,18 +45,31 @@ class BayesBridge():
                 or n_coef_without_shrinkage == len(prior_sd_for_unshrunk)):
             raise ValueError('Invalid array size for prior sd.')
 
-        if model != 'cox' and add_intercept:
-            X, n_coef_without_shrinkage, prior_sd_for_unshrunk = \
-                self.add_intercept(X, n_coef_without_shrinkage, prior_sd_for_unshrunk)
+        if add_intercept is None:
+            add_intercept = (model != 'cox')
 
         if model == 'cox':
-
+            if add_intercept:
+                add_intercept = False
+                warn_message_only(
+                    "Intercept is not identifiable in the Cox model and will "
+                    "not be added.")
             event_time, censoring_time = outcome
             event_time, censoring_time, X = CoxModel.preprocess_data(
                 event_time, censoring_time, X
             )
 
-        X = SparseDesignMatrix(X) if sp.sparse.issparse(X) else DenseDesignMatrix(X)
+        DesignMatrix = SparseDesignMatrix \
+            if sp.sparse.issparse(X) else DenseDesignMatrix
+        X = DesignMatrix(
+            X, add_intercept=add_intercept, center_predictor=center_predictor)
+
+        if add_intercept:
+            n_coef_without_shrinkage += 1
+            if not np.isscalar(prior_sd_for_unshrunk):
+                prior_sd_for_unshrunk = np.concatenate((
+                    [prior_sd_for_intercept], prior_sd_for_unshrunk
+                ))
 
         if model == 'linear':
             self.model = LinearModel(outcome, X)
@@ -84,19 +98,6 @@ class BayesBridge():
         )
         self._prev_timestamp = None # For status update during Gibbs
         self._curr_timestamp = None
-
-    def add_intercept(self, X, n_coef_without_shrinkage, prior_sd_for_unshrunk):
-        if sp.sparse.issparse(X):
-            hstack = sp.sparse.hstack
-        else:
-            hstack = np.hstack
-        X = hstack((np.ones((X.shape[0], 1)), X))
-        n_coef_without_shrinkage += 1
-        if not np.isscalar(prior_sd_for_unshrunk):
-            prior_sd_for_unshrunk = np.concatenate((
-                [float('inf')], prior_sd_for_unshrunk
-            ))
-        return X, n_coef_without_shrinkage, prior_sd_for_unshrunk
 
     def set_default_priors(self, prior_type, prior_param):
         prior_type['global_shrinkage'] = 'jeffreys'
