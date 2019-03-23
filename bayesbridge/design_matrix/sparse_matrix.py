@@ -32,18 +32,18 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             intercept_column = np.ones((X.shape[0], 1))
             X = sparse.hstack((intercept_column, X))
 
-        self.X_row_major = X.tocsr()
+        self.X_csr = X.tocsr()
 
     @property
     def shape(self):
-        return self.X_row_major.shape
+        return self.X_csr.shape
 
     def dot(self, v):
 
         if self.memoized and np.all(self.v_prev == v):
             return self.X_dot_v
 
-        X = self.X_row_major
+        X = self.X_csr
         result = mkl_csr_matvec(X, v) \
             if self.use_mkl else X.dot(v)
         result -= np.inner(self.column_offset, v)
@@ -56,7 +56,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def Tdot(self, v):
         self.Tdot_count += 1
-        X = self.X_row_major
+        X = self.X_csr
         result = mkl_csr_matvec(X, v, transpose=True) \
             if self.use_mkl else X.T.dot(v)
         result -= self.column_offset * np.sum(v)
@@ -71,18 +71,18 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         weight_mat = self.create_diag_matrix(weight)
 
         if diag_only:
-            diag = weight_mat.dot(self.X_row_major.power(2)).sum(0)
+            diag = weight_mat.dot(self.X_csr.power(2)).sum(0)
             return np.squeeze(np.asarray(diag))
         else:
-            X_T = self.X_row_major.T
-            weighted_X = weight_mat.dot(self.X_row_major).tocsc()
+            X_T = self.X_csr.T
+            weighted_X = weight_mat.dot(self.X_csr).tocsc()
             return X_T.dot(weighted_X).toarray()
 
     def create_diag_matrix(self, v):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
     def toarray(self):
-        return self.X_row_major.toarray() - self.column_offset[np.newaxis, :]
+        return self.X_csr.toarray() - self.column_offset[np.newaxis, :]
 
     def extract_matrix(self, order=None):
         pass
