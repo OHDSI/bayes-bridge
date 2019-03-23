@@ -59,10 +59,9 @@ class BayesBridge():
                 event_time, censoring_time, X
             )
 
-        DesignMatrix = SparseDesignMatrix \
-            if sp.sparse.issparse(X) else DenseDesignMatrix
-        X = DesignMatrix(
-            X, add_intercept=add_intercept, center_predictor=center_predictor)
+        if np.isscalar(prior_sd_for_unshrunk):
+            prior_sd_for_unshrunk = \
+                prior_sd_for_unshrunk * np.ones(n_coef_without_shrinkage)
 
         if add_intercept:
             n_coef_without_shrinkage += 1
@@ -70,6 +69,11 @@ class BayesBridge():
                 prior_sd_for_unshrunk = np.concatenate((
                     [prior_sd_for_intercept], prior_sd_for_unshrunk
                 ))
+
+        DesignMatrix = SparseDesignMatrix \
+            if sp.sparse.issparse(X) else DenseDesignMatrix
+        X = DesignMatrix(
+            X, add_intercept=add_intercept, center_predictor=center_predictor)
 
         if model == 'linear':
             self.model = LinearModel(outcome, X)
@@ -81,11 +85,7 @@ class BayesBridge():
         else:
             raise NotImplementedError()
 
-        if np.isscalar(prior_sd_for_unshrunk):
-            self.prior_sd_for_unshrunk = \
-                prior_sd_for_unshrunk * np.ones(n_coef_without_shrinkage)
-        else:
-            self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
+        self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = n_coef_without_shrinkage
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
