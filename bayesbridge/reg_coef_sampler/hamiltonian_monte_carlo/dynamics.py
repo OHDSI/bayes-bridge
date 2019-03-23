@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 
 """
@@ -42,7 +43,8 @@ def velocity_verlet(
     p = p + 0.5 * dt * position_grad
     q = q - dt * get_momentum_grad(p)
     position_logp, position_grad = get_position_logp_and_grad(q)
-    p = p + 0.5 * dt * position_grad
+    if math.isfinite(position_logp):
+        p += 0.5 * dt * position_grad
     return q, p, position_logp, position_grad
 
 

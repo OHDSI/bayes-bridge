@@ -146,32 +146,20 @@ def simulate_dynamics(f, dt, n_step, q0, p0, logp0, grad0, hamiltonian_tol=float
     hamiltonians[0] = hamiltonian
     min_h, max_h = 2 * [hamiltonian]
 
-    # First integration step.
+    q, p, logp, grad = q0, p0, logp0, grad0
     if n_step == 0:
         warn_message_only("The number of integration steps was set to be 0.")
-        q, p, logp, grad = q0, p0, logp0, grad0
-    else:
-        q, p, logp, grad \
-            = integrator(f, dt, q0, p0, grad0)
-        hamiltonian = compute_hamiltonian(logp, p)
-        hamiltonians[1] = hamiltonian
-        min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
-        n_grad_evals += 1
-        if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
-            instability_detected = True
 
-    for i in range(1, n_step):
-
+    for i in range(n_step):
         q, p, logp, grad \
             = integrator(f, dt, q, p, grad)
         hamiltonian = compute_hamiltonian(logp, p)
         hamiltonians[i + 1] = hamiltonian
         min_h, max_h = update_running_minmax(min_h, max_h, hamiltonian)
         n_grad_evals += 1
-
-        if math.isinf(logp) or (max_h - min_h) > hamiltonian_tol:
-            instability_detected = True
-            break
+        instability_detected \
+            = math.isinf(logp) or (max_h - min_h) > hamiltonian_tol
+        if instability_detected: break
 
     info = {
         'energy_trajectory': hamiltonians,
