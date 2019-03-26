@@ -141,17 +141,16 @@ class SparseRegressionCoefficientSampler():
 
     @staticmethod
     def compute_preconditioning_scale(
-            gshrink, lshrink, regcoef_precond_post_sd, prior_sd_for_unshrunk):
-
+            gshrink, lshrink, regcoef_precond_post_sd, prior_sd_for_unshrunk,
+            unshrunk_target_sd_scale=1.):
         n_coef = len(regcoef_precond_post_sd)
-        n_unshrunk =  n_coef - len(lshrink)
+        n_unshrunk = n_coef - len(lshrink)
 
         precond_scale = np.ones(n_coef)
         precond_scale[n_unshrunk:] = gshrink * lshrink
         if n_unshrunk > 0:
-            target_sd_scale = 2.
             precond_scale[:n_unshrunk] = \
-                target_sd_scale * regcoef_precond_post_sd[:n_unshrunk]
+                unshrunk_target_sd_scale * regcoef_precond_post_sd[:n_unshrunk]
 
         precond_prior_prec = np.concatenate((
             (prior_sd_for_unshrunk / precond_scale[:n_unshrunk]) ** -2,
