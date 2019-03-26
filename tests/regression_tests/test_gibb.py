@@ -33,10 +33,14 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
     reg_exponent = 0.5
 
     outcome, X = simulate_data(model, matrix_format)
-    bridge = BayesBridge(outcome, X, model=model)
+    n_unshrunk = 1 if model == 'cox' else 0
+    bridge = BayesBridge(
+        outcome, X, model=model,
+        n_coef_without_shrinkage=n_unshrunk, prior_sd_for_unshrunk=2.
+    )
     init = {
         'global_shrinkage': .01,
-        'local_shrinkage': np.ones(X.shape[1])
+        'local_shrinkage': np.ones(X.shape[1] - n_unshrunk)
     }
 
     if restart_in_middle:
