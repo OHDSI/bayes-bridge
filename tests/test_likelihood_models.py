@@ -155,8 +155,8 @@ def simulate_data(model, n_obs=100, n_pred=50, seed=None):
         raise NotImplementedError()
 
     if sp.sparse.issparse(X):
-        X = SparseDesignMatrix(X)
+        X = SparseDesignMatrix(X, add_intercept=False)
     else:
-        X = DenseDesignMatrix(X)
+        X = DenseDesignMatrix(X, add_intercept=False)
 
     return y, X, beta
