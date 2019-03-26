@@ -11,7 +11,7 @@ def test_sparse_design_intercept_and_centering():
 
     n_obs, n_pred = (100, 10)
     X = simulate_design(n_obs, n_pred, binary_frac=.5, format_='sparse')
-    X_design = SparseDesignMatrix(X, centered=True, add_intercept=True)
+    X_design = SparseDesignMatrix(X, center_predictor=True, add_intercept=True)
     X_ndarray = center_and_add_intercept(X.toarray())
     w, v = (np.random.randn(size) for size in X_design.shape)
     assert np.allclose(
@@ -25,7 +25,7 @@ def test_sparse_design_intercept_and_centering():
 def test_dense_design_intercept_and_centering():
     n_obs, n_pred = (100, 10)
     X = simulate_design(n_obs, n_pred, binary_frac=.5, format_='dense')
-    X_design = DenseDesignMatrix(X, centered=True, add_intercept=True)
+    X_design = DenseDesignMatrix(X, center_predictor=True, add_intercept=True)
     X_ndarray = center_and_add_intercept(X)
     w, v = (np.random.randn(size) for size in X_design.shape)
     assert np.allclose(
