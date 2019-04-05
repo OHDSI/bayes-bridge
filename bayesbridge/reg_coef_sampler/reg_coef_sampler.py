@@ -28,18 +28,20 @@ class SparseRegressionCoefficientSampler():
         elif sampling_method == 'hmc':
             self.stability_adjustment_adapter = \
                 HamiltonianBasedStepsizeAdapter(init_stepsize=.3, target_accept_prob=.95)
+        self._sampling_info_attributes = [
+            'regcoef_summarizer',
+            'stability_adjustment_adapter'
+        ] # Names of the attributes tracking info from previous sampling iterations.
 
     def get_internal_state(self):
         state = {}
-        attributes = ['regcoef_summarizer', 'stability_adjustment_adapter']
-        for attr in attributes:
+        for attr in self._sampling_info_attributes:
             if hasattr(self, attr):
                 state[attr] = getattr(self, attr)
         return state
 
     def set_internal_state(self, state):
-        attributes = ['regcoef_summarizer', 'stability_adjustment_adapter']
-        for attr in attributes:
+        for attr in self._sampling_info_attributes:
             if hasattr(self, attr):
                 setattr(self, attr, state[attr])
 
