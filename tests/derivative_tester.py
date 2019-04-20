@@ -1,7 +1,8 @@
 import numpy as np
 
 def numerical_grad_is_close(
-        f, x, atol=10E-6, rtol=10E-6, dx=10E-6, return_grad=False):
+        f, x, atol=10E-6, rtol=10E-6, dx=10E-6,
+        subset_index=None, return_grad=False):
     """
     Compare the computed gradient to a centered finite difference approximation.
 
@@ -10,22 +11,25 @@ def numerical_grad_is_close(
     f : callable
         Returns a value of a function and its gradient
     """
+    if subset_index is None:
+        subset_index = np.arange(len(x))
+
     x = np.array(x, ndmin=1)
-    grad_est = np.zeros(len(x))
-    for i in range(len(x)):
+    grad_est = np.zeros(len(subset_index))
+    for i in range(len(subset_index)):
         x_minus = x.copy()
-        x_minus[i] -= dx
+        x_minus[subset_index[i]] -= dx
         x_plus = x.copy()
-        x_plus[i] += dx
+        x_plus[subset_index[i]] += dx
         f_minus, _ = f(x_minus)
         f_plus, _ = f(x_plus)
         grad_est[i] = (f_plus - f_minus) / (2 * dx)
 
     _, grad = f(x)
-    is_close = np.allclose(grad, grad_est, atol=atol, rtol=rtol)
+    is_close = np.allclose(grad[subset_index], grad_est, atol=atol, rtol=rtol)
 
     if return_grad:
-        return is_close, grad, grad_est
+        return is_close, grad[subset_index], grad_est
     else:
         return is_close
 
