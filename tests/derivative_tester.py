@@ -1,6 +1,7 @@
 import numpy as np
 
-def numerical_grad_is_close(f, x, atol=10E-6, rtol=10E-6, dx=10E-6):
+def numerical_grad_is_close(
+        f, x, atol=10E-6, rtol=10E-6, dx=10E-6, return_grad=False):
     """
     Compare the computed gradient to a centered finite difference approximation.
 
@@ -21,7 +22,12 @@ def numerical_grad_is_close(f, x, atol=10E-6, rtol=10E-6, dx=10E-6):
         grad_est[i] = (f_plus - f_minus) / (2 * dx)
 
     _, grad = f(x)
-    return np.allclose(grad, grad_est, atol=atol, rtol=rtol)
+    is_close = np.allclose(grad, grad_est, atol=atol, rtol=rtol)
+
+    if return_grad:
+        return is_close, grad, grad_est
+    else:
+        return is_close
 
 
 def numerical_direc_deriv_is_close(
