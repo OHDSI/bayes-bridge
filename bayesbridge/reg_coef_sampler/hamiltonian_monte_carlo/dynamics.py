@@ -14,18 +14,34 @@ class HamiltonianDynamics():
         """
         Parameters
         ----------
-        mass(p, power) : callable
-            Returns a vector obtained by multiplying the vector p with matrix
-            M ** power for power == -1 or power == 1/2. The matrix L corresponding
-            to M ** 1/2 only needs to satisfy L L' = M. Passing M = None defaults
-            to a dynamics with the identity mass matrix.
+        mass: None, numpy 1d array, or callable `mass(p, power)`
+            If callable, should return a vector obtained by multiplying the
+            vector p with matrix M ** power for power == -1 or power == 1/2.
+            The matrix L corresponding to M ** 1/2 only needs to satisfy L L' = M.
+            Passing M = None defaults to a dynamics with the identity mass matrix.
         """
+
+        if mass is None:
+            mass_operator = lambda p, power: p
+        elif isinstance(mass, np.ndarray):
+            sqrt_mass = np.sqrt(mass)
+            inv_mass = 1 / mass
+            def mass_operator(p, power):
+                if power == -1:
+                    return inv_mass * p
+                elif power == 1 / 2:
+                    return sqrt_mass * p
+        elif callable(mass):
+            mass_operator = mass
+        else:
+            raise ValueError("Unsupported type for the mass matrix.")
+
         self.integrator = velocity_verlet
-        self.momentum = GaussianMomentum(mass)
+        self.momentum = GaussianMomentum(mass_operator)
 
     def integrate(self, f, dt, q, p, grad):
         q, p, logp, grad \
-            = velocity_verlet(f, self.momentum.get_grad, dt, q, p, grad)
+            = self.integrator(f, self.momentum.get_grad, dt, q, p, grad)
         return q, p, logp, grad
 
     def draw_momentum(self, n_param):
@@ -35,6 +51,9 @@ class HamiltonianDynamics():
         potential = - logp
         kinetic = - self.momentum.get_logp(p)
         return potential + kinetic
+
+    def convert_to_velocity(self, p):
+        return - self.momentum.get_grad(p)
 
 
 def velocity_verlet(
@@ -51,8 +70,6 @@ def velocity_verlet(
 class GaussianMomentum():
 
     def __init__(self, mass=None):
-        if mass is None:
-            mass = lambda p, power: p
         self.mass = mass
 
     def draw_random(self, n_param):
