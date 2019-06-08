@@ -94,6 +94,7 @@ class SparseRegressionCoefficientSampler():
         return beta, info
 
     def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500):
+        # TODO: allow for a fixed stepsize (w/o adaptation)?
 
         beta_precond_post_sd = \
             self.regcoef_summarizer.estimate_beta_precond_scale_sd()
