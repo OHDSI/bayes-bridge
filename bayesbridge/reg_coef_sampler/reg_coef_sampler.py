@@ -116,7 +116,6 @@ class SparseRegressionCoefficientSampler():
         approx_stability_limit = 2 / np.sqrt(max_curvature)
         adjustment_factor = self.stability_adjustment_adapter.get_current_stepsize()
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
-            # The multiplicative factors may require adjustment.
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
         integration_time = np.pi / 2 * np.random.uniform(.8, 1.)
         n_step = np.ceil(integration_time / dt).astype('int')
