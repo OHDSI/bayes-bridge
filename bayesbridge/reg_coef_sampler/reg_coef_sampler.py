@@ -102,6 +102,8 @@ class SparseRegressionCoefficientSampler():
             self.compute_preconditioning_scale(
                 gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
             )
+
+        # Calibrate the stepsize by estimating the stability limit.
         approx_stability_limit, n_hessian_matvec \
             = self.compute_stability_limit(
                 gshrink, lshrink, model, precond_scale, precond_prior_prec
@@ -109,16 +111,21 @@ class SparseRegressionCoefficientSampler():
         adjustment_factor = self.stability_adjustment_adapter.get_current_stepsize()
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
+
+        # Pick an appropriate number of numerical integration steps.
         integration_time = np.pi / 2 * np.random.uniform(.8, 1.)
         n_step = np.ceil(integration_time / dt).astype('int')
         n_step = min(n_step, max_step)
 
+        # Sample the coefficients. 
         beta_precond = beta / precond_scale
-        f = self.get_precond_logprob_and_gradient(model, precond_scale, precond_prior_prec)
-
+        f = self.get_precond_logprob_and_gradient(
+            model, precond_scale, precond_prior_prec
+        )
         beta_precond, hmc_info = \
             hmc.generate_next_state(f, dt, n_step, beta_precond)
         beta = beta_precond * precond_scale
+
         self.regcoef_summarizer.update(beta, gshrink, lshrink)
         self.stability_adjustment_adapter.adapt_stepsize(hmc_info['hamiltonian_error'])
 
