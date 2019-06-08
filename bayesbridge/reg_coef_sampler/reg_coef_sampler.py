@@ -7,6 +7,7 @@ from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
 from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo import hmc
+from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.nuts import NoUTurnSampler
 from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.stepsize_adapter \
     import HamiltonianBasedStepsizeAdapter
 from bayesbridge.util import warn_message_only
@@ -25,7 +26,7 @@ class SparseRegressionCoefficientSampler():
         )
         if sampling_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
-        elif sampling_method == 'hmc':
+        elif sampling_method in ['hmc', 'nuts']:
             self.stability_adjustment_adapter = \
                 HamiltonianBasedStepsizeAdapter(init_stepsize=.3, target_accept_prob=.95)
         self._sampling_info_attributes = [
@@ -93,7 +94,8 @@ class SparseRegressionCoefficientSampler():
 
         return beta, info
 
-    def sample_by_hmc(self, beta, gshrink, lshrink, model, max_step=500):
+    def sample_by_hmc(
+            self, beta, gshrink, lshrink, model, method='hmc', max_step=500):
         # TODO: allow for a fixed stepsize (w/o adaptation)?
 
         beta_precond_post_sd = \
@@ -112,28 +114,42 @@ class SparseRegressionCoefficientSampler():
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
 
-        # Pick an appropriate number of numerical integration steps.
-        integration_time = np.pi / 2 * np.random.uniform(.8, 1.)
-        n_step = np.ceil(integration_time / dt).astype('int')
-        n_step = min(n_step, max_step)
-
-        # Sample the coefficients. 
+        # Sample the coefficients.
         beta_precond = beta / precond_scale
         f = self.get_precond_logprob_and_gradient(
             model, precond_scale, precond_prior_prec
         )
-        beta_precond, hmc_info = \
-            hmc.generate_next_state(f, dt, n_step, beta_precond)
+        if method == 'hmc':
+            integration_time = np.pi / 2 * np.random.uniform(.8, 1.)
+            n_step = np.ceil(integration_time / dt).astype('int')
+            n_step = min(n_step, max_step)
+            beta_precond, hmc_info = \
+                hmc.generate_next_state(f, dt, n_step, beta_precond)
+            info = {
+                key: hmc_info.get(key)
+                for key in ['accepted', 'accept_prob', 'n_grad_evals']
+            }
+            info['n_integrator_step'] = n_step
+            hamiltonian_error = hmc_info['hamiltonian_error']
+
+        elif method == 'nuts':
+            nuts = NoUTurnSampler(f)
+            max_height = int(math.log2(max_step))
+            beta_precond, nuts_info = \
+                nuts.generate_next_state(dt, beta_precond, max_height=max_height)
+            info = {
+                key: nuts_info.get(key)
+                for key in ['ave_accept_prob', 'n_grad_evals', 'tree_height']
+            }
+            hamiltonian_error = nuts_info['ave_hamiltonian_error']
+
+        else:
+            raise NotImplementedError()
+
         beta = beta_precond * precond_scale
-
         self.regcoef_summarizer.update(beta, gshrink, lshrink)
-        self.stability_adjustment_adapter.adapt_stepsize(hmc_info['hamiltonian_error'])
+        self.stability_adjustment_adapter.adapt_stepsize(hamiltonian_error)
 
-        info = {
-            key: hmc_info[key]
-            for key in ['accepted', 'accept_prob', 'n_grad_evals']
-        }
-        info['n_integrator_step'] = n_step
         info['n_hessian_matvec'] = n_hessian_matvec
         info['stepsize'] = dt
         info['stability_limit_est'] = approx_stability_limit

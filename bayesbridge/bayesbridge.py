@@ -640,11 +640,15 @@ class MarkovChainManager():
     def get_sampling_info_keys(self, sampling_method):
         if sampling_method == 'cg':
             keys = ['n_cg_iter']
-        elif sampling_method == 'hmc':
+        elif sampling_method in ['hmc', 'nuts']:
             keys = [
-                'n_integrator_step', 'accepted', 'accept_prob', 'stepsize',
-                'n_hessian_matvec', 'stability_limit_est', 'stability_adjustment_factor'
+                'stepsize', 'n_hessian_matvec', 'stability_limit_est',
+                'stability_adjustment_factor'
             ]
+            if sampling_method == 'hmc':
+                keys += ['n_integrator_step', 'accepted', 'accept_prob']
+            else:
+                keys += ['tree_height', 'ave_accept_prob']
         else:
             keys = []
         return keys
