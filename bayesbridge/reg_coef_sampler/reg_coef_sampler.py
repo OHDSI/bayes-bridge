@@ -102,18 +102,10 @@ class SparseRegressionCoefficientSampler():
             self.compute_preconditioning_scale(
                 gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
             )
-
-        beta_condmean_guess = \
-            self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
-        hessian_pc_estimate = self.regcoef_summarizer.estimate_precond_hessian_pc()
-        max_curvature, hessian_pc, n_hessian_matvec = \
-            self.compute_precond_hessian_curvature(
-                beta_condmean_guess, model, precond_scale, precond_prior_prec,
-                hessian_pc_estimate
+        approx_stability_limit, n_hessian_matvec \
+            = self.compute_stability_limit(
+                gshrink, lshrink, model, precond_scale, precond_prior_prec
             )
-        self.regcoef_summarizer.update_precond_hessian_pc(hessian_pc)
-
-        approx_stability_limit = 2 / np.sqrt(max_curvature)
         adjustment_factor = self.stability_adjustment_adapter.get_current_stepsize()
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
@@ -160,6 +152,20 @@ class SparseRegressionCoefficientSampler():
         ))
 
         return precond_scale, precond_prior_prec
+
+    def compute_stability_limit(
+            self, gshrink, lshrink, model, precond_scale, precond_prior_prec):
+        beta_condmean_guess = \
+            self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
+        hessian_pc_estimate = self.regcoef_summarizer.estimate_precond_hessian_pc()
+        max_curvature, hessian_pc, n_hessian_matvec = \
+            self.compute_precond_hessian_curvature(
+                beta_condmean_guess, model, precond_scale, precond_prior_prec,
+                hessian_pc_estimate
+            )
+        self.regcoef_summarizer.update_precond_hessian_pc(hessian_pc)
+        approx_stability_limit = 2 / np.sqrt(max_curvature)
+        return approx_stability_limit, n_hessian_matvec
 
     def compute_precond_hessian_curvature(
             self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
