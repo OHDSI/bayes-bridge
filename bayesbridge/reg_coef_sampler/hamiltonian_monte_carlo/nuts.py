@@ -107,8 +107,10 @@ class NoUTurnSampler():
     def generate_next_state(self, dt, q, p=None, logp=None, grad=None,
                             max_height=10, hamiltonian_error_tol=100):
 
+        n_grad_evals = 0
         if logp is None or grad is None:
             logp, grad = self.f(q)
+            n_grad_evals += 1
 
         if p is None:
             p = self.dynamics.draw_momentum(len(q))
@@ -126,12 +128,14 @@ class NoUTurnSampler():
         tree, final_height, last_doubling_rejected \
             = self._grow_trajectory_till_u_turn(tree, directions)
         q, logp, grad = tree.sample
+        n_grad_evals += tree.n_integration_step
 
         info = {
             'logp': logp,
             'grad': grad,
             'ave_accept_prob': tree.ave_accept_prob,
             'ave_hamiltonian_error': tree.ave_hamiltonian_error,
+            'n_grad_evals': n_grad_evals,
             'tree_height': final_height,
             'u_turn_detected': tree.u_turn_detected,
             'instability_detected': tree.instability_detected,
