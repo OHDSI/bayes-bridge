@@ -8,7 +8,7 @@ from .util import warn_message_only
 
 class NoUTurnSampler():
 
-    def __init__(self, f, mass=None):
+    def __init__(self, f, mass=None, warning_requested=True):
         """
         Parameters
         ----------
@@ -18,6 +18,7 @@ class NoUTurnSampler():
         """
         self.f = f
         self.dynamics = HamiltonianDynamics(mass)
+        self.warning_requested = warning_requested
 
     def generate_samples(
             self, q0, n_burnin, n_sample, dt_range=None, seed=None, n_update=0,
@@ -104,7 +105,7 @@ class NoUTurnSampler():
         accept_prob = np.exp(logp_joint - logp_joint0)
         return accept_prob
 
-    def generate_next_state(self, dt, q, p=None, logp=None, grad=None,
+    def generate_next_state(self, dt, q, logp=None, grad=None, p=None,
                             max_height=10, hamiltonian_error_tol=100):
 
         n_grad_evals = 0
@@ -125,10 +126,15 @@ class NoUTurnSampler():
         )
         directions = 2 * (np.random.rand(max_height) < 0.5) - 1
             # Pre-allocation of random directions is unnecessary, but makes the code easier to test.
-        tree, final_height, last_doubling_rejected \
+        tree, final_height, last_doubling_rejected, maxed_before_u_turn \
             = self._grow_trajectory_till_u_turn(tree, directions)
         q, logp, grad = tree.sample
         n_grad_evals += tree.n_integration_step
+
+        if self.warning_requested:
+            self._issue_warnings(
+                tree.instability_detected, maxed_before_u_turn, max_height
+            )
 
         info = {
             'logp': logp,
@@ -144,6 +150,21 @@ class NoUTurnSampler():
 
         return q, info
 
+    def _issue_warnings(
+            self, instability_detected, maxed_before_u_turn, max_height):
+
+        if instability_detected:
+            warn_message_only(
+                "Numerical integration became unstable while simulating a "
+                "NUTS trajectory."
+            )
+        if maxed_before_u_turn:
+            warn_message_only(
+                'The trajectory tree reached the max height of {:d} before '
+                'meeting the U-turn condition.'.format(max_height)
+            )
+        return
+
     @staticmethod
     def _grow_trajectory_till_u_turn(tree, directions):
 
@@ -158,17 +179,13 @@ class NoUTurnSampler():
                 # No transition to the next half of trajectory takes place if the
                 # termination criteria are met within the next half tree.
 
-            trajectory_terminated \
-                = tree.u_turn_detected or tree.instability_detected
             height += 1
-            if height >= max_height and (not trajectory_terminated):
-                warn_message_only(
-                    'The trajectory tree reached the max height of {:d} before '
-                    'meeting the U-turn condition.'.format(max_height)
-                )
-                trajectory_terminated = True
+            trajectory_terminated \
+                = tree.u_turn_detected or tree.instability_detected or (height >= max_height)
+            maxed_before_u_turn \
+                = height >= max_height and (not tree.u_turn_detected)
 
-        return tree, height, doubling_rejected
+        return tree, height, doubling_rejected, maxed_before_u_turn
 
 
 class _TrajectoryTree():
