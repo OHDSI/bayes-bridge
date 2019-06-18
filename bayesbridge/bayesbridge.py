@@ -429,9 +429,9 @@ class BayesBridge():
                 sampling_method, precond_blocksize
             )
 
-        elif sampling_method == 'hmc':
+        elif sampling_method in ['hmc', 'nuts']:
             beta, info = self.reg_coef_sampler.sample_by_hmc(
-                beta, gshrink, lshrink, self.model
+                beta, gshrink, lshrink, self.model, method=sampling_method
             )
 
         else:
