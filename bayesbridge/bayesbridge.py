@@ -549,7 +549,7 @@ class BayesBridge():
             lshrink[lshrink == 0] = 10e-16
         elif np.any(np.isinf(lshrink)):
             warn_message_only(
-                "Local shrinkage parameter under-flowed. Replacing with a large number.")
+                "Local shrinkage parameter over-flowed. Replacing with a large number.")
             lshrink[np.isinf(lshrink)] = 2.0 / gshrink
 
         return lshrink
