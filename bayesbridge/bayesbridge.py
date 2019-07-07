@@ -463,7 +463,8 @@ class BayesBridge():
 
         lower_bd = coef_expected_magnitude_lower_bd \
                    / self.compute_power_exp_ave_magnitude(shrinkage_exponent)
-            # Solve for $ (expected value of coefficient given global shrinkage) = p^{-1} $.
+            # Solve for the value of global shrinkage such that
+            # (expected value of beta given gshrink) = coef_expected_magnitude_lower_bd.
 
         if method == 'optimize':
             gshrink = self.monte_carlo_em_global_shrinkage(
