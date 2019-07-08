@@ -166,7 +166,8 @@ class BayesBridge():
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
-              hmc_curvature_est_stabilized=False):
+              hmc_curvature_est_stabilized=False,
+              regularizing_slab_size=float('inf')):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -199,7 +200,7 @@ class BayesBridge():
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
                 self.n_pred, self.prior_sd_for_unshrunk, sampling_method,
-                n_iter, hmc_curvature_est_stabilized
+                n_iter, hmc_curvature_est_stabilized, regularizing_slab_size
             )
 
         if params_to_save == 'all':
