@@ -16,10 +16,12 @@ from bayesbridge.util import warn_message_only
 class SparseRegressionCoefficientSampler():
 
     def __init__(self, n_coef, prior_sd_for_unshrunk, sampling_method,
-                 n_iter=0, stability_estimate_stabilized=False):
+                 n_iter=0, stability_estimate_stabilized=False,
+                 regularizing_slab_size=float('inf')):
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = len(prior_sd_for_unshrunk)
+        self.regularizing_slab_size = regularizing_slab_size
 
         # Object for keeping track of running average.
         self.regcoef_summarizer = RegressionCoeffficientPosteriorSummarizer(
@@ -167,15 +169,16 @@ class SparseRegressionCoefficientSampler():
         info['stability_adjustment_factor'] = adjustment_factor
         return beta, info
 
-    @staticmethod
     def compute_preconditioning_scale(
-            gshrink, lshrink, regcoef_precond_post_sd, prior_sd_for_unshrunk,
-            unshrunk_target_sd_scale=1.):
+            self, gshrink, lshrink, regcoef_precond_post_sd,
+            prior_sd_for_unshrunk, unshrunk_target_sd_scale=1.):
         n_coef = len(regcoef_precond_post_sd)
         n_unshrunk = n_coef - len(lshrink)
 
         precond_scale = np.ones(n_coef)
-        precond_scale[n_unshrunk:] = gshrink * lshrink
+        prior_prec = (gshrink * lshrink) ** -2 \
+                     + self.regularizing_slab_size ** -2
+        precond_scale[n_unshrunk:] = 1 / np.sqrt(prior_prec)
         if n_unshrunk > 0:
             precond_scale[:n_unshrunk] = \
                 unshrunk_target_sd_scale * regcoef_precond_post_sd[:n_unshrunk]
