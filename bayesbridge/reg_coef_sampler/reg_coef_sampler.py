@@ -127,7 +127,8 @@ class SparseRegressionCoefficientSampler():
                 hmc.generate_next_state(f, dt, n_step, beta_precond)
             info = {
                 key: hmc_info.get(key)
-                for key in ['accepted', 'accept_prob', 'n_grad_evals']
+                for key in ['accepted', 'accept_prob', 'n_grad_evals',
+                            'instability_detected']
             }
             info['n_integrator_step'] = n_step
             hamiltonian_error = hmc_info['hamiltonian_error']
@@ -139,7 +140,8 @@ class SparseRegressionCoefficientSampler():
                 nuts.generate_next_state(dt, beta_precond, max_height=max_height)
             info = {
                 key: nuts_info.get(key)
-                for key in ['ave_accept_prob', 'n_grad_evals', 'tree_height']
+                for key in ['ave_accept_prob', 'n_grad_evals', 'tree_height',
+                            'instability_detected']
             }
             hamiltonian_error = nuts_info['ave_hamiltonian_error']
 
