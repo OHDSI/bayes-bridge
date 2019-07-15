@@ -643,8 +643,9 @@ class MarkovChainManager():
             keys = ['n_cg_iter']
         elif sampling_method in ['hmc', 'nuts']:
             keys = [
-                'stepsize', 'n_hessian_matvec', 'stability_limit_est',
-                'stability_adjustment_factor', 'instability_detected'
+                'stepsize', 'n_hessian_matvec', 'n_grad_evals',
+                'stability_limit_est', 'stability_adjustment_factor',
+                'instability_detected'
             ]
             if sampling_method == 'hmc':
                 keys += ['n_integrator_step', 'accepted', 'accept_prob']
