@@ -159,7 +159,12 @@ def simulate_dynamics(f, dt, n_step, q0, p0, logp0, grad0, hamiltonian_tol=float
         n_grad_evals += 1
         instability_detected \
             = math.isinf(logp) or (max_h - min_h) > hamiltonian_tol
-        if instability_detected: break
+        if instability_detected:
+            warn_message_only(
+                "Numerical integration became unstable while simulating the "
+                "HMC trajectory."
+            )
+            break
 
     info = {
         'energy_trajectory': hamiltonians,
