@@ -165,7 +165,8 @@ class BayesBridge():
     def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', params_to_save=None,
-              n_init_optim_step=10, n_status_update=0, _add_iter_mode=False):
+              n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
+              hmc_curvature_est_stabilized=False):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -190,12 +191,15 @@ class BayesBridge():
             Number of updates to print on stdout during the sampler run.
         """
 
+        n_iter = n_burnin + n_post_burnin
+
         if _add_iter_mode:
             n_init_optim_step = 0
         else:
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-                self.n_pred, self.prior_sd_for_unshrunk, sampling_method
+                self.n_pred, self.prior_sd_for_unshrunk, sampling_method,
+                n_iter, hmc_curvature_est_stabilized
             )
 
         if params_to_save == 'all':
@@ -207,7 +211,6 @@ class BayesBridge():
         elif params_to_save is None:
             params_to_save = ['beta', 'global_shrinkage', 'logp']
 
-        n_iter = n_burnin + n_post_burnin
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
         self._prev_timestamp = start_time

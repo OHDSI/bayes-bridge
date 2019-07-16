@@ -15,7 +15,8 @@ from bayesbridge.util import warn_message_only
 
 class SparseRegressionCoefficientSampler():
 
-    def __init__(self, n_coef, prior_sd_for_unshrunk, sampling_method):
+    def __init__(self, n_coef, prior_sd_for_unshrunk, sampling_method,
+                 n_iter=0, stability_estimate_stabilized=False):
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = len(prior_sd_for_unshrunk)
@@ -29,9 +30,12 @@ class SparseRegressionCoefficientSampler():
         elif sampling_method in ['hmc', 'nuts']:
             self.stability_adjustment_adapter = \
                 HamiltonianBasedStepsizeAdapter(init_stepsize=.3, target_accept_prob=.95)
+            self.stability_est_stabilizer = StabilityEstimateStabilizer(n_iter)
+            self.stability_est_stabilized = stability_estimate_stabilized
         self._sampling_info_attributes = [
             'regcoef_summarizer',
-            'stability_adjustment_adapter'
+            'stability_adjustment_adapter',
+            'stability_estimate_stabilizer'
         ] # Names of the attributes tracking info from previous sampling iterations.
 
     def get_internal_state(self):
@@ -110,6 +114,11 @@ class SparseRegressionCoefficientSampler():
             = self.compute_stability_limit(
                 gshrink, lshrink, model, precond_scale, precond_prior_prec
             )
+        if self.stability_est_stabilized:
+            pre_stabilization = approx_stability_limit
+            approx_stability_limit = \
+                self.stability_est_stabilizer.stabilize(approx_stability_limit)
+            self.stability_est_stabilizer.update(pre_stabilization)
         adjustment_factor = self.stability_adjustment_adapter.get_current_stepsize()
         stepsize_upper_limit = adjustment_factor * approx_stability_limit
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
@@ -367,3 +376,38 @@ class SparseRegressionCoefficientSampler():
                 optim_options['xtol'] = tol
 
         return optim_method, optim_options
+
+
+class StabilityEstimateStabilizer():
+    """ Detect and adjust unusually large stability limit estimates. """
+
+    def __init__(self, n_iter, n_warmup=100):
+        assert n_iter > 0
+        self.stability_estimate = np.zeros(n_iter)
+        self.n_update = 0
+        self.n_warmup = n_warmup
+
+    def update(self, estimate):
+        self.stability_estimate[self.n_update] = estimate
+        self.n_update += 1
+
+    def stabilize(self, estimate):
+
+        gaussian_cdf_at_onestd = .8414
+        stability_estimate = self.stability_estimate[:self.n_update]
+        cdf_at_estimate = np.mean(stability_estimate < estimate)
+
+        if self.n_update < self.n_warmup \
+                or cdf_at_estimate <= gaussian_cdf_at_onestd:
+            stabilized_est = estimate
+        else:
+            stability_median = np.median(stability_estimate)
+            stability_at_gaussian_cdf = np.quantile(
+                stability_estimate, gaussian_cdf_at_onestd
+            )
+            one_std_dist = stability_at_gaussian_cdf - stability_median
+            gaussian_dist_above_onestd = sp.stats.norm.ppf(cdf_at_estimate) - 1.
+            stabilized_est = stability_at_gaussian_cdf \
+                    + one_std_dist * gaussian_dist_above_onestd
+
+        return stabilized_est
