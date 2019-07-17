@@ -407,6 +407,8 @@ class StabilityEstimateStabilizer():
             )
             one_std_dist = stability_at_gaussian_cdf - stability_median
             gaussian_dist_above_onestd = sp.stats.norm.ppf(cdf_at_estimate) - 1.
+            gaussian_dist_above_onestd = min(2., gaussian_dist_above_onestd)
+                # In case the empirical CDF of the estimate is too close to 1.
             stabilized_est = stability_at_gaussian_cdf \
                     + one_std_dist * gaussian_dist_above_onestd
 
