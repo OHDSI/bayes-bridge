@@ -393,12 +393,14 @@ class StabilityEstimateStabilizer():
 
     def stabilize(self, estimate):
 
+        if self.n_update < self.n_warmup:
+            return estimate
+
         gaussian_cdf_at_onestd = .8414
         stability_estimate = self.stability_estimate[:self.n_update]
         cdf_at_estimate = np.mean(stability_estimate < estimate)
 
-        if self.n_update < self.n_warmup \
-                or cdf_at_estimate <= gaussian_cdf_at_onestd:
+        if cdf_at_estimate <= gaussian_cdf_at_onestd:
             stabilized_est = estimate
         else:
             stability_median = np.median(stability_estimate)
