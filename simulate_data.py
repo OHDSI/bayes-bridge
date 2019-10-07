@@ -70,7 +70,7 @@ def simulate_dense_design(n_obs, n_pred, corr_design, standardize=False):
         X = np_standardize(X)
     return X
 
-def np_standardize(X, divide_by='max'):
+def np_standardize(X, divide_by='std'):
     X = X - np.mean(X, axis=0)[np.newaxis, :]
     if divide_by == 'max':
         X = X / np.max(X, axis=0)[np.newaxis, :]
