@@ -25,7 +25,8 @@ class SparseRegressionCoefficientSampler():
 
         # Object for keeping track of running average.
         self.regcoef_summarizer = RegressionCoeffficientPosteriorSummarizer(
-            n_coef, self.n_unshrunk, pc_summary_method='average'
+            n_coef, self.n_unshrunk, regularizing_slab_size,
+            pc_summary_method='average'
         )
         if sampling_method == 'cg':
             self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
