@@ -18,7 +18,7 @@ class BayesBridge():
     def __init__(self, outcome, X, model='linear',
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
                  prior_sd_for_intercept=float('inf'), add_intercept=None,
-                 center_predictor=False):
+                 center_predictor=False, regularizing_slab_size=float('inf')):
         """
         Params
         ------
@@ -86,6 +86,7 @@ class BayesBridge():
             raise NotImplementedError()
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
+        self.slab_size = regularizing_slab_size
         self.n_unshrunk = n_coef_without_shrinkage
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
@@ -166,8 +167,7 @@ class BayesBridge():
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_shrinkage_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
-              hmc_curvature_est_stabilized=False,
-              regularizing_slab_size=float('inf')):
+              hmc_curvature_est_stabilized=False):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -200,7 +200,7 @@ class BayesBridge():
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
                 self.n_pred, self.prior_sd_for_unshrunk, sampling_method,
-                n_iter, hmc_curvature_est_stabilized, regularizing_slab_size
+                n_iter, hmc_curvature_est_stabilized, self.slab_size
             )
 
         if params_to_save == 'all':
@@ -561,14 +561,18 @@ class BayesBridge():
 
     def compute_posterior_logprob(self, beta, gshrink, obs_prec, shrinkage_exponent):
 
-        prior_logp = 0
-
+        # Contributions from the likelihood.
         params = [beta] if self.model.name != 'linear' else [beta, obs_prec]
         loglik, _ = self.model.compute_loglik_and_gradient(*params, loglik_only=True)
 
+        # Contributions from the regularization.
+        loglik += - .5 * np.sum((beta / self.slab_size) ** 2)
+
+        # Add contributions from the priors.
+        prior_logp = 0
         n_shrunk_coef = len(beta) - self.n_unshrunk
 
-        # Contribution from beta | gshrink.
+        # for beta | gshrink.
         prior_logp += \
             - n_shrunk_coef * math.log(gshrink) \
             - np.sum(np.abs(beta[self.n_unshrunk:] / gshrink) ** shrinkage_exponent)
