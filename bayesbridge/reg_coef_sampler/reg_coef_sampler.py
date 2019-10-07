@@ -72,8 +72,12 @@ class SparseRegressionCoefficientSampler():
         # TODO: Comment on the form of the posterior.
 
         v = X.Tdot(obs_prec * y)
+        prior_shrunk_scale = gshrink * lshrink
+        prior_shrunk_scale /= np.sqrt(
+            1 + (prior_shrunk_scale / self.regularizing_slab_size) ** 2
+        )   # Account for the regularization.
         prior_sd = np.concatenate((
-            self.prior_sd_for_unshrunk, gshrink * lshrink
+            self.prior_sd_for_unshrunk, prior_shrunk_scale
         ))
         prior_prec_sqrt = 1 / prior_sd
 
