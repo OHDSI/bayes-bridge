@@ -64,11 +64,18 @@ class BayesBridge():
                 prior_sd_for_unshrunk * np.ones(n_coef_without_shrinkage)
 
         if add_intercept:
-            n_coef_without_shrinkage += 1
-            if not np.isscalar(prior_sd_for_unshrunk):
+            if n_coef_without_shrinkage == 0:
+                prior_sd_for_unshrunk = prior_sd_for_intercept
+            elif np.isscalar(prior_sd_for_unshrunk):
+                prior_sd_for_unshrunk = np.concatenate((
+                    [prior_sd_for_intercept],
+                    n_coef_without_shrinkage * [prior_sd_for_unshrunk]
+                ))
+            else:
                 prior_sd_for_unshrunk = np.concatenate((
                     [prior_sd_for_intercept], prior_sd_for_unshrunk
                 ))
+            n_coef_without_shrinkage += 1
 
         DesignMatrix = SparseDesignMatrix \
             if sp.sparse.issparse(X) else DenseDesignMatrix
@@ -85,7 +92,7 @@ class BayesBridge():
         else:
             raise NotImplementedError()
 
-        self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
+        self.prior_sd_for_unshrunk = np.atleast_1d(prior_sd_for_unshrunk)
         self.slab_size = regularizing_slab_size
         self.n_unshrunk = n_coef_without_shrinkage
         self.n_obs = X.shape[0]
