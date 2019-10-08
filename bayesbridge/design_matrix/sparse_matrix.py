@@ -63,20 +63,30 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return result
 
     def compute_fisher_info(self, weight, diag_only=False):
-
-        if self.centered:
-            raise NotImplementedError(
-                "Operation not yet supported for a centered design.")
+        """ Compute $X^T W X$ where W is the diagonal matrix of a given weight."""
 
         weight_mat = self.create_diag_matrix(weight)
 
         if diag_only:
             diag = weight_mat.dot(self.X_csr.power(2)).sum(0)
+            if self.centered:
+                weighted_X = weight_mat.dot(self.X_csr).tocsc()
+                diag -= 2 * self.column_offset \
+                        * np.squeeze(np.asarray(weighted_X.sum(0)))
+                diag += np.sum(weight) * self.column_offset ** 2
             return np.squeeze(np.asarray(diag))
         else:
             X_T = self.X_csr.T
             weighted_X = weight_mat.dot(self.X_csr).tocsc()
-            return X_T.dot(weighted_X).toarray()
+            fisher_info = X_T.dot(weighted_X).toarray()
+            if self.centered:
+                outer_prod_term = np.outer(
+                    self.column_offset, weighted_X.sum(0)
+                )
+                fisher_info -= outer_prod_term + outer_prod_term.T
+                fisher_info += np.sum(weight) \
+                               * np.outer(self.column_offset, self.column_offset)
+            return fisher_info
 
     def create_diag_matrix(self, v):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
