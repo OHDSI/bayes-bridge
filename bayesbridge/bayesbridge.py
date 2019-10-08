@@ -513,6 +513,7 @@ class BayesBridge():
 
     def monte_carlo_em_global_shrinkage(
             self, beta_with_shrinkage, shrinkage_exponent):
+        """ Maximize the likelihood (not posterior conditional) 'beta | gshrink'. """
         phi = len(beta_with_shrinkage) / shrinkage_exponent \
               / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
         gshrink = phi ** - (1 / shrinkage_exponent)
