@@ -9,7 +9,6 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         Params:
         ------
         X : numpy array
-        order : str, {'row_major', 'col_major', None}
         """
         if copy_array:
             X = X.copy()
