@@ -4,18 +4,18 @@ import scipy.sparse
 from bayesbridge.model import CoxModel
 
 
-def simulate_outcome(X, beta, model, n_trial=None, seed=None):
+def simulate_outcome(X, beta, model, intercept=0., n_trial=None, seed=None):
 
     if seed is not None:
         np.random.seed(seed)
 
     if model == 'linear':
         sigma = 1.
-        outcome = X.dot(beta) + sigma * np.random.randn(X.shape[0])
+        outcome = intercept + X.dot(beta) + sigma * np.random.randn(X.shape[0])
     elif model == 'logit':
         if n_trial is None:
             n_trial = np.ones(X.shape[0])
-        prob = 1 / (1 + np.exp(-X.dot(beta)))
+        prob = 1 / (1 + np.exp(- intercept - X.dot(beta)))
         n_success = np.random.binomial(n_trial.astype(np.int64), prob)
         outcome = (n_success, n_trial)
     elif model == 'cox':
