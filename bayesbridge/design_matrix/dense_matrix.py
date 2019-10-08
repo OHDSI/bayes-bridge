@@ -3,13 +3,16 @@ from .abstract_matrix import AbstractDesignMatrix
 
 class DenseDesignMatrix(AbstractDesignMatrix):
     
-    def __init__(self, X, center_predictor=False, add_intercept=True):
+    def __init__(self, X, center_predictor=False, add_intercept=True,
+                 copy_array=False):
         """
         Params:
         ------
         X : numpy array
         order : str, {'row_major', 'col_major', None}
         """
+        if copy_array:
+            X = X.copy()
         super().__init__(X)
         if center_predictor:
             X -= np.mean(X, axis=0)[np.newaxis, :]

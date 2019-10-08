@@ -7,12 +7,14 @@ from .mkl_matvec import mkl_csr_matvec
 class SparseDesignMatrix(AbstractDesignMatrix):
 
     def __init__(self, X, use_mkl=True, center_predictor=False, add_intercept=True,
-                 dot_format='csr', Tdot_format='csr'):
+                 copy_array=False, dot_format='csr', Tdot_format='csr'):
         """
         Params:
         ------
         X : scipy sparse matrix
         """
+        if copy_array:
+            X = X.copy()
         super().__init__(X)
         if dot_format == 'csc' or Tdot_format == 'csc':
             raise NotImplementedError(
