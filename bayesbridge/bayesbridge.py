@@ -108,7 +108,9 @@ class BayesBridge():
         self._curr_timestamp = None
 
     def set_default_priors(self, prior_type, prior_param):
-        prior_type['global_shrinkage'] = 'jeffreys'
+        prior_type['global_shrinkage'] = 'gamma'
+        prior_param['global_shrinkage'] = {'shape': 0., 'rate': 0.}
+            # Reference prior for a scale family.
         # prior_type['global_shrinkage'] = 'half-cauchy'
         # prior_param['global_shrinkage'] = {'scale': 1.0}
         return prior_type, prior_param
@@ -483,15 +485,16 @@ class BayesBridge():
 
         elif method == 'sample':
 
-            if self.prior_type['global_shrinkage'] == 'jeffreys':
-
+            if self.prior_type['global_shrinkage'] == 'gamma':
                 # Conjugate update for phi = 1 / gshrink ** shrinkage_exponent
-                shape = beta_with_shrinkage.size / shrinkage_exponent
                 if np.count_nonzero(beta_with_shrinkage) == 0:
                     gshrink = 0
                 else:
-                    scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
-                    phi = self.rg.np_random.gamma(shape, scale=scale)
+                    prior_param = self.prior_param['global_shrinkage']
+                    shape, rate = prior_param['shape'], prior_param['rate']
+                    shape += beta_with_shrinkage.size / shrinkage_exponent
+                    rate += np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
+                    phi = self.rg.np_random.gamma(shape, scale=1 / rate)
                     gshrink = 1 / phi ** (1 / shrinkage_exponent)
 
             elif self.prior_type['global_shrinkage'] == 'half-cauchy':
@@ -592,8 +595,10 @@ class BayesBridge():
         prior_logp += - np.sum(np.log(
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
         ))
-        if self.prior_type['global_shrinkage'] == 'jeffreys':
-            prior_logp += - math.log(gshrink)
+        if self.prior_type['global_shrinkage'] == 'gamma':
+            prior_param = self.prior_param['global_shrinkage']
+            prior_logp += (prior_param['shape'] - 1.) * math.log(gshrink) \
+                          - prior_param['rate'] * gshrink
         else:
             raise NotImplementedError()
 
