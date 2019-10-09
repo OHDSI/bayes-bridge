@@ -72,6 +72,7 @@ class SparseRegressionCoefficientSampler():
         # TODO: Comment on the form of the posterior.
 
         v = X.Tdot(obs_prec * y)
+        prior_shrunk_scale = self.compute_prior_shrunk_scale(gshrink, lshrink)
         prior_shrunk_scale = gshrink * lshrink
         prior_shrunk_scale /= np.sqrt(
             1 + (prior_shrunk_scale / self.regularizing_slab_size) ** 2
@@ -181,9 +182,8 @@ class SparseRegressionCoefficientSampler():
         n_unshrunk = n_coef - len(lshrink)
 
         precond_scale = np.ones(n_coef)
-        prior_prec = (gshrink * lshrink) ** -2 \
-                     + self.regularizing_slab_size ** -2
-        precond_scale[n_unshrunk:] = 1 / np.sqrt(prior_prec)
+        precond_scale[n_unshrunk:] \
+            = self.compute_prior_shrunk_scale(gshrink, lshrink)
         if n_unshrunk > 0:
             precond_scale[:n_unshrunk] = \
                 unshrunk_target_sd_scale * regcoef_precond_post_sd[:n_unshrunk]
@@ -194,6 +194,15 @@ class SparseRegressionCoefficientSampler():
         ))
 
         return precond_scale, precond_prior_prec
+
+    def compute_prior_shrunk_scale(self, gshrink, lshrink):
+        """ Compute the prior scale for the coefficient under regularized
+        shrinkage in a numerically stable way. """
+        prior_shrunk_scale = gshrink * lshrink
+        prior_shrunk_scale /= np.sqrt(
+            1 + (prior_shrunk_scale / self.regularizing_slab_size) ** 2
+        )
+        return prior_shrunk_scale
 
     def compute_stability_limit(
             self, gshrink, lshrink, model, precond_scale, precond_prior_prec):
