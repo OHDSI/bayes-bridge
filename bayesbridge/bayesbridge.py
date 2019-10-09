@@ -497,7 +497,7 @@ class BayesBridge():
             else:
                 raise NotImplementedError()
 
-        if gshrink < lower_bd:
+        if (method is not None) and gshrink < lower_bd:
             gshrink = lower_bd
             warn_message_only(
                 "The global shrinkage parameter update returned an unreasonably "
