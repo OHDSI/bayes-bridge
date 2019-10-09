@@ -407,11 +407,11 @@ class BayesBridge():
             else:
                 apriori_coef_scale = .01
 
-            power_exponential_mean \
-                = self.compute_power_exp_ave_magnitude(shrinkage_exponent)
             if 'global_shrinkage' in init:
                 gshrink = init['global_shrinkage']
             else:
+                power_exponential_mean \
+                    = self.compute_power_exp_ave_magnitude(shrinkage_exponent)
                 gshrink = apriori_coef_scale / power_exponential_mean
             lshrink = apriori_coef_scale / gshrink * np.ones(self.n_pred - self.n_unshrunk)
 
