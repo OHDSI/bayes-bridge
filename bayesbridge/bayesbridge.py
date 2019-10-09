@@ -1,6 +1,5 @@
 import numpy as np
 import scipy as sp
-import scipy.stats
 import scipy.linalg
 import scipy.sparse
 import math
@@ -111,8 +110,6 @@ class BayesBridge():
         prior_type['global_shrinkage'] = 'gamma'
         prior_param['global_shrinkage'] = {'shape': 0., 'rate': 0.}
             # Reference prior for a scale family.
-        # prior_type['global_shrinkage'] = 'half-cauchy'
-        # prior_param['global_shrinkage'] = {'scale': 1.0}
         return prior_type, prior_param
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
@@ -497,11 +494,6 @@ class BayesBridge():
                     phi = self.rg.np_random.gamma(shape, scale=1 / rate)
                     gshrink = 1 / phi ** (1 / shrinkage_exponent)
 
-            elif self.prior_type['global_shrinkage'] == 'half-cauchy':
-
-                gshrink = self.slice_sample_global_shrinkage(
-                    gshrink, beta_with_shrinkage, self.prior_param['global_shrinkage']['scale'], shrinkage_exponent
-                )
             else:
                 raise NotImplementedError()
 
@@ -520,34 +512,6 @@ class BayesBridge():
         phi = len(beta_with_shrinkage) / shrinkage_exponent \
               / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
         gshrink = phi ** - (1 / shrinkage_exponent)
-        return gshrink
-
-    def slice_sample_global_shrinkage(
-            self, gshrink, beta_with_shrinkage, global_scale, shrinkage_exponent):
-        """ Slice sample phi = 1 / gshrink ** shrinkage_exponent. """
-
-        n_update = 10 # Slice sample for multiple iterations to ensure good mixing.
-
-        # Initialize a gamma distribution object.
-        shape = (beta_with_shrinkage.size + 1) / shrinkage_exponent
-        scale = 1 / np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
-        gamma_rv = sp.stats.gamma(shape, scale=scale)
-
-        phi = 1 / gshrink
-        for i in range(n_update):
-            u = self.rg.np_random.uniform() \
-                / (1 + (global_scale * phi ** (1 / shrinkage_exponent)) ** 2)
-            upper = (np.sqrt(1 / u - 1) / global_scale) ** shrinkage_exponent
-                # Invert the half-Cauchy density.
-            phi = gamma_rv.ppf(gamma_rv.cdf(upper) * self.rg.np_random.uniform())
-            if np.isnan(phi):
-                # Inverse CDF method can fail if the current conditional
-                # distribution is drastically different from the previous one.
-                # In this case, ignore the slicing variable and just sample from
-                # a Gamma.
-                phi = gamma_rv.rvs()
-        gshrink = 1 / phi ** (1 / shrinkage_exponent)
-
         return gshrink
 
     def update_local_shrinkage(self, gshrink, beta_with_shrinkage, shrinkage_exponent):
