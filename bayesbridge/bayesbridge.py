@@ -207,7 +207,7 @@ class BayesBridge():
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
                 self.n_pred, self.prior_sd_for_unshrunk, sampling_method,
-                n_iter, hmc_curvature_est_stabilized, self.slab_size
+                hmc_curvature_est_stabilized, self.slab_size
             )
 
         if params_to_save == 'all':
