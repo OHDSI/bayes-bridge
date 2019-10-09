@@ -16,6 +16,7 @@ class BayesBridge():
 
     def __init__(self, outcome, X, model='linear',
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
+                 prior_param=None,
                  prior_sd_for_intercept=float('inf'), add_intercept=None,
                  center_predictor=False, regularizing_slab_size=float('inf')):
         """
@@ -96,21 +97,17 @@ class BayesBridge():
         self.n_unshrunk = n_coef_without_shrinkage
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
-        self.prior_type = {}
-        self.prior_param = {}
-        self.set_default_priors(self.prior_type, self.prior_param)
+        self.prior_type = {'global_shrinkage': 'gamma'}
+        if prior_param is None:
+            prior_param = {'global_shrinkage': {'shape': 0., 'rate': 0.}}
+                # Reference prior for a scale family.
+        self.prior_param = prior_param
         self.rg = BasicRandom()
         self.manager = MarkovChainManager(
             self.n_obs, self.n_pred, self.n_unshrunk, model
         )
         self._prev_timestamp = None # For status update during Gibbs
         self._curr_timestamp = None
-
-    def set_default_priors(self, prior_type, prior_param):
-        prior_type['global_shrinkage'] = 'gamma'
-        prior_param['global_shrinkage'] = {'shape': 0., 'rate': 0.}
-            # Reference prior for a scale family.
-        return prior_type, prior_param
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
