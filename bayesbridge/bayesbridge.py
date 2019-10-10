@@ -137,7 +137,7 @@ class BayesBridge():
 
         thin, bridge_exp, sampling_method, global_scale_update = (
             mcmc_output[key] for key in [
-                'thin', 'bridge_exp', 'sampling_method', 'global_scale_update'
+                'thin', 'bridge_exponent', 'sampling_method', 'global_scale_update'
             ]
         )
         params_to_save = mcmc_output['samples'].keys()
@@ -166,7 +166,7 @@ class BayesBridge():
 
         return next_mcmc_output
 
-    def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exp=.5,
+    def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
               global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
@@ -221,7 +221,7 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         beta, obs_prec, lscale, gscale, init, initial_optim_info = \
-            self.initialize_chain(init, bridge_exp, n_init_optim_step)
+            self.initialize_chain(init, bridge_exponent, n_init_optim_step)
         if n_init_optim_step > 0:
             self.print_status(
                 n_status_update, 0, n_iter, msg_type='optim', time_format='second')
@@ -245,14 +245,14 @@ class BayesBridge():
             # Draw from gscale | \beta and then lscale | gscale, \beta.
             # (The order matters.)
             gscale = self.update_global_scale(
-                gscale, beta[self.n_unshrunk:], bridge_exp,
+                gscale, beta[self.n_unshrunk:], bridge_exponent,
                 method=global_scale_update)
 
             lscale = self.update_local_scale(
-                gscale, beta[self.n_unshrunk:], bridge_exp)
+                gscale, beta[self.n_unshrunk:], bridge_exponent)
 
             logp = self.compute_posterior_logprob(
-                beta, gscale, obs_prec, bridge_exp
+                beta, gscale, obs_prec, bridge_exponent
             )
 
             self.manager.store_current_state(
@@ -278,7 +278,7 @@ class BayesBridge():
             'seed': seed,
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
-            'bridge_exp': bridge_exp,
+            'bridge_exponent': bridge_exponent,
             'sampling_method': sampling_method,
             'runtime': runtime,
             'global_scale_update': global_scale_update,
