@@ -54,7 +54,7 @@ class SparseRegressionCoefficientSampler():
                 setattr(self, attr, state[attr])
 
     def sample_gaussian_posterior(
-            self, y, X, obs_prec, gshrink, lshrink,
+            self, y, X, obs_prec, gscale, lscale,
             method='cg', precond_blocksize=0):
         """
         Param:
@@ -72,8 +72,8 @@ class SparseRegressionCoefficientSampler():
         # TODO: Comment on the form of the posterior.
 
         v = X.Tdot(obs_prec * y)
-        prior_shrunk_scale = self.compute_prior_shrunk_scale(gshrink, lshrink)
-        prior_shrunk_scale = gshrink * lshrink
+        prior_shrunk_scale = self.compute_prior_shrunk_scale(gscale, lscale)
+        prior_shrunk_scale = gscale * lscale
         prior_shrunk_scale /= np.sqrt(
             1 + (prior_shrunk_scale / self.regularizing_slab_size) ** 2
         )   # Account for the regularization.
@@ -89,7 +89,7 @@ class SparseRegressionCoefficientSampler():
 
         elif method == 'cg':
             beta_condmean_guess = \
-                self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
+                self.regcoef_summarizer.extrapolate_beta_condmean(gscale, lscale)
             beta_precond_scale_sd = self.regcoef_summarizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
                 X, obs_prec, prior_prec_sqrt, v,
@@ -98,7 +98,7 @@ class SparseRegressionCoefficientSampler():
                 beta_scaled_sd=beta_precond_scale_sd,
                 maxiter=500, atol=10e-6 * np.sqrt(X.shape[1])
             )
-            self.regcoef_summarizer.update(beta, gshrink, lshrink)
+            self.regcoef_summarizer.update(beta, gscale, lscale)
             info['n_cg_iter'] = cg_info['n_iter']
 
         else:
@@ -107,20 +107,20 @@ class SparseRegressionCoefficientSampler():
         return beta, info
 
     def sample_by_hmc(
-            self, beta, gshrink, lshrink, model, method='hmc', max_step=512):
+            self, beta, gscale, lscale, model, method='hmc', max_step=512):
         # TODO: allow for a fixed stepsize (w/o adaptation)?
 
         beta_precond_post_sd = \
             self.regcoef_summarizer.estimate_beta_precond_scale_sd()
         precond_scale, precond_prior_prec = \
             self.compute_preconditioning_scale(
-                gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
+                gscale, lscale, beta_precond_post_sd, self.prior_sd_for_unshrunk
             )
 
         # Calibrate the stepsize by estimating the stability limit.
         approx_stability_limit, n_hessian_matvec \
             = self.compute_stability_limit(
-                gshrink, lshrink, model, precond_scale, precond_prior_prec
+                gscale, lscale, model, precond_scale, precond_prior_prec
             )
         if self.stability_est_stabilized:
             pre_stabilization = approx_stability_limit
@@ -166,7 +166,7 @@ class SparseRegressionCoefficientSampler():
             raise NotImplementedError()
 
         beta = beta_precond * precond_scale
-        self.regcoef_summarizer.update(beta, gshrink, lshrink)
+        self.regcoef_summarizer.update(beta, gscale, lscale)
         self.stability_adjustment_adapter.adapt_stepsize(hamiltonian_error)
 
         info['n_hessian_matvec'] = n_hessian_matvec
@@ -176,38 +176,38 @@ class SparseRegressionCoefficientSampler():
         return beta, info
 
     def compute_preconditioning_scale(
-            self, gshrink, lshrink, regcoef_precond_post_sd,
+            self, gscale, lscale, regcoef_precond_post_sd,
             prior_sd_for_unshrunk, unshrunk_target_sd_scale=1.):
         n_coef = len(regcoef_precond_post_sd)
-        n_unshrunk = n_coef - len(lshrink)
+        n_unshrunk = n_coef - len(lscale)
 
         precond_scale = np.ones(n_coef)
         precond_scale[n_unshrunk:] \
-            = self.compute_prior_shrunk_scale(gshrink, lshrink)
+            = self.compute_prior_shrunk_scale(gscale, lscale)
         if n_unshrunk > 0:
             precond_scale[:n_unshrunk] = \
                 unshrunk_target_sd_scale * regcoef_precond_post_sd[:n_unshrunk]
 
         precond_prior_prec = np.concatenate((
             (prior_sd_for_unshrunk / precond_scale[:n_unshrunk]) ** -2,
-            np.ones(len(lshrink))
+            np.ones(len(lscale))
         ))
 
         return precond_scale, precond_prior_prec
 
-    def compute_prior_shrunk_scale(self, gshrink, lshrink):
+    def compute_prior_shrunk_scale(self, gscale, lscale):
         """ Compute the prior scale for the coefficient under regularized
         shrinkage in a numerically stable way. """
-        prior_shrunk_scale = gshrink * lshrink
+        prior_shrunk_scale = gscale * lscale
         prior_shrunk_scale /= np.sqrt(
             1 + (prior_shrunk_scale / self.regularizing_slab_size) ** 2
         )
         return prior_shrunk_scale
 
     def compute_stability_limit(
-            self, gshrink, lshrink, model, precond_scale, precond_prior_prec):
+            self, gscale, lscale, model, precond_scale, precond_prior_prec):
         beta_condmean_guess = \
-            self.regcoef_summarizer.extrapolate_beta_condmean(gshrink, lshrink)
+            self.regcoef_summarizer.extrapolate_beta_condmean(gscale, lscale)
         hessian_pc_estimate = self.regcoef_summarizer.estimate_precond_hessian_pc()
         max_curvature, hessian_pc, n_hessian_matvec = \
             self.compute_precond_hessian_curvature(
@@ -282,7 +282,7 @@ class SparseRegressionCoefficientSampler():
 
         return f
 
-    def search_mode(self, beta, lshrink, gshrink, obs_prec, model, optim_maxiter=None,
+    def search_mode(self, beta, lscale, gscale, obs_prec, model, optim_maxiter=None,
                     use_newton_method=False, require_trust_region=False,
                     warn_optim_failure=False):
 
@@ -290,7 +290,7 @@ class SparseRegressionCoefficientSampler():
             warn_message_only("Trust regions are used only for Newton methods.")
 
         precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec \
-            = self.define_function_for_optim(beta, lshrink, gshrink, obs_prec, model)
+            = self.define_function_for_optim(beta, lscale, gscale, obs_prec, model)
         if not use_newton_method:
             precond_hessian_matvec = None
 
@@ -330,14 +330,14 @@ class SparseRegressionCoefficientSampler():
         }
         return beta, info
 
-    def define_function_for_optim(self, beta, lshrink, gshrink, obs_prec, model):
+    def define_function_for_optim(self, beta, lscale, gscale, obs_prec, model):
 
         beta_precond_post_sd = np.ones(beta.size)
         # No Monte Carlo estimate yet, so make some reasonable guess. It
         # probably should depend on the outcome and design matrix.
         precond_scale, precond_prior_prec = \
             self.compute_preconditioning_scale(
-                gshrink, lshrink, beta_precond_post_sd, self.prior_sd_for_unshrunk
+                gscale, lscale, beta_precond_post_sd, self.prior_sd_for_unshrunk
             )
 
         f = self.get_precond_logprob_and_gradient(

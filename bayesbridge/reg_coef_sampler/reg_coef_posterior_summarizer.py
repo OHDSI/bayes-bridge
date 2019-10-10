@@ -9,23 +9,23 @@ class RegressionCoeffficientPosteriorSummarizer():
         self.slab_size = regularizing_slab_size
         self.pc_summarizer = DirectionSummarizer(pc_summary_method)
 
-    def scale_beta(self, beta, gshrink, lshrink):
+    def scale_beta(self, beta, gscale, lscale):
         beta_scaled = beta.copy()
         beta_scaled[self.n_unshrunk:] \
-            /= self.compute_prior_scale(gshrink, lshrink)
+            /= self.compute_prior_scale(gscale, lscale)
         return beta_scaled
 
-    def update(self, beta, gshrink, lshrink):
-        beta_scaled = self.scale_beta(beta, gshrink, lshrink)
+    def update(self, beta, gscale, lscale):
+        beta_scaled = self.scale_beta(beta, gscale, lscale)
         self.beta_scaled_summarizer.update_stats(beta_scaled)
 
     def update_precond_hessian_pc(self, pc):
         self.pc_summarizer.update(pc)
 
-    def extrapolate_beta_condmean(self, gshrink, lshrink):
+    def extrapolate_beta_condmean(self, gscale, lscale):
         beta_condmean_guess = self.beta_scaled_summarizer.stats['mean'].copy()
         beta_condmean_guess[self.n_unshrunk:] \
-            *= self.compute_prior_scale(gshrink, lshrink)
+            *= self.compute_prior_scale(gscale, lscale)
         return beta_condmean_guess
 
     def estimate_beta_precond_scale_sd(self):
@@ -34,9 +34,9 @@ class RegressionCoeffficientPosteriorSummarizer():
     def estimate_precond_hessian_pc(self):
         return self.pc_summarizer.get_mean()
 
-    def compute_prior_scale(self, gshrink, lshrink):
+    def compute_prior_scale(self, gscale, lscale):
         """ Compute the regularized prior scale in a numerically stable way. """
-        unreg_prior_scale = gshrink * lshrink
+        unreg_prior_scale = gscale * lscale
         return unreg_prior_scale \
                / np.sqrt(1 + (unreg_prior_scale / self.slab_size) ** 2)
 
