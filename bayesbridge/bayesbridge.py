@@ -216,8 +216,11 @@ class BayesBridge():
 
         return next_mcmc_output
 
+    # TODO: Make dedicated functions for specifying 1) prior hyper-parameters,
+    #  and 2) sampler tuning parameters (maybe).
     def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
+              global_scale_prior_hyper_param=None,
               global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
               hmc_curvature_est_stabilized=False):
@@ -233,6 +236,8 @@ class BayesBridge():
         sampling_method : str, {'direct', 'cg', 'hmc'}
         precond_blocksize : int
             size of the block preconditioner
+        global_scale_prior_hyper_param : dict
+            Hyper-parameters is specified via a pair of keys 'log_mean' and 'log_sd'
         global_scale_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
         n_init_optim_step : int
@@ -268,6 +273,14 @@ class BayesBridge():
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
         self._prev_timestamp = start_time
+
+        # Set the prior.
+        if global_scale_prior_hyper_param is not None:
+            self.set_global_scale_prior(
+                global_scale_prior_hyper_param['log_mean'],
+                global_scale_prior_hyper_param['log_sd'],
+                bridge_exponent
+            )
 
         # Initial state of the Markov chain
         beta, obs_prec, lscale, gscale, init, initial_optim_info = \
