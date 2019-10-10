@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import scipy.linalg
 import scipy.sparse
+from scipy.special import polygamma as scipy_polygamma
 import math
 import time
 import pdb
@@ -108,6 +109,55 @@ class BayesBridge():
         )
         self._prev_timestamp = None # For status update during Gibbs
         self._curr_timestamp = None
+
+    # TODO: Make a class to handle all the calculations related to the scale
+    #  parameters?
+    def set_global_scale_prior(self, log_mean, log_sd, bridge_exp):
+        shape, rate = self.solve_for_global_scale_hyperparam(
+            log_mean, log_sd, bridge_exp
+        )
+        self.prior_param['global_scale'] = {'shape': shape, 'rate': rate}
+
+    def solve_for_global_scale_hyperparam(self, log_mean, log_sd, bridge_exp):
+        """ Solve the hyper-parameters with the specified mean and sd in the log scale. """
+        # Function whose root coincides with the desired log-shape parameter.
+        f = lambda log_shape: (
+                math.sqrt(self.polygamma(1, math.exp(log_shape))) / bridge_exp
+                - log_sd
+            )
+        lower_lim = -10.  # Any sufficiently small number is fine.
+        if log_sd > 10 ** 8:
+            raise ValueError("Specified prior variance is too large.")
+        lower, upper = self._find_root_bounds(f, lower_lim)
+
+        log_shape = sp.optimize.brentq(f, lower, upper)
+        shape = math.exp(log_shape)
+        rate = math.exp(
+            self.polygamma(0, shape) + bridge_exp * log_mean
+        )
+        return shape, rate
+
+    @staticmethod
+    def polygamma(n, x):
+        """ Wrap the scipy function so that it returns a scalar. """
+        return scipy_polygamma([n], x)[0]
+
+    @staticmethod
+    def _find_root_bounds(f, init_lower_lim, increment=5., max_lim=None):
+        if max_lim is None:
+            max_lim = init_lower_lim + 10 ** 4
+        if f(init_lower_lim) < 0:
+            raise ValueError(
+                "Objective function must have positive value "
+                "at the lower limit."
+            )
+        lower_lim = init_lower_lim
+        while f(lower_lim + increment) > 0 and lower_lim < max_lim:
+            lower_lim += increment
+        if lower_lim >= max_lim:
+            raise Exception()  # Replace with a warning.
+        upper_lim = lower_lim + increment
+        return (lower_lim, upper_lim)
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
