@@ -310,7 +310,7 @@ class SparseRegressionCoefficientSampler():
         model.X.memoize_dot(False)
         if (not optim_result.success) and warn_optim_failure:
             warn_message_only(
-                "The regression coefficient mode (conditionally on the shrinkage "
+                "The regression coefficient mode (conditionally on the scale "
                 "parameters could not be located within {:d} iterations of optimization "
                 "steps. Proceeding with the current best estimate.".format(
                     optim_result.nit

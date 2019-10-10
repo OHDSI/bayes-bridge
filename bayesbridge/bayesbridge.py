@@ -97,9 +97,9 @@ class BayesBridge():
         self.n_unshrunk = n_coef_without_shrinkage
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
-        self.prior_type = {'global_shrinkage': 'gamma'}
+        self.prior_type = {'global_scale': 'gamma'}
         if prior_param is None:
-            prior_param = {'global_shrinkage': {'shape': 0., 'rate': 0.}}
+            prior_param = {'global_scale': {'shape': 0., 'rate': 0.}}
                 # Reference prior for a scale family.
         self.prior_param = prior_param
         self.rg = BasicRandom()
@@ -135,9 +135,9 @@ class BayesBridge():
         else:
             precond_blocksize = 0
 
-        thin, shrinkage_exponent, sampling_method, global_shrinkage_update = (
+        thin, shrinkage_exponent, sampling_method, global_scale_update = (
             mcmc_output[key] for key in [
-                'thin', 'shrinkage_exponent', 'sampling_method', 'global_shrinkage_update'
+                'thin', 'shrinkage_exponent', 'sampling_method', 'global_scale_update'
             ]
         )
         params_to_save = mcmc_output['samples'].keys()
@@ -155,7 +155,7 @@ class BayesBridge():
             0, n_iter, thin, shrinkage_exponent, init,
             sampling_method=sampling_method,
             precond_blocksize=precond_blocksize,
-            global_shrinkage_update=global_shrinkage_update,
+            global_scale_update=global_scale_update,
             params_to_save=params_to_save,
             n_status_update=n_status_update,
             _add_iter_mode=True
@@ -168,7 +168,7 @@ class BayesBridge():
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, shrinkage_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
-              global_shrinkage_update='sample', params_to_save=None,
+              global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
               hmc_curvature_est_stabilized=False):
         """
@@ -183,7 +183,7 @@ class BayesBridge():
         sampling_method : str, {'direct', 'cg', 'hmc'}
         precond_blocksize : int
             size of the block preconditioner
-        global_shrinkage_update : str, {'sample', 'optimize', None}
+        global_scale_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
         n_init_optim_step : int
             If > 0, the Markov chain will be run after the specified number of
@@ -208,12 +208,12 @@ class BayesBridge():
 
         if params_to_save == 'all':
             params_to_save = [
-                'beta', 'local_shrinkage', 'global_shrinkage', 'logp'
+                'beta', 'local_scale', 'global_scale', 'logp'
             ]
             if self.model != 'cox':
                 params_to_save.append('obs_prec')
         elif params_to_save is None:
-            params_to_save = ['beta', 'global_shrinkage', 'logp']
+            params_to_save = ['beta', 'global_scale', 'logp']
 
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
@@ -244,11 +244,11 @@ class BayesBridge():
 
             # Draw from gscale | \beta and then lscale | gscale, \beta.
             # (The order matters.)
-            gscale = self.update_global_shrinkage(
+            gscale = self.update_global_scale(
                 gscale, beta[self.n_unshrunk:], shrinkage_exponent,
-                method=global_shrinkage_update)
+                method=global_scale_update)
 
-            lscale = self.update_local_shrinkage(
+            lscale = self.update_local_scale(
                 gscale, beta[self.n_unshrunk:], shrinkage_exponent)
 
             logp = self.compute_posterior_logprob(
@@ -281,7 +281,7 @@ class BayesBridge():
             'shrinkage_exponent': shrinkage_exponent,
             'sampling_method': sampling_method,
             'runtime': runtime,
-            'global_shrinkage_update': global_shrinkage_update,
+            'global_scale_update': global_scale_update,
             'initial_optimization_info': initial_optim_info,
             'reg_coef_sampling_info': sampling_info,
             '_markov_chain_state': _markov_chain_state,
@@ -362,15 +362,15 @@ class BayesBridge():
             for key in info_keys:
                 optim_info[key][i] = info[key]
             obs_prec = self.update_obs_precision(beta)
-            lscale = self.update_local_shrinkage(
+            lscale = self.update_local_scale(
                 gscale, beta[self.n_unshrunk:], shrinkage_exponent
             )
             
         init = {
             'beta': beta,
             'obs_prec': obs_prec,
-            'local_shrinkage': lscale,
-            'global_shrinkage': gscale
+            'local_scale': lscale,
+            'global_scale': gscale
         }
 
         return beta, obs_prec, lscale, gscale, init, optim_info
@@ -383,18 +383,18 @@ class BayesBridge():
         shrinkage parameter.
         """
 
-        if 'local_shrinkage' in init and 'global_shrinkage' in init:
-            lscale = init['local_shrinkage']
-            gscale = init['global_shrinkage']
+        if 'local_scale' in init and 'global_scale' in init:
+            lscale = init['local_scale']
+            gscale = init['global_scale']
             if not len(lscale) == (self.n_pred - self.n_unshrunk):
                 raise ValueError('An invalid initial state.')
 
         elif 'beta' in init:
-            gscale = self.update_global_shrinkage(
+            gscale = self.update_global_scale(
                 None, init['beta'][self.n_unshrunk:], shrinkage_exponent,
                 method='optimize'
             )
-            lscale = self.update_local_shrinkage(
+            lscale = self.update_local_scale(
                 gscale, init['beta'][self.n_unshrunk:], shrinkage_exponent
             )
         else:
@@ -403,8 +403,8 @@ class BayesBridge():
             else:
                 apriori_coef_scale = .01
 
-            if 'global_shrinkage' in init:
-                gscale = init['global_shrinkage']
+            if 'global_scale' in init:
+                gscale = init['global_scale']
             else:
                 power_exponential_mean \
                     = self.compute_power_exp_ave_magnitude(shrinkage_exponent)
@@ -460,7 +460,7 @@ class BayesBridge():
 
         return obs_prec
 
-    def update_global_shrinkage(
+    def update_global_scale(
             self, gscale, beta_with_shrinkage, shrinkage_exponent,
             coef_expected_magnitude_lower_bd=.001, method='sample'):
         # :param method: {"sample", "optimize", None}
@@ -474,17 +474,17 @@ class BayesBridge():
             # (expected value of beta given gscale) = coef_expected_magnitude_lower_bd.
 
         if method == 'optimize':
-            gscale = self.monte_carlo_em_global_shrinkage(
+            gscale = self.monte_carlo_em_global_scale(
                 beta_with_shrinkage, shrinkage_exponent)
 
         elif method == 'sample':
 
-            if self.prior_type['global_shrinkage'] == 'gamma':
+            if self.prior_type['global_scale'] == 'gamma':
                 # Conjugate update for phi = 1 / gscale ** shrinkage_exponent
                 if np.count_nonzero(beta_with_shrinkage) == 0:
                     gscale = 0
                 else:
-                    prior_param = self.prior_param['global_shrinkage']
+                    prior_param = self.prior_param['global_scale']
                     shape, rate = prior_param['shape'], prior_param['rate']
                     shape += beta_with_shrinkage.size / shrinkage_exponent
                     rate += np.sum(np.abs(beta_with_shrinkage) ** shrinkage_exponent)
@@ -503,7 +503,7 @@ class BayesBridge():
 
         return gscale
 
-    def monte_carlo_em_global_shrinkage(
+    def monte_carlo_em_global_scale(
             self, beta_with_shrinkage, shrinkage_exponent):
         """ Maximize the likelihood (not posterior conditional) 'beta | gscale'. """
         phi = len(beta_with_shrinkage) / shrinkage_exponent \
@@ -511,7 +511,7 @@ class BayesBridge():
         gscale = phi ** - (1 / shrinkage_exponent)
         return gscale
 
-    def update_local_shrinkage(self, gscale, beta_with_shrinkage, shrinkage_exponent):
+    def update_local_scale(self, gscale, beta_with_shrinkage, shrinkage_exponent):
 
         lscale_sq = 1 / np.array([
             2 * self.rg.tilted_stable(shrinkage_exponent / 2, (beta_j / gscale) ** 2)
@@ -522,11 +522,11 @@ class BayesBridge():
         # TODO: Pick the lower and upper bound more carefully.
         if np.any(lscale == 0):
             warn_message_only(
-                "Local shrinkage parameter under-flowed. Replacing with a small number.")
+                "Local scale parameter under-flowed. Replacing with a small number.")
             lscale[lscale == 0] = 10e-16
         elif np.any(np.isinf(lscale)):
             warn_message_only(
-                "Local shrinkage parameter over-flowed. Replacing with a large number.")
+                "Local scale parameter over-flowed. Replacing with a large number.")
             lscale[np.isinf(lscale)] = 2.0 / gscale
 
         return lscale
@@ -556,8 +556,8 @@ class BayesBridge():
         prior_logp += - np.sum(np.log(
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
         ))
-        if self.prior_type['global_shrinkage'] == 'gamma':
-            prior_param = self.prior_param['global_shrinkage']
+        if self.prior_type['global_scale'] == 'gamma':
+            prior_param = self.prior_param['global_scale']
             prior_logp += (prior_param['shape'] - 1.) * math.log(gscale) \
                           - prior_param['rate'] * gscale
         else:
@@ -602,11 +602,11 @@ class MarkovChainManager():
         if 'beta' in params_to_save:
             samples['beta'] = np.zeros((self.n_pred, n_sample))
 
-        if 'local_shrinkage' in params_to_save:
-            samples['local_shrinkage'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
+        if 'local_scale' in params_to_save:
+            samples['local_scale'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
 
-        if 'global_shrinkage' in params_to_save:
-            samples['global_shrinkage'] = np.zeros(n_sample)
+        if 'global_scale' in params_to_save:
+            samples['global_scale'] = np.zeros(n_sample)
 
         if 'obs_prec' in params_to_save:
             if self.model_name == 'linear':
@@ -649,11 +649,11 @@ class MarkovChainManager():
         if 'beta' in params_to_save:
             samples['beta'][:, index] = beta
 
-        if 'local_shrinkage' in params_to_save:
-            samples['local_shrinkage'][:, index] = lscale
+        if 'local_scale' in params_to_save:
+            samples['local_scale'][:, index] = lscale
 
-        if 'global_shrinkage' in params_to_save:
-            samples['global_shrinkage'][index] = gscale
+        if 'global_scale' in params_to_save:
+            samples['global_scale'][index] = gscale
 
         if 'obs_prec' in params_to_save:
             if self.model_name == 'linear':
@@ -677,8 +677,8 @@ class MarkovChainManager():
     def pack_parameters(self, beta, obs_prec, lscale, gscale):
         state = {
             'beta': beta,
-            'local_shrinkage': lscale,
-            'global_shrinkage': gscale,
+            'local_scale': lscale,
+            'global_scale': gscale,
         }
         if self.model_name in ('linear', 'logit'):
             state['obs_prec'] = obs_prec

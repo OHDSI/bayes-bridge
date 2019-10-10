@@ -39,8 +39,8 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
         n_coef_without_shrinkage=n_unshrunk, prior_sd_for_unshrunk=2.
     )
     init = {
-        'global_shrinkage': .01,
-        'local_shrinkage': np.ones(X.shape[1] - n_unshrunk)
+        'global_scale': .01,
+        'local_scale': np.ones(X.shape[1] - n_unshrunk)
     }
 
     if restart_in_middle:
