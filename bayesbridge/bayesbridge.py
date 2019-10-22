@@ -112,7 +112,12 @@ class BayesBridge():
 
     # TODO: Make a class to handle all the calculations related to the scale
     #  parameters?
-    def set_global_scale_prior(self, log_mean, log_sd, bridge_exp):
+    def set_global_scale_prior(
+            self, log_mean, log_sd, bridge_exp, hyper_param_scale):
+        unit_scale_bridge_mean \
+                = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
+        if hyper_param_scale == 'coefficient':
+            log_mean -= math.log(unit_scale_bridge_mean)
         shape, rate = self.solve_for_global_scale_hyperparam(
             log_mean, log_sd, bridge_exp
         )
@@ -220,7 +225,7 @@ class BayesBridge():
     #  and 2) sampler tuning parameters (maybe).
     def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
-              global_scale_prior_hyper_param=None,
+              global_scale_prior_hyper_param=None, hyper_param_scale='coefficient',
               global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
               hmc_curvature_est_stabilized=False):
@@ -237,7 +242,10 @@ class BayesBridge():
         precond_blocksize : int
             size of the block preconditioner
         global_scale_prior_hyper_param : dict
-            Hyper-parameters is specified via a pair of keys 'log_mean' and 'log_sd'
+            Hyper-parameters is specified via a pair of keys 'log_mean' and 'log_sd'.
+        hyper_param_scale: str, {'raw', 'coefficient'}
+            If 'coefficient', interpret the log mean and sd as that of the
+            expected magnitude of coefficients given the global scale parameter.
         global_scale_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
         n_init_optim_step : int
@@ -279,7 +287,7 @@ class BayesBridge():
             self.set_global_scale_prior(
                 global_scale_prior_hyper_param['log_mean'],
                 global_scale_prior_hyper_param['log_sd'],
-                bridge_exponent
+                bridge_exponent, hyper_param_scale
             )
 
         # Initial state of the Markov chain
