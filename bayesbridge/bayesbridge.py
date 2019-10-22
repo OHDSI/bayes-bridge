@@ -126,14 +126,10 @@ class BayesBridge():
     def solve_for_global_scale_hyperparam(self, log_mean, log_sd, bridge_exp):
         """ Solve the hyper-parameters with the specified mean and sd in the log scale. """
         # Function whose root coincides with the desired log-shape parameter.
-        def f(log_shape):
-            MAX_EXPONENT = 709.
-            if log_shape > MAX_EXPONENT:
-                raise ArithmeticError("Hyper-parameter calibration failed.")
-            else:
-                polygamma = self.polygamma(1, math.exp(log_shape))
-                return math.sqrt(polygamma) / bridge_exp - log_sd
-
+        f = lambda log_shape: (
+                math.sqrt(self.polygamma(1, math.exp(log_shape))) / bridge_exp
+                - log_sd
+            )
         lower_lim = -10.  # Any sufficiently small number is fine.
         if log_sd < 0:
             raise ValueError("Variance has to be positive.")
