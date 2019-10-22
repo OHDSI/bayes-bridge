@@ -133,9 +133,11 @@ class BayesBridge():
             else:
                 polygamma = self.polygamma(1, math.exp(log_shape))
                 return math.sqrt(polygamma) / bridge_exp - log_sd
-            
+
         lower_lim = -10.  # Any sufficiently small number is fine.
-        if log_sd > 10 ** 8:
+        if log_sd < 0:
+            raise ValueError("Variance has to be positive.")
+        elif log_sd > 10 ** 8:
             raise ValueError("Specified prior variance is too large.")
         lower, upper = self._find_root_bounds(f, lower_lim)
 
