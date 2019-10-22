@@ -137,7 +137,11 @@ class BayesBridge():
             raise ValueError("Specified prior variance is too large.")
         lower, upper = self._find_root_bounds(f, lower_lim)
 
-        log_shape = sp.optimize.brentq(f, lower, upper)
+        try:
+            log_shape = sp.optimize.brentq(f, lower, upper)
+        except BaseException as error:
+            print('Solving for the global scale gamma prior hyper-parameters '
+                  'failed; {}'.format(error))
         shape = math.exp(log_shape)
         rate = math.exp(
             self.polygamma(0, shape) + bridge_exp * log_mean
