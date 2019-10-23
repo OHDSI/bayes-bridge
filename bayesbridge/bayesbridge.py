@@ -100,7 +100,7 @@ class BayesBridge():
         self.n_pred = X.shape[1]
         self.prior_type = {'global_scale': 'gamma'}
         if prior_param is None:
-            prior_param = {'global_scale': {'shape': 0., 'rate': 0.}}
+            prior_param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}
                 # Reference prior for a scale family.
         self.prior_param = prior_param
         self.rg = BasicRandom()
@@ -121,7 +121,7 @@ class BayesBridge():
         shape, rate = self.solve_for_global_scale_hyperparam(
             log_mean, log_sd, bridge_exp
         )
-        self.prior_param['global_scale'] = {'shape': shape, 'rate': rate}
+        self.prior_param['gscale_neg_power'] = {'shape': shape, 'rate': rate}
 
     def solve_for_global_scale_hyperparam(self, log_mean, log_sd, bridge_exp):
         """ Solve the hyper-parameters with the specified mean and sd in the log scale. """
@@ -561,7 +561,7 @@ class BayesBridge():
                 if np.count_nonzero(beta_with_shrinkage) == 0:
                     gscale = 0
                 else:
-                    prior_param = self.prior_param['global_scale']
+                    prior_param = self.prior_param['gscale_neg_power']
                     shape, rate = prior_param['shape'], prior_param['rate']
                     shape += beta_with_shrinkage.size / bridge_exp
                     rate += np.sum(np.abs(beta_with_shrinkage) ** bridge_exp)
@@ -634,7 +634,7 @@ class BayesBridge():
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
         ))
         if self.prior_type['global_scale'] == 'gamma':
-            prior_param = self.prior_param['global_scale']
+            prior_param = self.prior_param['gscale_neg_power']
             prior_logp += (prior_param['shape'] - 1.) * math.log(gscale) \
                           - prior_param['rate'] * gscale
         else:
