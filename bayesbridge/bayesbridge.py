@@ -17,9 +17,9 @@ class BayesBridge():
 
     def __init__(self, outcome, X, model='linear',
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
-                 prior_param=None,
                  prior_sd_for_intercept=float('inf'), add_intercept=None,
-                 center_predictor=False, regularizing_slab_size=float('inf')):
+                 center_predictor=False, regularizing_slab_size=float('inf'),
+                 prior_param=None, scale_param_scale='coefficient',):
         """
         Params
         ------
@@ -36,6 +36,10 @@ class BayesBridge():
             without any shrinkage (a.k.a. regularization).
         prior_sd_for_unshrunk : float, numpy array
             If an array, the length must be the same as n_coef_without_shrinkage.
+        scale_param_scale: str, {'raw', 'coefficient'}
+            If 'coefficient', scale the local and global scales so that the
+            global scale parameter coincide with the prior expected
+            magnitude of regression coefficients.
         """
 
         # TODO: Make each MCMC run more "independent" i.e. not rely on the
@@ -103,6 +107,7 @@ class BayesBridge():
             prior_param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}
                 # Reference prior for a scale family.
         self.prior_param = prior_param
+        self.scale_param_scale = scale_param_scale
         self.rg = BasicRandom()
         self.manager = MarkovChainManager(
             self.n_obs, self.n_pred, self.n_unshrunk, model
@@ -113,12 +118,12 @@ class BayesBridge():
     # TODO: Make a class to handle all the calculations related to the scale
     #  parameters?
     def set_global_scale_prior(
-            self, log10_mean, log10_sd, bridge_exp, hyper_param_scale):
+            self, log10_mean, log10_sd, bridge_exp):
         unit_scale_bridge_mean \
                 = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
         log_sd = log10_sd / math.log(10.)
-        if hyper_param_scale == 'coefficient':
+        if self.scale_param_scale == 'coefficient':
             log_mean -= math.log(unit_scale_bridge_mean)
         shape, rate = self.solve_for_global_scale_hyperparam(
             log_mean, log_sd, bridge_exp
@@ -237,7 +242,7 @@ class BayesBridge():
     #  and 2) sampler tuning parameters (maybe).
     def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
-              global_scale_prior_hyper_param=None, hyper_param_scale='coefficient',
+              global_scale_prior_hyper_param=None,
               global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
               hmc_curvature_est_stabilized=False):
@@ -256,9 +261,6 @@ class BayesBridge():
         global_scale_prior_hyper_param : dict
             Hyper-parameters is specified via a pair of keys 'log10_mean'
             and 'log10_sd'.
-        hyper_param_scale: str, {'raw', 'coefficient'}
-            If 'coefficient', interpret the log mean and sd as that of the
-            expected magnitude of coefficients given the global scale parameter.
         global_scale_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
         n_init_optim_step : int
@@ -300,7 +302,7 @@ class BayesBridge():
             self.set_global_scale_prior(
                 global_scale_prior_hyper_param['log10_mean'],
                 global_scale_prior_hyper_param['log10_sd'],
-                bridge_exponent, hyper_param_scale
+                bridge_exponent
             )
 
         # Initial state of the Markov chain
