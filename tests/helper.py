@@ -17,7 +17,7 @@ def simulate_data(model, n_obs=100, n_pred=50, seed=None,
     if model == 'linear':
         y = LinearModel.simulate_outcome(X, beta, noise_sd=1.)
     elif model == 'logit':
-        n_trial = np.random.binomial(np.arange(n_obs) + 1, .5)
+        n_trial = 1 + np.random.binomial(np.arange(n_obs) + 1, .5)
         n_success = LogisticModel.simulate_outcome(n_trial, X, beta)
         y = (n_success, n_trial)
     elif model == 'cox':
