@@ -15,8 +15,8 @@ class LogisticModel(AbstractModel):
                 "outcome is assumed."
             )
 
-        self.n_trial = n_trial
-        self.n_success = n_success
+        self.n_trial = n_trial.astype('float64')
+        self.n_success = n_success.astype('float64')
         self.X = X
         self.name = 'logit'
 
