@@ -7,6 +7,7 @@ class LogisticModel(AbstractModel):
 
     def __init__(self, n_success, X, n_trial=None):
 
+        self.check_input_validity(n_success, n_trial, X)
         if n_trial is None:
             n_trial = np.ones(len(n_success))
             warn_message_only(
@@ -18,6 +19,25 @@ class LogisticModel(AbstractModel):
         self.n_success = n_success
         self.X = X
         self.name = 'logit'
+
+    def check_input_validity(self, n_success, n_trial, X):
+
+        if n_trial is None:
+            if np.max(n_success) > 1:
+                raise ValueError(
+                    "If not binary, the number of trials must be specified.")
+        else:
+            if not len(n_trial) == len(n_success) == X.shape[0]:
+                raise ValueError(
+                    "Incompatible sizes of the outcome vectors and design matrix."
+                )
+
+        if np.any(n_trial <= 0):
+            raise ValueError("Number of trials must be strictly positive.")
+
+        if np.any(n_success > n_trial):
+            raise ValueError(
+                "Number of successes cannot be larger than that of trials.")
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
         logit_prob = self.X.dot(beta)
