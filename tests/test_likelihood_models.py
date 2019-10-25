@@ -14,7 +14,7 @@ from bayesbridge.model import LinearModel, LogisticModel, CoxModel
 
 
 def test_linear_model_gradient_and_hessian():
-    y, X, beta = simulate_data(model='linear', seed=0)
+    y, X, beta = simulate_data(model='linear', seed=0, return_design_mat=True)
     obs_prec = 1.
     linear_model = LinearModel(y, X)
     f = partial(linear_model.compute_loglik_and_gradient, obs_prec=obs_prec)
@@ -24,7 +24,7 @@ def test_linear_model_gradient_and_hessian():
 
 
 def test_logitstic_model_hessian_matvec():
-    y, X, beta = simulate_data(model='logit', seed=0)
+    y, X, beta = simulate_data(model='logit', seed=0, return_design_mat=True)
     n_success, n_trial = y
     logit_model = LogisticModel(n_success, X, n_trial)
     f = logit_model.compute_loglik_and_gradient
@@ -33,7 +33,7 @@ def test_logitstic_model_hessian_matvec():
 
 
 def set_up_cox_model_test(seed=0):
-    y, X, beta = simulate_data(model='cox', seed=seed)
+    y, X, beta = simulate_data(model='cox', seed=seed, return_design_mat=True)
     event_order, censoring_time = y
     cox_model = CoxModel(event_order, censoring_time, X)
     return cox_model, beta

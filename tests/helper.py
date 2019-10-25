@@ -5,7 +5,8 @@ from bayesbridge.design_matrix import SparseDesignMatrix, DenseDesignMatrix
 from simulate_data import simulate_design
 
 
-def simulate_data(model, n_obs=100, n_pred=50, seed=None):
+def simulate_data(model, n_obs=100, n_pred=50, seed=None,
+                  return_design_mat=False):
     if seed is not None:
         np.random.seed(seed)
 
@@ -31,9 +32,10 @@ def simulate_data(model, n_obs=100, n_pred=50, seed=None):
     else:
         raise NotImplementedError()
 
-    if sp.sparse.issparse(X):
-        X = SparseDesignMatrix(X, add_intercept=False)
-    else:
-        X = DenseDesignMatrix(X, add_intercept=False)
+    if return_design_mat:
+        if sp.sparse.issparse(X):
+            X = SparseDesignMatrix(X, add_intercept=False)
+        else:
+            X = DenseDesignMatrix(X, add_intercept=False)
 
     return y, X, beta
