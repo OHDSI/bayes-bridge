@@ -113,15 +113,21 @@ class BayesBridge():
     # TODO: Make a class to handle all the calculations related to the scale
     #  parameters?
     def set_global_scale_prior(
-            self, log_mean, log_sd, bridge_exp, hyper_param_scale):
+            self, log10_mean, log10_sd, bridge_exp, hyper_param_scale):
         unit_scale_bridge_mean \
                 = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
+        log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
+        log_sd = log10_sd / math.log(10.)
         if hyper_param_scale == 'coefficient':
             log_mean -= math.log(unit_scale_bridge_mean)
         shape, rate = self.solve_for_global_scale_hyperparam(
             log_mean, log_sd, bridge_exp
         )
         self.prior_param['gscale_neg_power'] = {'shape': shape, 'rate': rate}
+
+    @staticmethod
+    def change_log_base(val, from_=math.e, to=10.):
+        return val * math.log(from_) / math.log(to)
 
     def solve_for_global_scale_hyperparam(self, log_mean, log_sd, bridge_exp):
         """ Solve the hyper-parameters with the specified mean and sd in the log scale. """
@@ -248,7 +254,8 @@ class BayesBridge():
         precond_blocksize : int
             size of the block preconditioner
         global_scale_prior_hyper_param : dict
-            Hyper-parameters is specified via a pair of keys 'log_mean' and 'log_sd'.
+            Hyper-parameters is specified via a pair of keys 'log10_mean'
+            and 'log10_sd'.
         hyper_param_scale: str, {'raw', 'coefficient'}
             If 'coefficient', interpret the log mean and sd as that of the
             expected magnitude of coefficients given the global scale parameter.
@@ -291,8 +298,8 @@ class BayesBridge():
         # Set the prior.
         if global_scale_prior_hyper_param is not None:
             self.set_global_scale_prior(
-                global_scale_prior_hyper_param['log_mean'],
-                global_scale_prior_hyper_param['log_sd'],
+                global_scale_prior_hyper_param['log10_mean'],
+                global_scale_prior_hyper_param['log10_sd'],
                 bridge_exponent, hyper_param_scale
             )
 
