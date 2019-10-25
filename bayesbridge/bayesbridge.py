@@ -355,6 +355,14 @@ class BayesBridge():
         _markov_chain_state = \
             self.manager.pack_parameters(beta, obs_prec, lscale, gscale)
 
+        if self.scale_param_scale == 'coefficient':
+            bridge_magitude \
+                = self.compute_power_exp_ave_magnitude(bridge_exponent, scale=1.)
+            if 'global_scale' in samples:
+                samples['global_scale'] *= bridge_magitude
+            if 'local_scale' in samples:
+                samples['local_scale'] /= bridge_magitude
+
         mcmc_output = {
             'samples': samples,
             'init': init,
