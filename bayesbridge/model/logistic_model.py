@@ -26,11 +26,16 @@ class LogisticModel(AbstractModel):
             if np.max(n_success) > 1:
                 raise ValueError(
                     "If not binary, the number of trials must be specified.")
-        else:
-            if not len(n_trial) == len(n_success) == X.shape[0]:
+            if not len(n_success) == X.shape[0]:
                 raise ValueError(
-                    "Incompatible sizes of the outcome vectors and design matrix."
+                    "Incompatible sizes of the outcome and design matrix."
                 )
+            return # No need to check the rest.
+
+        if not len(n_trial) == len(n_success) == X.shape[0]:
+            raise ValueError(
+                "Incompatible sizes of the outcome vectors and design matrix."
+            )
 
         if np.any(n_trial <= 0):
             raise ValueError("Number of trials must be strictly positive.")
