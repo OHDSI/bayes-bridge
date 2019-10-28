@@ -106,7 +106,7 @@ def simulate_binary_design(n_obs, n_binary_pred, sparsity, max_freq_per_col=.5):
         return None
 
     a = .5
-    b = a * (1 / sparsity - 1)
+    b = a * (max_freq_per_col / sparsity - 1)
         # Solve a / (a + b) = sparsity / max_freq_per_col for 'b'.
     binary_freq = max_freq_per_col * np.random.beta(a, b, n_binary_pred)
     X = np.random.binomial(1, binary_freq, (n_obs, n_binary_pred))
