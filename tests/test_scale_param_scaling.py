@@ -17,12 +17,12 @@ def test_scale_param_scaling():
         y, X, model='logit',
         add_intercept=True,
         regularizing_slab_size=1.,
-        scale_param_scale='raw'
+        global_scale_parametrization='raw'
     )
 
     # Two samples should agree since the default prior is scale invariant.
     coef_sample_raw_scaling = get_last_sample_from_gibbs(bridge, bridge_exp)
-    bridge.scale_param_scale = 'coefficient'
+    bridge.global_scale_parametrization = 'coefficient'
     coef_sample_expected_mag_scaling = get_last_sample_from_gibbs(bridge, bridge_exp)
 
     assert np.allclose(
@@ -37,10 +37,10 @@ def test_scale_param_scaling():
         'log10_mean': -2. - np.log10(bridge_magnitude),
         'log10_sd': 1.,
     }
-    bridge.scale_param_scale = 'raw'
+    bridge.global_scale_parametrization = 'raw'
     coef_sample_raw_scaling \
         = get_last_sample_from_gibbs(bridge, bridge_exp, gscale_hyper_param)
-    bridge.scale_param_scale = 'coefficient'
+    bridge.global_scale_parametrization = 'coefficient'
     coef_sample_expected_mag_scaling \
         = get_last_sample_from_gibbs(bridge, bridge_exp, gscale_hyper_param)
 

@@ -19,7 +19,7 @@ class BayesBridge():
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
                  prior_sd_for_intercept=float('inf'), add_intercept=None,
                  center_predictor=False, regularizing_slab_size=float('inf'),
-                 prior_param=None, scale_param_scale='coefficient'):
+                 prior_param=None, global_scale_parametrization='coefficient'):
         """
         Params
         ------
@@ -36,7 +36,7 @@ class BayesBridge():
             without any shrinkage (a.k.a. regularization).
         prior_sd_for_unshrunk : float, numpy array
             If an array, the length must be the same as n_coef_without_shrinkage.
-        scale_param_scale: str, {'raw', 'coefficient'}
+        global_scale_parametrization: str, {'raw', 'coefficient'}
             If 'coefficient', scale the local and global scales so that the
             global scale parameter coincide with the prior expected
             magnitude of regression coefficients.
@@ -107,7 +107,7 @@ class BayesBridge():
             prior_param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}
                 # Reference prior for a scale family.
         self.prior_param = prior_param
-        self.scale_param_scale = scale_param_scale
+        self.global_scale_parametrization = global_scale_parametrization
         self.rg = BasicRandom()
         self.manager = MarkovChainManager(
             self.n_obs, self.n_pred, self.n_unshrunk, model
@@ -123,7 +123,7 @@ class BayesBridge():
                 = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
         log_sd = log10_sd / math.log(10.)
-        if self.scale_param_scale == 'coefficient':
+        if self.global_scale_parametrization == 'coefficient':
             log_mean -= math.log(unit_scale_bridge_mean)
         shape, rate = self.solve_for_global_scale_hyperparam(
             log_mean, log_sd, bridge_exp
@@ -355,7 +355,7 @@ class BayesBridge():
         _markov_chain_state = \
             self.manager.pack_parameters(beta, obs_prec, lscale, gscale)
 
-        if self.scale_param_scale == 'coefficient':
+        if self.global_scale_parametrization == 'coefficient':
             bridge_magitude \
                 = self.compute_power_exp_ave_magnitude(bridge_exponent, scale=1.)
             if 'global_scale' in samples:
