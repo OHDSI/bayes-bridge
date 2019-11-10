@@ -471,11 +471,12 @@ class BayesBridge():
 
     def initialize_shrinkage_parameters(self, init, bridge_exp):
         """
-        Current options allow specifying 1) shrinkage parameters directly,
-        2) regression coefficients only, and 3) `apriori_coef_scale`, the product
-        of local and global shrinkage parameters, along optionally with global
-        shrinkage parameter.
+        Current options allow specifying 1) both scale parameters directly,
+        2) regression coefficients only, and 3) global scale only.
         """
+        gscale_default = .1
+        if self.global_scale_parametrization == 'raw':
+            gscale_default /= self.compute_power_exp_ave_magnitude(bridge_exp)
 
         if 'local_scale' in init and 'global_scale' in init:
             lscale = init['local_scale']
@@ -492,18 +493,11 @@ class BayesBridge():
                 gscale, init['beta'][self.n_unshrunk:], bridge_exp
             )
         else:
-            if 'apriori_coef_scale' in init:
-                apriori_coef_scale = init['apriori_coef_scale']
-            else:
-                apriori_coef_scale = .01
-
             if 'global_scale' in init:
                 gscale = init['global_scale']
             else:
-                unit_bridge_magnitude \
-                    = self.compute_power_exp_ave_magnitude(bridge_exp)
-                gscale = apriori_coef_scale / unit_bridge_magnitude
-            lscale = apriori_coef_scale / gscale * np.ones(self.n_pred - self.n_unshrunk)
+                gscale = gscale_default
+            lscale = np.ones(self.n_pred - self.n_unshrunk) / gscale
 
         if self.global_scale_parametrization == 'coefficient':
             # Gibbs sampler requires the raw parametrization. Technically only
