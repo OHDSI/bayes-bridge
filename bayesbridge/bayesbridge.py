@@ -19,7 +19,7 @@ class BayesBridge():
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
                  prior_sd_for_intercept=float('inf'), add_intercept=None,
                  center_predictor=False, regularizing_slab_size=float('inf'),
-                 prior_param=None, scale_param_scale='coefficient',):
+                 prior_param=None, scale_param_scale='coefficient'):
         """
         Params
         ------
