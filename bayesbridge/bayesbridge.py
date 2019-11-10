@@ -352,16 +352,18 @@ class BayesBridge():
 
         runtime = time.time() - start_time
 
-        _markov_chain_state = \
-            self.manager.pack_parameters(beta, obs_prec, lscale, gscale)
-
         if self.global_scale_parametrization == 'coefficient':
             bridge_magitude \
                 = self.compute_power_exp_ave_magnitude(bridge_exponent, scale=1.)
+            lscale /= bridge_magitude
+            gscale *= bridge_magitude
             if 'global_scale' in samples:
                 samples['global_scale'] *= bridge_magitude
             if 'local_scale' in samples:
                 samples['local_scale'] /= bridge_magitude
+
+        _markov_chain_state = \
+            self.manager.pack_parameters(beta, obs_prec, lscale, gscale)
 
         mcmc_output = {
             'samples': samples,
@@ -504,6 +506,14 @@ class BayesBridge():
                     = self.compute_power_exp_ave_magnitude(bridge_exp)
                 gscale = apriori_coef_scale / power_exponential_mean
             lscale = apriori_coef_scale / gscale * np.ones(self.n_pred - self.n_unshrunk)
+
+        if self.global_scale_parametrization == 'coefficient':
+            # Gibbs sampler requires the raw parametrization. Technically only
+            # gscale * lscale matters within the sampler due to the update order.
+            unit_scale_bridge_mean \
+                = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
+            gscale /= unit_scale_bridge_mean
+            lscale *= unit_scale_bridge_mean
 
         return lscale, gscale
 

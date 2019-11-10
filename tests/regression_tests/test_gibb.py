@@ -36,7 +36,8 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
     n_unshrunk = 1 if model == 'cox' else 0
     bridge = BayesBridge(
         outcome, X, model=model,
-        n_coef_without_shrinkage=n_unshrunk, prior_sd_for_unshrunk=2.
+        n_coef_without_shrinkage=n_unshrunk, prior_sd_for_unshrunk=2.,
+        global_scale_parametrization='raw'
     )
     init = {
         'global_scale': .01,
