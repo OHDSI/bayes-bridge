@@ -30,7 +30,7 @@ class LogisticModel(AbstractModel):
                 raise ValueError(
                     "Incompatible sizes of the outcome and design matrix."
                 )
-            return # No need to check the rest.
+            return # No need to check the rest for the default initialization.
 
         if not len(n_trial) == len(n_success) == X.shape[0]:
             raise ValueError(
