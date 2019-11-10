@@ -119,12 +119,12 @@ class BayesBridge():
     #  parameters?
     def set_global_scale_prior(
             self, log10_mean, log10_sd, bridge_exp):
-        unit_scale_bridge_mean \
+        unit_bridge_magnitude \
                 = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
         log_sd = log10_sd / math.log(10.)
         if self.global_scale_parametrization == 'coefficient':
-            log_mean -= math.log(unit_scale_bridge_mean)
+            log_mean -= math.log(unit_bridge_magnitude)
         shape, rate = self.solve_for_global_scale_hyperparam(
             log_mean, log_sd, bridge_exp
         )
@@ -353,14 +353,12 @@ class BayesBridge():
         runtime = time.time() - start_time
 
         if self.global_scale_parametrization == 'coefficient':
-            bridge_magitude \
-                = self.compute_power_exp_ave_magnitude(bridge_exponent, scale=1.)
-            lscale /= bridge_magitude
-            gscale *= bridge_magitude
+            gscale, lscale, unit_bridge_magitude = \
+                self.adjust_scale(gscale, lscale, bridge_exponent, to='coefficient')
             if 'global_scale' in samples:
-                samples['global_scale'] *= bridge_magitude
+                samples['global_scale'] *= unit_bridge_magitude
             if 'local_scale' in samples:
-                samples['local_scale'] /= bridge_magitude
+                samples['local_scale'] /= unit_bridge_magitude
 
         _markov_chain_state = \
             self.manager.pack_parameters(beta, obs_prec, lscale, gscale)
@@ -502,18 +500,16 @@ class BayesBridge():
             if 'global_scale' in init:
                 gscale = init['global_scale']
             else:
-                power_exponential_mean \
+                unit_bridge_magnitude \
                     = self.compute_power_exp_ave_magnitude(bridge_exp)
-                gscale = apriori_coef_scale / power_exponential_mean
+                gscale = apriori_coef_scale / unit_bridge_magnitude
             lscale = apriori_coef_scale / gscale * np.ones(self.n_pred - self.n_unshrunk)
 
         if self.global_scale_parametrization == 'coefficient':
             # Gibbs sampler requires the raw parametrization. Technically only
             # gscale * lscale matters within the sampler due to the update order.
-            unit_scale_bridge_mean \
-                = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
-            gscale /= unit_scale_bridge_mean
-            lscale *= unit_scale_bridge_mean
+            gscale, lscale, unit_bridge_magnitude \
+                = self.adjust_scale(gscale, lscale, bridge_exp, to='raw')
 
         return lscale, gscale
 
@@ -524,6 +520,19 @@ class BayesBridge():
         with density proportional to exp( - |x / scale|^exponent ).
         """
         return scale * math.gamma(2 / exponent) / math.gamma(1 / exponent)
+
+    def adjust_scale(self, gscale, lscale, bridge_exp, to):
+        unit_bridge_magnitude \
+            = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
+        if to == 'raw':
+            gscale /= unit_bridge_magnitude
+            lscale *= unit_bridge_magnitude
+        elif to == 'coefficient':
+            gscale *= unit_bridge_magnitude
+            lscale /= unit_bridge_magnitude
+        else:
+            raise ValueError()
+        return gscale, lscale, unit_bridge_magnitude
 
     def update_beta(self, beta, obs_prec, gscale, lscale, sampling_method, precond_blocksize):
 
