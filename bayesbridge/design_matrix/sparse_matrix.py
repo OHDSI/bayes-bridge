@@ -29,26 +29,25 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         else:
             self.column_offset = np.zeros(X.shape[1])
 
-        if add_intercept:
-            self.column_offset = np.concatenate(([0], self.column_offset))
-            intercept_column = np.ones((X.shape[0], 1))
-            X = sparse.hstack((intercept_column, X))
-
+        self.intercept_added = add_intercept
         self.X_csr = X.tocsr()
 
     @property
     def shape(self):
-        return self.X_csr.shape
+        shape = self.X_csr.shape
+        return shape[0], shape[1] + int(self.intercept_added)
 
     def dot(self, v):
 
         if self.memoized and np.all(self.v_prev == v):
             return self.X_dot_v
 
-        X = self.X_csr
-        result = mkl_csr_matvec(X, v) \
-            if self.use_mkl else X.dot(v)
-        result -= np.inner(self.column_offset, v)
+        intercept_effect = 0.
+        if self.intercept_added:
+            intercept_effect += v[0]
+            v = v[1:]
+        result = intercept_effect + self.main_dot(v)
+        
         if self.memoized:
             self.X_dot_v = result
             self.v_prev = v
@@ -56,12 +55,27 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
         return result
 
+    def main_dot(self, v):
+        """ Multiply by the main effect part of the design matrix. """
+        X = self.X_csr
+        result = mkl_csr_matvec(X, v) if self.use_mkl else X.dot(v)
+        result -= np.inner(self.column_offset, v)
+        if self.memoized:
+            self.X_dot_v = result
+        return result
+
     def Tdot(self, v):
+        result = self.main_Tdot(v)
+        if self.intercept_added:
+            result = np.concatenate(([np.sum(v)], result))
         self.Tdot_count += 1
+        return result
+
+    def main_Tdot(self, v):
         X = self.X_csr
         result = mkl_csr_matvec(X, v, transpose=True) \
             if self.use_mkl else X.T.dot(v)
-        result -= self.column_offset * np.sum(v)
+        result -= np.sum(v) * self.column_offset
         return result
 
     def compute_fisher_info(self, weight, diag_only=False):
