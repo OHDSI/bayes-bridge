@@ -35,10 +35,30 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             X = sparse.hstack((intercept_column, X))
 
         self.X_csr = X.tocsr()
+        self.interacted = False
+        self.index_to_interact = None
+        self.interacted_indices = None
 
     @property
     def shape(self):
         return self.X_csr.shape
+
+    def interact(self, index, other_indices=None):
+        """ Add interaction terms to the design matrix.
+
+        Parameters
+        ----------
+        index: int
+            Column index in the design matrix of the covariate to interact
+            with the other covariates. The '0' index corresponds to the
+            intercept if added.
+        other_indices: array of int, optional
+            The covariates to be interacted with the one specified by 'index'.
+            Defaults to all the covariates except the intercept.
+        """
+        self.interacted = True
+        self.index_to_interact = index
+        self.interacted_indices = other_indices
 
     def dot(self, v):
 
