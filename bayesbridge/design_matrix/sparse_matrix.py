@@ -39,8 +39,10 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def dot(self, v):
 
-        if self.memoized and np.all(self.v_prev == v):
-            return self.X_dot_v
+        if self.memoized:
+            if np.all(self.v_prev == v):
+                return self.X_dot_v
+            self.v_prev = v.copy()
 
         intercept_effect = 0.
         if self.intercept_added:
@@ -50,7 +52,6 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         
         if self.memoized:
             self.X_dot_v = result
-            self.v_prev = v
         self.dot_count += 1
 
         return result
