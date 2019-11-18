@@ -84,24 +84,35 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         weight_mat = self.create_diag_matrix(weight)
 
         if diag_only:
+
             diag = weight_mat.dot(self.X_csr.power(2)).sum(0)
             if self.centered:
                 weighted_X = weight_mat.dot(self.X_csr).tocsc()
                 diag -= 2 * self.column_offset \
                         * np.squeeze(np.asarray(weighted_X.sum(0)))
                 diag += np.sum(weight) * self.column_offset ** 2
-            return np.squeeze(np.asarray(diag))
+            diag = np.squeeze(np.asarray(diag))
+            if self.intercept_added:
+                diag = np.concatenate(([np.sum(weight)], diag))
+            return diag
+
         else:
-            X_T = self.X_csr.T
-            weighted_X = weight_mat.dot(self.X_csr).tocsc()
+
+            X_csr = self.X_csr
+            if self.intercept_added:
+                column_offset = np.concatenate(([0], self.column_offset))
+                intercept_column = np.ones((X_csr.shape[0], 1))
+                X_csr = sparse.hstack((intercept_column, X_csr))
+            X_T = X_csr.T
+            weighted_X = weight_mat.dot(X_csr).tocsc()
             fisher_info = X_T.dot(weighted_X).toarray()
             if self.centered:
                 outer_prod_term = np.outer(
-                    self.column_offset, weighted_X.sum(0)
+                    column_offset, weighted_X.sum(0)
                 )
                 fisher_info -= outer_prod_term + outer_prod_term.T
                 fisher_info += np.sum(weight) \
-                               * np.outer(self.column_offset, self.column_offset)
+                               * np.outer(column_offset, column_offset)
             return fisher_info
 
     def create_diag_matrix(self, v):
