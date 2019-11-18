@@ -86,20 +86,29 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
         weight_mat = self.create_diag_matrix(weight)
         X_csr = self.X_csr
-        if self.intercept_added:
-            column_offset = np.concatenate(([0], self.column_offset))
-            intercept_column = np.ones((X_csr.shape[0], 1))
-            X_csr = sparse.hstack((intercept_column, X_csr))
         X_T = X_csr.T
         weighted_X = weight_mat.dot(X_csr).tocsc()
-        fisher_info = X_T.dot(weighted_X).toarray()
+
+        n_pred = self.shape[1]
+        fisher_info = np.zeros((n_pred, n_pred))
+        if self.intercept_added:
+            fisher_info[0, 0] = np.sum(weight)
+            fisher_info[0, 1:] \
+                = weighted_X.sum(0) - np.sum(weight) * self.column_offset
+            fisher_info[1:, 0] = fisher_info[0, 1:]
+            fisher_info_wo_intercept = fisher_info[1:, 1:]
+        else:
+            fisher_info_wo_intercept = fisher_info
+
+        fisher_info_wo_intercept += X_T.dot(weighted_X).toarray()
         if self.centered:
             outer_prod_term = np.outer(
-                column_offset, weighted_X.sum(0)
+                self.column_offset, weighted_X.sum(0)
             )
-            fisher_info -= outer_prod_term + outer_prod_term.T
-            fisher_info += np.sum(weight) \
-                           * np.outer(column_offset, column_offset)
+            fisher_info_wo_intercept -= outer_prod_term + outer_prod_term.T
+            fisher_info_wo_intercept \
+                += np.sum(weight) * np.outer(self.column_offset, self.column_offset)
+
         return fisher_info
 
     def compute_fisher_diag(self, weight):
