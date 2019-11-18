@@ -130,7 +130,10 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
     def toarray(self):
-        return self.X_main.toarray() - self.column_offset[np.newaxis, :]
+        X = self.X_main.toarray() - self.column_offset[np.newaxis, :]
+        if self.intercept_added:
+            X = np.hstack((np.ones(X.shape[0]), X))
+        return X
 
     def extract_matrix(self, order=None):
         pass
