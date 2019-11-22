@@ -15,7 +15,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         """
         if copy_array:
             X = X.copy()
-        super().__init__(X)
+        super().__init__()
         if dot_format == 'csc' or Tdot_format == 'csc':
             raise NotImplementedError(
                 "Current dot operations are only implemented for the CSR format."

@@ -3,7 +3,7 @@ import numpy as np
 
 class AbstractDesignMatrix():
 
-    def __init__(self, X):
+    def __init__(self):
         self.dot_count = 0
         self.Tdot_count = 0
         self.memoized = False
