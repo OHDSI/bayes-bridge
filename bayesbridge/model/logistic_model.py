@@ -5,6 +5,8 @@ from bayesbridge.util.simple_warnings import warn_message_only
 
 class LogisticModel(AbstractModel):
 
+    # TODO: Python crushes during the Gibbs if n_success has the second
+    # dimension (instead of being a vector). Add checks for the inputs.
     def __init__(self, n_success, X, n_trial=None):
 
         self.check_input_validity(n_success, n_trial, X)
