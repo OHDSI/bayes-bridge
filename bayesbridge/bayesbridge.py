@@ -69,9 +69,7 @@ class BayesBridge():
                 prior_sd_for_unshrunk * np.ones(n_coef_without_shrinkage)
 
         if add_intercept:
-            if n_coef_without_shrinkage == 0:
-                prior_sd_for_unshrunk = prior_sd_for_intercept
-            elif np.isscalar(prior_sd_for_unshrunk):
+            if np.isscalar(prior_sd_for_unshrunk):
                 prior_sd_for_unshrunk = np.concatenate((
                     [prior_sd_for_intercept],
                     n_coef_without_shrinkage * [prior_sd_for_unshrunk]
