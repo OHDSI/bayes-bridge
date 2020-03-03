@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from distutils.extension import Extension
 
 setup(
     name='bayesbridge',
@@ -12,6 +13,12 @@ setup(
     author_email='akihiko4@g.ucla.edu',
     license='MIT',
     packages=find_packages(exclude=['./tests/*']),
+    ext_modules = [
+        Extension(
+            "bayesbridge.random.tilted_stable_dist.custom_math",
+            ["bayesbridge/random/tilted_stable_dist/custom_math.c"]
+        )
+    ],
     install_requires=[
         'numpy', 'scipy', 'pypolyagamma'
     ],
