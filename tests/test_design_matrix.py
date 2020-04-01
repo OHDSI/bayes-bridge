@@ -25,7 +25,7 @@ def test_sparse_design_intercept_and_centering():
 
 
 def test_sparse_design_centered_fisher_info():
-    np.random.seed(1)
+
     n_obs, n_pred = (5, 3)
     X = simulate_design(n_obs, n_pred, binary_frac=.5, format_='sparse')
     X_design = SparseDesignMatrix(
@@ -47,6 +47,7 @@ def test_sparse_design_centered_fisher_info():
 
 
 def test_dense_design_intercept_and_centering():
+
     n_obs, n_pred = (100, 10)
     X = simulate_design(n_obs, n_pred, binary_frac=.5, format_='dense')
     X_design = DenseDesignMatrix(X, center_predictor=True, add_intercept=True)
