@@ -11,6 +11,7 @@ class AbstractDesignMatrix():
         self.v_prev = None # For memoization
 
     @property
+    @abc.abstractmethod
     def shape(self):
         pass
 
