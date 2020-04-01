@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import scipy as sp
 import scipy.sparse
@@ -109,7 +110,10 @@ def simulate_binary_design(n_obs, n_binary_pred, sparsity, max_freq_per_col=.5):
     b = a * (max_freq_per_col / sparsity - 1)
         # Solve a / (a + b) = sparsity / max_freq_per_col for 'b'.
     binary_freq = max_freq_per_col * np.random.beta(a, b, n_binary_pred)
-    X = np.random.binomial(1, binary_freq, (n_obs, n_binary_pred))
+    X = np.zeros((n_obs, n_binary_pred))
+    for j in range(n_binary_pred):
+        nnz = math.ceil(n_obs * binary_freq[j])
+        X[np.random.choice(n_obs, nnz, replace=False), j] = 1.
     return X
 
 def simulate_categorical_design(n_obs, n_categorical_pred, n_category=5):
