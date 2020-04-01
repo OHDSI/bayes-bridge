@@ -20,6 +20,8 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             raise NotImplementedError(
                 "Current dot operations are only implemented for the CSR format."
             )
+        X = X.tocsr()
+        X = self.remove_intercept_indicator(X)
 
         self.use_mkl = use_mkl
 

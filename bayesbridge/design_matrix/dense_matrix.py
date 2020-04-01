@@ -13,6 +13,7 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         if copy_array:
             X = X.copy()
         super().__init__()
+        X = self.remove_intercept_indicator(X)
         if center_predictor:
             X -= np.mean(X, axis=0)[np.newaxis, :]
         if add_intercept:

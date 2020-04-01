@@ -1,5 +1,8 @@
 import abc
 import numpy as np
+import scipy as sp
+import scipy.sparse
+import warnings
 
 class AbstractDesignMatrix():
 
@@ -54,3 +57,20 @@ class AbstractDesignMatrix():
     def toarray(self):
         """ Returns a 2-dimensional numpy array. """
         pass
+
+    @staticmethod
+    def remove_intercept_indicator(X):
+        if sp.sparse.issparse(X):
+            col_variance = np.squeeze(np.array(
+                X.power(2).mean(axis=0) - np.power(X.mean(axis=0), 2)
+            ))
+        else:
+            col_variance = np.var(X, axis=0)
+        has_zero_variance = (col_variance < X.shape[0] * 2 ** -52)
+        if np.any(has_zero_variance):
+            warnings.warn(
+                "Intercept column (or numerically indistinguishable from "
+                "such) detected. Do not add intercept manually. Removing...."
+            )
+            X = X[:, np.logical_not(has_zero_variance)]
+        return X
