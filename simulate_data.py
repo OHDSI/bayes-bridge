@@ -128,7 +128,16 @@ def simulate_categorical_design(n_obs, n_categorical_pred, n_category=5):
 
 def draw_categorical_pred(n_obs, n_category):
     # Returns a matrix of size n by (n_category - 1).
-    category_freq = np.random.dirichlet(
-        np.ones(n_category - 1)
-    )
-    return np.random.multinomial(1, category_freq, n_obs)
+    category_freq = np.random.dirichlet(np.ones(n_category))
+    category_freq = np.sort(category_freq)[::-1][1:]
+        # Use the most frequent category as baseline
+    n_within_category = np.concatenate((
+        [0], np.floor(n_obs * np.cumsum(category_freq))
+    )).astype(np.int)
+    X = np.zeros((n_obs, n_category - 1))
+    for j in range(n_category - 1):
+        start = n_within_category[j]
+        end = n_within_category[j + 1]
+        X[start:end, j] = 1
+    X = X[np.random.permutation(n_obs), :]
+    return X
