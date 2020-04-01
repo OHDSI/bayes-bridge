@@ -129,6 +129,6 @@ def simulate_categorical_design(n_obs, n_categorical_pred, n_category=5):
 def draw_categorical_pred(n_obs, n_category):
     # Returns a matrix of size n by (n_category - 1).
     category_freq = np.random.dirichlet(
-        np.ones(n_category - 1) / n_category
+        np.ones(n_category - 1)
     )
     return np.random.multinomial(1, category_freq, n_obs)
