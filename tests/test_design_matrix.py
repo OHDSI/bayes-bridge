@@ -1,4 +1,6 @@
 import numpy as np
+import scipy as sp
+import scipy.sparse
 
 from bayesbridge.design_matrix import SparseDesignMatrix, DenseDesignMatrix
 from simulate_data import simulate_design
@@ -63,3 +65,20 @@ def center_and_add_intercept(X):
     intercept_column = np.ones((X.shape[0], 1))
     X = np.hstack((intercept_column, X))
     return X
+
+
+def test_intercept_removal():
+
+    n_obs, n_pred = (100, 10)
+    X = simulate_design(n_obs, n_pred, binary_frac=.5, format_='sparse')
+    X_with_const_col = sp.sparse.hstack([
+        np.ones((n_obs, 1)), X[:, :5], -.5 * np.ones((n_obs, 1)), X[:, 5:]
+    ]).tocsr()
+    assert np.allclose(
+        X.toarray(),
+        SparseDesignMatrix.remove_intercept_indicator(X_with_const_col).toarray()
+    )
+    assert np.allclose(
+        X.toarray(),
+        DenseDesignMatrix.remove_intercept_indicator(X_with_const_col.toarray())
+    )
