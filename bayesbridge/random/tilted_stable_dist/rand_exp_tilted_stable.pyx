@@ -1,7 +1,33 @@
+cimport cython
+from libc.math cimport exp as exp_c
+from libc.math cimport fabs, pow, log, sqrt, sin
+from libc.math cimport INFINITY, M_PI
 import math
-from math import sqrt, log, pow
-from .custom_math import exp, sinc
 import random
+
+
+cdef exp(double x):
+    cdef double max_exponent
+    max_exponent = 709  # ~ log(2 ** 1024)
+    if x > max_exponent:
+        val = INFINITY
+    elif x < - max_exponent:
+        val = 0.
+    else:
+        val = exp_c(x)
+    return val
+
+
+cdef sinc(double x):
+    cdef double x_sq
+    if fabs(x) < .01:
+        x_sq = x * x
+        val = 1. - x_sq / 6. * (1 - x_sq / 20.)
+            # Taylor approximation with an error bounded by 2e-16
+    else:
+        val = sin(x) / x
+    return val
+
 
 class ExpTiltedStableDist():
 
@@ -80,7 +106,7 @@ class ExpTiltedStableDist():
         V = self.unif_rv()
         E = - log(self.unif_rv())
         S = pow(
-            self.zolotarev_function(math.pi * V, alpha) / E
+            self.zolotarev_function(M_PI * V, alpha) / E
         , (1. - alpha) / alpha)
         return S
 
@@ -91,11 +117,11 @@ class ExpTiltedStableDist():
         lam_alpha = pow(lam, alpha)
         gamma = lam_alpha * alpha * (1. - alpha)
         sqrt_gamma = sqrt(gamma)
-        c1 = sqrt(math.pi / 2.)
+        c1 = sqrt(M_PI / 2.)
         c2 = 2. + c1
         c3 = c2 * sqrt_gamma
-        xi = (1. + sqrt(2.) * c3) / math.pi
-        psi = c3 * exp(-gamma * math.pi * math.pi / 8.) / sqrt(math.pi)
+        xi = (1. + sqrt(2.) * c3) / M_PI
+        psi = c3 * exp(-gamma * M_PI * M_PI / 8.) / sqrt(M_PI)
 
         # Start double-rejection sampling.
         accepted = False
@@ -121,7 +147,7 @@ class ExpTiltedStableDist():
         accepted = False
         while not accepted:
             U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
-            if U > math.pi:
+            if U > M_PI:
                 accept_prob = 0.
             else:
                 zeta = sqrt(self.zolotarev_pdf_exponentiated(U, alpha))
@@ -132,7 +158,7 @@ class ExpTiltedStableDist():
                 accepted = False
             else:
                 Z = self.unif_rv() / accept_prob
-                accepted = (U < math.pi and Z <= 1.)
+                accepted = (U < M_PI and Z <= 1.)
 
         return U, Z, z
 
@@ -144,33 +170,33 @@ class ExpTiltedStableDist():
         """
 
         w1 = c1 * xi / sqrt_gamma
-        w2 = 2. * sqrt(math.pi) * psi
-        w3 = xi * math.pi
+        w2 = 2. * sqrt(M_PI) * psi
+        w3 = xi * M_PI
         V = self.unif_rv()
         if gamma >= 1:
             if V < w1 / (w1 + w2):
-                U = abs(self.normal_rv(0., 1.)) / sqrt_gamma
+                U = fabs(self.normal_rv(0., 1.)) / sqrt_gamma
             else:
                 W = self.unif_rv()
-                U = math.pi * (1. - W * W)
+                U = M_PI * (1. - W * W)
         else:
             W = self.unif_rv()
             if V < w3 / (w2 + w3):
-                U = math.pi * W
+                U = M_PI * W
             else:
-                U = math.pi * (1. - W * W)
+                U = M_PI * (1. - W * W)
 
         return U
 
     def compute_aux2_accept_prob(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
-        inverse_accept_prob = math.pi * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
+        inverse_accept_prob = M_PI * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
               / ((1. + c1) * sqrt_gamma / zeta + z)
         d = 0.
         if U >= 0. and gamma >= 1:
             d += xi * exp(-gamma * U * U / 2.)
-        if U > 0. and U < math.pi:
-            d += psi / sqrt(math.pi - U)
-        if U >= 0. and U <= math.pi and gamma < 1.:
+        if U > 0. and U < M_PI:
+            d += psi / sqrt(M_PI - U)
+        if U >= 0. and U <= M_PI and gamma < 1.:
             d += xi
         inverse_accept_prob *= d
         accept_prob = 1 / inverse_accept_prob
@@ -198,7 +224,7 @@ class ExpTiltedStableDist():
         E = 0.
         if V2 < a1 / s:
             N = self.normal_rv(0., 1.)
-            X = m - delta * abs(N)
+            X = m - delta * fabs(N)
         elif V2 < (a1 + delta) / s:
             X = m + delta * self.unif_rv()
         else:
@@ -209,7 +235,7 @@ class ExpTiltedStableDist():
     def compute_log_accept_prob(self, X, N, E, a, m, alpha, lam_alpha, b, delta):
 
         if X < 0:
-            log_accept_prob = - math.inf
+            log_accept_prob = - INFINITY
         else:
             log_accept_prob = - (
                 a * (X - m)
