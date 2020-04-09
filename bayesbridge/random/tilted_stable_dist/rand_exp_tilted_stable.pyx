@@ -4,14 +4,13 @@ from libc.math cimport fabs, pow, log, sqrt, sin
 from libc.math cimport INFINITY, M_PI
 import math
 import random
+cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
 
 
 cdef exp(double x):
-    cdef double max_exponent
-    max_exponent = 709  # ~ log(2 ** 1024)
-    if x > max_exponent:
+    if x > MAX_EXP_ARG:
         val = INFINITY
-    elif x < - max_exponent:
+    elif x < - MAX_EXP_ARG:
         val = 0.
     else:
         val = exp_c(x)
