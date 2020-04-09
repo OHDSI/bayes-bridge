@@ -5,7 +5,6 @@ from libc.math cimport INFINITY, M_PI
 import math
 import random
 cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
-from numpy.random import PCG64
 
 
 cdef double exp(double x):
@@ -32,14 +31,16 @@ cdef double sinc(double x):
 
 class ExpTiltedStableDist():
 
-    def __init__(self, seed, bitgen=None):
-        if bitgen is None:
-            bitgen = PCG64()
-        self.bitgen = bitgen
+    def __init__(self, seed=None):
+        random.seed(seed)
+        self.unif_rv = random.random
         self.normal_rv = random.normalvariate
 
-    def unif_rv(self):
-        return self.bitgen.ctypes.next_double(self.bitgen.ctypes.state)
+    def get_state(self):
+        return random.getstate()
+
+    def set_state(self, state):
+        random.setstate(state)
 
     def rv(self, char_exponent, tilt, method=None):
         """
