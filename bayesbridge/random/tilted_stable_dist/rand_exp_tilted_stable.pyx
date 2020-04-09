@@ -7,7 +7,7 @@ import random
 cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
 
 
-cdef exp(double x):
+cdef double exp(double x):
     if x > MAX_EXP_ARG:
         val = INFINITY
     elif x < - MAX_EXP_ARG:
@@ -17,7 +17,8 @@ cdef exp(double x):
     return val
 
 
-cdef sinc(double x):
+@cython.cdivision(True)
+cdef double sinc(double x):
     cdef double x_sq
     if fabs(x) < .01:
         x_sq = x * x
