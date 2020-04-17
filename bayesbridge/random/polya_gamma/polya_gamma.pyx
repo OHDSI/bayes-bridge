@@ -3,7 +3,7 @@ from libc.math cimport exp, log, sqrt, M_PI
 import random
 import cython
 import numpy as np
-from scipy.special import log_ndtr as normal_logcdf
+from scipy_ndtr cimport log_ndtr as normal_logcdf
 
 # Threshold below (and above) which the target density is bounded by inverse
 # Gaussian (and exponential) and have different analytical series expressions.
