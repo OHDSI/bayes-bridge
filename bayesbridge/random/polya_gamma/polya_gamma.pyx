@@ -158,10 +158,21 @@ cdef double rand_right_truncated_unit_shape_invgauss(double rate, double trunc):
 
 
 cdef double rand_unit_shape_invgauss(double mean):
-    cdef double V = random.normalvariate(0.0, 1.0) ** 2
+    cdef double V = rand_standard_normal() ** 2
     cdef double X = mean + 0.5 * mean * (
         mean * V - sqrt(4.0 * mean * V + mean ** 2 * V ** 2)
     )
     if <double>random.random() > mean / (mean + X):
         X = mean ** 2 / X
     return X
+
+
+cdef double rand_standard_normal():
+    # Sample via Polar method
+    cdef double X, Y, sq_norm
+    sq_norm = 1. # Placeholder value to pass through the first loop
+    while sq_norm >= 1. or sq_norm == 0.:
+      X = 2. * random.random() - 1.
+      Y = 2. * random.random() - 1.
+      sq_norm = X * X + Y * Y
+    return sqrt(-2. * log(sq_norm) / sq_norm) * Y
