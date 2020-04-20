@@ -9,12 +9,17 @@ from scipy_ndtr cimport log_ndtr as normal_logcdf
 # Gaussian (and exponential) and have different analytical series expressions.
 cdef double PIECEWISE_DENSITY_THRESHOLD = 2.0 / M_PI
 
+ctypedef double (*rand_generator)()
+cdef double python_builtin_next_double():
+    return <double>random.random()
 
-class PolyaGammaDist():
+
+cdef class PolyaGammaDist():
+    cdef rand_generator next_double
 
     def __init__(self, seed=None):
         random.seed(seed)
-        self.next_double = random.random
+        self.next_double = python_builtin_next_double
 
     def get_state(self):
         return random.getstate()
