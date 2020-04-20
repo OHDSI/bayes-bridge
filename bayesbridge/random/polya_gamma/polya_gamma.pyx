@@ -5,9 +5,6 @@ import cython
 import numpy as np
 from scipy_ndtr cimport log_ndtr as normal_logcdf
 
-# Threshold below (and above) which the target density is bounded by inverse
-# Gaussian (and exponential) and have different analytical series expressions.
-cdef double PIECEWISE_DENSITY_THRESHOLD = 2.0 / M_PI
 
 ctypedef double (*rand_generator)()
 cdef double python_builtin_next_double():
@@ -16,10 +13,14 @@ cdef double python_builtin_next_double():
 
 cdef class PolyaGammaDist():
     cdef rand_generator next_double
+    # Threshold below (and above) which the target density is bounded by inverse
+    # Gaussian (and exponential) and have different analytical series expressions.
+    cdef double THRESHOLD
 
     def __init__(self, seed=None):
         random.seed(seed)
         self.next_double = python_builtin_next_double
+        self.THRESHOLD = 2.0 / M_PI
 
     def get_state(self):
         return random.getstate()
@@ -75,24 +76,24 @@ cdef class PolyaGammaDist():
     cdef (double, double) rand_proposal(self, double tilt):
         # Many quantities here can be cached and reused in case of rejection, but
         # the acceptance rate is so high that it does not matter.
-        cdef double threshold = PIECEWISE_DENSITY_THRESHOLD
         cdef double exp_rate = .5 * tilt ** 2 + .125 * M_PI ** 2
         cdef double prob_to_right = self.calc_prob_to_right(tilt, exp_rate)
         if self.next_double() < prob_to_right:
-            X = self.rand_left_truncated_exp(1. / exp_rate, threshold)
+            X = self.rand_left_truncated_exp(1. / exp_rate, self.THRESHOLD)
         else:
-            X = self.rand_right_truncated_unit_shape_invgauss(tilt, threshold)
+            X = self.rand_right_truncated_unit_shape_invgauss(tilt, self.THRESHOLD)
         proposal_density = self.calc_next_term_in_series(0, X)
         return X, proposal_density
 
     cdef double calc_prob_to_right(self, double tilt, double exp_rate):
-        cdef double threshold = PIECEWISE_DENSITY_THRESHOLD
         cdef double log_mass_expo \
-            = - log(exp_rate) - exp_rate * threshold + log(.25 * M_PI)
+            = - log(exp_rate) - exp_rate * self.THRESHOLD + log(.25 * M_PI)
         cdef double log_mass_invg_1 \
-            = - tilt + normal_logcdf((threshold * tilt - 1.) / sqrt(threshold))
+            = - tilt + normal_logcdf(
+                (self.THRESHOLD * tilt - 1.) / sqrt(self.THRESHOLD))
         cdef double log_mass_invg_2 \
-            = tilt + normal_logcdf(- (threshold * tilt + 1.) / sqrt(threshold))
+            = tilt + normal_logcdf(
+                - (self.THRESHOLD * tilt + 1.) / sqrt(self.THRESHOLD))
         cdef double mass_ratio = (
             exp(log_mass_invg_1 - log_mass_expo)
             + exp(log_mass_invg_2 - log_mass_expo)
@@ -102,7 +103,7 @@ cdef class PolyaGammaDist():
     # Equations (12) and (13) of Polson, Scott, and Windle (2013)
     cdef double calc_next_term_in_series(self, int n, double x):
         cdef double log_result = log(M_PI * (n + 0.5))
-        if x <= PIECEWISE_DENSITY_THRESHOLD:
+        if x <= self.THRESHOLD:
             log_result += - 1.5 * log(.5 * x * M_PI) - 2 * (n + 0.5) ** 2 / x
         else:
             log_result += - 0.5 * x * M_PI ** 2 * (n + 0.5) ** 2
