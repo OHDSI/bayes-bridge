@@ -5,6 +5,7 @@ from libc.math cimport INFINITY, M_PI
 import math
 import random
 cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
+ctypedef double (*rand_generator)()
 
 
 cdef double exp(double x):
@@ -29,12 +30,16 @@ cdef double sinc(double x):
     return val
 
 
-class ExpTiltedStableDist():
+cdef double python_builtin_next_double():
+    return <double>random.random()
+
+
+cdef class ExpTiltedStableDist():
+    cdef rand_generator next_double
 
     def __init__(self, seed=None):
         random.seed(seed)
-        self.unif_rv = random.random
-        self.normal_rv = random.normalvariate
+        self.next_double = python_builtin_next_double
 
     def get_state(self):
         return random.getstate()
@@ -99,12 +104,12 @@ class ExpTiltedStableDist():
         while not accepted:
             S = c * self.sample_non_tilted_rv(alpha)
             accept_prob = exp(- lam * S)
-            accepted = (self.unif_rv() < accept_prob)
+            accepted = (self.next_double() < accept_prob)
         return S
 
     def sample_non_tilted_rv(self, alpha):
-        V = self.unif_rv()
-        E = - log(self.unif_rv())
+        V = self.next_double()
+        E = - log(self.next_double())
         S = pow(
             self.zolotarev_function(M_PI * V, alpha) / E
         , (1. - alpha) / alpha)
@@ -157,7 +162,7 @@ class ExpTiltedStableDist():
             if accept_prob == 0.:
                 accepted = False
             else:
-                Z = self.unif_rv() / accept_prob
+                Z = self.next_double() / accept_prob
                 accepted = (U < M_PI and Z <= 1.)
 
         return U, Z, z
@@ -172,15 +177,15 @@ class ExpTiltedStableDist():
         w1 = c1 * xi / sqrt_gamma
         w2 = 2. * sqrt(M_PI) * psi
         w3 = xi * M_PI
-        V = self.unif_rv()
+        V = self.next_double()
         if gamma >= 1:
             if V < w1 / (w1 + w2):
                 U = fabs(self.rand_standard_normal()) / sqrt_gamma
             else:
-                W = self.unif_rv()
+                W = self.next_double()
                 U = M_PI * (1. - W * W)
         else:
-            W = self.unif_rv()
+            W = self.next_double()
             if V < w3 / (w2 + w3):
                 U = M_PI * W
             else:
@@ -219,16 +224,16 @@ class ExpTiltedStableDist():
         a1 = delta * c1
         a3 = z / a
         s = a1 + delta + a3
-        V2 = self.unif_rv()
+        V2 = self.next_double()
         N = 0.
         E = 0.
         if V2 < a1 / s:
             N = self.rand_standard_normal()
             X = m - delta * fabs(N)
         elif V2 < (a1 + delta) / s:
-            X = m + delta * self.unif_rv()
+            X = m + delta * self.next_double()
         else:
-            E = - log(self.unif_rv())
+            E = - log(self.next_double())
             X = m + delta + E * a3
         return X, N, E, a, m, delta
 
@@ -270,7 +275,7 @@ class ExpTiltedStableDist():
         cdef double X, Y, sq_norm
         sq_norm = 1. # Placeholder value to pass through the first loop
         while sq_norm >= 1. or sq_norm == 0.:
-          X = 2. * self.unif_rv() - 1.
-          Y = 2. * self.unif_rv() - 1.
+          X = 2. * self.next_double() - 1.
+          Y = 2. * self.next_double() - 1.
           sq_norm = X * X + Y * Y
         return sqrt(-2. * log(sq_norm) / sq_norm) * Y
