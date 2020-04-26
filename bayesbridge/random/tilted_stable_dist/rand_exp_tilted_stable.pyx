@@ -142,7 +142,9 @@ cdef class ExpTiltedStableDist():
             z : scalar quantity used later
         """
         cdef double U, Z, z, accept_prob
-        cdef double gamma, xi, psi # Intermediate quantities
+        cdef double gamma, xi, psi
+            # Intermediate quantities; could be computed outside the funciton
+            # and reused in case of rejection
         gamma = tilt_power * char_exp * (1. - char_exp)
         xi = (1. + sqrt(2. * gamma) * (2. + sqrt(.5 * M_PI))) / M_PI
         psi = sqrt(gamma / M_PI) * (2. + sqrt(.5 * M_PI)) \
