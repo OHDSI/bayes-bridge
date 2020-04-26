@@ -58,9 +58,9 @@ cdef class ExpTiltedStableDist():
         (The density p(x) is tilted by exp(- tilt * x).)
 
         The cost of the divide-conquer algorithm increases as a function of
-        'tilt ** alpha'. While the cost of double-rejection algorithm is
+        'tilt ** char_exp'. While the cost of double-rejection algorithm is
         bounded, the divide-conquer algorithm is simpler and faster for small
-        'tilt ** alpha'.
+        'tilt ** char_exp'.
 
         References:
         -----------
@@ -91,41 +91,41 @@ cdef class ExpTiltedStableDist():
 
         return X
 
-    cdef double sample_by_divide_and_conquer(self, double alpha, double lam):
+    cdef double sample_by_divide_and_conquer(self, double char_exp, double lam):
         cdef double X, c
-        cdef long partition_size = max(1, <long>floor(pow(lam, alpha)))
+        cdef long partition_size = max(1, <long>floor(pow(lam, char_exp)))
         X = 0.
-        c = pow(1. / partition_size, 1. / alpha)
+        c = pow(1. / partition_size, 1. / char_exp)
         for i in range(partition_size):
-            X += self.sample_divided_rv(alpha, lam, c)
+            X += self.sample_divided_rv(char_exp, lam, c)
         return X
 
-    cdef double sample_divided_rv(self, double alpha, double lam, double c):
+    cdef double sample_divided_rv(self, double char_exp, double lam, double c):
         cdef bint accepted = False
         while not accepted:
-            S = c * self.sample_non_tilted_rv(alpha)
+            S = c * self.sample_non_tilted_rv(char_exp)
             accept_prob = exp(- lam * S)
             accepted = (self.next_double() < accept_prob)
         return S
 
-    cdef double sample_non_tilted_rv(self, double alpha):
+    cdef double sample_non_tilted_rv(self, double char_exp):
         cdef double V, E, S
         V = self.next_double()
         E = - log(self.next_double())
         S = pow(
-            self.zolotarev_function(M_PI * V, alpha) / E
-        , (1. - alpha) / alpha)
+            self.zolotarev_function(M_PI * V, char_exp) / E
+        , (1. - char_exp) / char_exp)
         return S
 
-    cdef double sample_by_double_rejection(self, double alpha, double lam):
+    cdef double sample_by_double_rejection(self, double char_exp, double lam):
 
         cdef double b, lam_alpha, gamma, sqrt_gamma, c1, c2, c3, xi, psi, \
             U, Z, z, X, N, E, a, m, delta, log_accept_prob
 
         # Pre-compute a bunch of quantities.
-        b = (1. - alpha) / alpha
-        lam_alpha = pow(lam, alpha)
-        gamma = lam_alpha * alpha * (1. - alpha)
+        b = (1. - char_exp) / char_exp
+        lam_alpha = pow(lam, char_exp)
+        gamma = lam_alpha * char_exp * (1. - char_exp)
         sqrt_gamma = sqrt(gamma)
         c1 = sqrt(M_PI / 2.)
         c2 = 2. + c1
@@ -136,18 +136,18 @@ cdef class ExpTiltedStableDist():
         # Start double-rejection sampling.
         cdef bint accepted = False
         while not accepted:
-            U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha)
+            U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, char_exp, lam_alpha)
             X, N, E, a, m, delta = \
-                self.sample_reference_rv(U, alpha, lam_alpha, b, c1, z)
+                self.sample_reference_rv(U, char_exp, lam_alpha, b, c1, z)
             log_accept_prob = \
-                self.compute_log_accept_prob(X, N, E, a, m, alpha, lam_alpha, b, delta)
+                self.compute_log_accept_prob(X, N, E, a, m, char_exp, lam_alpha, b, delta)
             accepted = (log_accept_prob > log(Z))
 
         return pow(X, -b)
 
     cdef sample_aux_rv(self,
             double c1, double xi, double psi, double gamma, double sqrt_gamma,
-            double alpha, double lam_alpha
+            double char_exp, double lam_alpha
         ):
         """
         Samples an auxiliary random variable for the double-rejection algorithm.
@@ -163,8 +163,8 @@ cdef class ExpTiltedStableDist():
             if U > M_PI:
                 accept_prob = 0.
             else:
-                zeta = sqrt(self.zolotarev_pdf_exponentiated(U, alpha))
-                z = 1. / (1. - pow(1. + alpha * zeta / sqrt_gamma, -1. / alpha))
+                zeta = sqrt(self.zolotarev_pdf_exponentiated(U, char_exp))
+                z = 1. / (1. - pow(1. + char_exp * zeta / sqrt_gamma, -1. / char_exp))
                 accept_prob = self.compute_aux2_accept_prob(
                     U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma)
             if accept_prob == 0.:
@@ -220,7 +220,7 @@ cdef class ExpTiltedStableDist():
         return accept_prob
 
     cdef sample_reference_rv(self,
-            double U, double alpha, double lam_alpha, double b, double c1, double z):
+            double U, double char_exp, double lam_alpha, double b, double c1, double z):
         """
         Generate a sample from the reference (augmented) distribution conditional
         on U for the double-rejection algorithm
@@ -231,9 +231,9 @@ cdef class ExpTiltedStableDist():
             N, E : random variables used later for computing the acceptance prob
             a, m, delta: scalar quantities used later
         """
-        a = self.zolotarev_function(U, alpha)
-        m = pow(b / a, alpha) * lam_alpha
-        delta = sqrt(m * alpha / a)
+        a = self.zolotarev_function(U, char_exp)
+        m = pow(b / a, char_exp) * lam_alpha
+        delta = sqrt(m * char_exp / a)
         a1 = delta * c1
         a3 = z / a
         s = a1 + delta + a3
@@ -252,14 +252,14 @@ cdef class ExpTiltedStableDist():
 
     cdef double compute_log_accept_prob(self,
             double X, double N, double E, double a, double m,
-            double alpha, double lam_alpha, double b, double delta
+            double char_exp, double lam_alpha, double b, double delta
         ):
         if X < 0:
             log_accept_prob = - INFINITY
         else:
             log_accept_prob = - (
                 a * (X - m)
-                + exp((1. / alpha) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
+                + exp((1. / char_exp) * log(lam_alpha) - b * log(m)) * (pow(m / X, b) - 1.)
             )
             if X < m:
                 log_accept_prob += N * N / 2.
@@ -268,22 +268,22 @@ cdef class ExpTiltedStableDist():
 
         return log_accept_prob
 
-    cdef double zolotarev_pdf_exponentiated(self, double x, double alpha):
+    cdef double zolotarev_pdf_exponentiated(self, double x, double char_exp):
         """
         Evaluates a function proportional to a power of the Zolotarev density.
         """
         cdef double denominator, numerator
-        denominator = pow(sinc(alpha * x), alpha) \
-                      * pow(sinc((1. - alpha) * x), (1. - alpha))
+        denominator = pow(sinc(char_exp * x), char_exp) \
+                      * pow(sinc((1. - char_exp) * x), (1. - char_exp))
         numerator = sinc(x)
         return numerator / denominator
 
-    cdef double zolotarev_function(self, double x, double alpha):
+    cdef double zolotarev_function(self, double x, double char_exp):
         cdef double val = pow(
-            pow((1. - alpha) * sinc((1. - alpha) * x), (1. - alpha))
-            * pow(alpha * sinc(alpha * x), alpha)
+            pow((1. - char_exp) * sinc((1. - char_exp) * x), (1. - char_exp))
+            * pow(char_exp * sinc(char_exp * x), char_exp)
             / sinc(x)
-        , 1. / (1. - alpha))
+        , 1. / (1. - char_exp))
         return val
 
     cdef double rand_standard_normal(self):
