@@ -118,19 +118,13 @@ cdef class ExpTiltedStableDist():
 
     cdef double sample_by_double_rejection(self, double char_exp, double tilt):
 
-        cdef double tilt_power, gamma, xi, psi, \
-            U, Z, z, X, N, E, a, m, delta, log_accept_prob
-
-        # Pre-compute a bunch of quantities.
-        tilt_power = pow(tilt, char_exp)
-        gamma = tilt_power * char_exp * (1. - char_exp)
-        xi = (1. + sqrt(2. * gamma) * (2. + sqrt(.5 * M_PI))) / M_PI
-        psi = sqrt(gamma) * (2. + sqrt(.5 * M_PI)) * exp(- gamma * M_PI * M_PI / 8.) / sqrt(M_PI)
+        cdef double U, Z, z, X, N, E, a, m, delta, log_accept_prob
+        cdef double tilt_power = pow(tilt, char_exp)
 
         # Start double-rejection sampling.
         cdef bint accepted = False
         while not accepted:
-            U, Z, z = self.sample_aux_rv(xi, psi, gamma, char_exp, tilt_power)
+            U, Z, z = self.sample_aux_rv(char_exp, tilt_power)
             X, N, E, a, m, delta = \
                 self.sample_reference_rv(U, char_exp, tilt_power, z)
             log_accept_prob = \
@@ -139,10 +133,7 @@ cdef class ExpTiltedStableDist():
 
         return pow(X, - (1. - char_exp) / char_exp)
 
-    cdef sample_aux_rv(self,
-            double xi, double psi, double gamma,
-            double char_exp, double tilt_power
-        ):
+    cdef sample_aux_rv(self, double char_exp, double tilt_power):
         """
         Samples an auxiliary random variable for the double-rejection algorithm.
         Returns:
@@ -151,6 +142,11 @@ cdef class ExpTiltedStableDist():
             z : scalar quantity used later
         """
         cdef double U, Z, z, accept_prob
+        cdef double gamma, xi, psi # Intermediate quantities
+        gamma = tilt_power * char_exp * (1. - char_exp)
+        xi = (1. + sqrt(2. * gamma) * (2. + sqrt(.5 * M_PI))) / M_PI
+        psi = sqrt(gamma / M_PI) * (2. + sqrt(.5 * M_PI)) \
+            * exp(- gamma * M_PI * M_PI / 8.)
         cdef bint accepted = False
         while not accepted:
             U = self.sample_aux2_rv(xi, psi, gamma)
