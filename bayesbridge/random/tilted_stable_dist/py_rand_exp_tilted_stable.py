@@ -8,7 +8,6 @@ class ExpTiltedStableDist():
     def __init__(self, seed=None):
         random.seed(seed)
         self.unif_rv = random.random
-        self.normal_rv = random.normalvariate
 
     def get_state(self):
         return random.getstate()
@@ -149,7 +148,7 @@ class ExpTiltedStableDist():
         V = self.unif_rv()
         if gamma >= 1:
             if V < w1 / (w1 + w2):
-                U = abs(self.normal_rv(0., 1.)) / sqrt_gamma
+                U = abs(self.normal_rv()) / sqrt_gamma
             else:
                 W = self.unif_rv()
                 U = math.pi * (1. - W * W)
@@ -197,7 +196,7 @@ class ExpTiltedStableDist():
         N = 0.
         E = 0.
         if V2 < a1 / s:
-            N = self.normal_rv(0., 1.)
+            N = self.normal_rv()
             X = m - delta * abs(N)
         elif V2 < (a1 + delta) / s:
             X = m + delta * self.unif_rv()
@@ -238,3 +237,12 @@ class ExpTiltedStableDist():
             / sinc(x)
         , 1. / (1. - alpha))
         return val
+
+    def normal_rv(self):
+        # Sample via Polar method
+        sq_norm = 1. # Placeholder value to pass through the first loop
+        while sq_norm >= 1. or sq_norm == 0.:
+          X = 2. * self.unif_rv() - 1.
+          Y = 2. * self.unif_rv() - 1.
+          sq_norm = X * X + Y * Y
+        return sqrt(-2. * log(sq_norm) / sq_norm) * Y
