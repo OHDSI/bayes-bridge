@@ -118,17 +118,15 @@ cdef class ExpTiltedStableDist():
 
     cdef double sample_by_double_rejection(self, double char_exp, double tilt):
 
-        cdef double U, Z, z, X, N, E, a, m, delta, log_accept_prob
+        cdef double U, Z, X, z, log_accept_prob
         cdef double tilt_power = pow(tilt, char_exp)
 
         # Start double-rejection sampling.
         cdef bint accepted = False
         while not accepted:
             U, Z, z = self.sample_aux_rv(char_exp, tilt_power)
-            X, N, E, a, m, delta = \
+            X, log_accept_prob = \
                 self.sample_reference_rv(U, char_exp, tilt_power, z)
-            log_accept_prob = \
-                self.compute_log_accept_prob(X, N, E, a, m, char_exp, tilt_power, delta)
             accepted = (log_accept_prob > log(Z))
 
         return pow(X, - (1. - char_exp) / char_exp)
@@ -211,7 +209,7 @@ cdef class ExpTiltedStableDist():
         accept_prob = 1 / inverse_accept_prob
         return accept_prob
 
-    cdef sample_reference_rv(self,
+    cdef (double, double) sample_reference_rv(self,
             double U, double char_exp, double tilt_power, double z):
         """
         Generate a sample from the reference (augmented) distribution conditional
@@ -248,24 +246,28 @@ cdef class ExpTiltedStableDist():
         else:
             E = - log(self.next_double())
             X = ref_argmax + middle_width + E * mass_right
-        return X, N, E, a, ref_argmax, mass_mid
+
+        log_accept_prob = self.compute_log_accept_prob(
+            X, N, E, a, ref_argmax, char_exp, tilt_power, middle_width
+        )
+        return X, log_accept_prob
 
     cdef double compute_log_accept_prob(self,
-            double X, double N, double E, double a, double m,
-            double char_exp, double tilt_power, double delta
+            double X, double N, double E, double a, double ref_argmax,
+            double char_exp, double tilt_power, double middle_width
         ):
         cdef double char_exp_odds = (1. - char_exp) / char_exp
         if X < 0:
             log_accept_prob = - INFINITY
         else:
             log_accept_prob = - (
-                a * (X - m)
-                + exp(log(tilt_power) / char_exp - char_exp_odds * log(m))
-                * (pow(m / X, char_exp_odds) - 1.)
+                a * (X - ref_argmax)
+                + exp(log(tilt_power) / char_exp - char_exp_odds * log(ref_argmax))
+                * (pow(ref_argmax / X, char_exp_odds) - 1.)
             )
-            if X < m:
+            if X < ref_argmax:
                 log_accept_prob += N * N / 2.
-            elif X > m + delta:
+            elif X > ref_argmax + middle_width:
                 log_accept_prob += E
 
         return log_accept_prob
