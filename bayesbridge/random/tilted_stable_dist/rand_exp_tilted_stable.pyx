@@ -1,6 +1,6 @@
 cimport cython
 from libc.math cimport exp as exp_c
-from libc.math cimport fabs, pow, log, sqrt, sin
+from libc.math cimport fabs, pow, log, sqrt, sin, floor
 from libc.math cimport INFINITY, M_PI
 import math
 import random
@@ -91,23 +91,25 @@ cdef class ExpTiltedStableDist():
 
         return X
 
-    def sample_by_divide_and_conquer(self, alpha, lam):
+    cdef double sample_by_divide_and_conquer(self, double alpha, double lam):
+        cdef double X, c
+        cdef long partition_size = max(1, <long>floor(pow(lam, alpha)))
         X = 0.
-        partition_size = max(1, math.floor(pow(lam, alpha)))
         c = pow(1. / partition_size, 1. / alpha)
         for i in range(partition_size):
             X += self.sample_divided_rv(alpha, lam, c)
         return X
 
-    def sample_divided_rv(self, alpha, lam, c):
-        accepted = False
+    cdef double sample_divided_rv(self, double alpha, double lam, double c):
+        cdef bint accepted = False
         while not accepted:
             S = c * self.sample_non_tilted_rv(alpha)
             accept_prob = exp(- lam * S)
             accepted = (self.next_double() < accept_prob)
         return S
 
-    def sample_non_tilted_rv(self, alpha):
+    cdef double sample_non_tilted_rv(self, double alpha):
+        cdef double V, E, S
         V = self.next_double()
         E = - log(self.next_double())
         S = pow(
@@ -115,7 +117,10 @@ cdef class ExpTiltedStableDist():
         , (1. - alpha) / alpha)
         return S
 
-    def sample_by_double_rejection(self, alpha, lam):
+    cdef double sample_by_double_rejection(self, double alpha, double lam):
+
+        cdef double b, lam_alpha, gamma, sqrt_gamma, c1, c2, c3, xi, psi, \
+            U, Z, z, X, N, E, a, m, delta, log_accept_prob
 
         # Pre-compute a bunch of quantities.
         b = (1. - alpha) / alpha
@@ -129,7 +134,7 @@ cdef class ExpTiltedStableDist():
         psi = c3 * exp(-gamma * M_PI * M_PI / 8.) / sqrt(M_PI)
 
         # Start double-rejection sampling.
-        accepted = False
+        cdef bint accepted = False
         while not accepted:
             U, Z, z = self.sample_aux_rv(c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha)
             X, N, E, a, m, delta = \
@@ -140,7 +145,10 @@ cdef class ExpTiltedStableDist():
 
         return pow(X, -b)
 
-    def sample_aux_rv(self, c1, xi, psi, gamma, sqrt_gamma, alpha, lam_alpha):
+    cdef sample_aux_rv(self,
+            double c1, double xi, double psi, double gamma, double sqrt_gamma,
+            double alpha, double lam_alpha
+        ):
         """
         Samples an auxiliary random variable for the double-rejection algorithm.
         Returns:
@@ -148,8 +156,8 @@ cdef class ExpTiltedStableDist():
             Z : uniform random variable independent of U, X
             z : scalar quantity used later
         """
-
-        accepted = False
+        cdef double U, Z, z, accept_prob
+        cdef bint accepted = False
         while not accepted:
             U = self.sample_aux2_rv(c1, xi, psi, gamma, sqrt_gamma)
             if U > M_PI:
@@ -167,7 +175,8 @@ cdef class ExpTiltedStableDist():
 
         return U, Z, z
 
-    def sample_aux2_rv(self, c1, xi, psi, gamma, sqrt_gamma):
+    cdef double sample_aux2_rv(self,
+            double c1, double xi, double psi, double gamma, double sqrt_gamma):
         """
         Sample the 2nd level auxiliary random variable (i.e. the additional
         auxiliary random variable used to sample the auxilary variable for
@@ -193,7 +202,10 @@ cdef class ExpTiltedStableDist():
 
         return U
 
-    def compute_aux2_accept_prob(self, U, c1, xi, psi, zeta, z, lam_alpha, gamma, sqrt_gamma):
+    cdef double compute_aux2_accept_prob(self,
+            double U, double c1, double xi, double psi, double zeta, double z,
+            double lam_alpha, double gamma, double sqrt_gamma
+        ):
         inverse_accept_prob = M_PI * exp(-lam_alpha * (1. - 1. / (zeta * zeta))) \
               / ((1. + c1) * sqrt_gamma / zeta + z)
         d = 0.
@@ -207,7 +219,8 @@ cdef class ExpTiltedStableDist():
         accept_prob = 1 / inverse_accept_prob
         return accept_prob
 
-    def sample_reference_rv(self, U, alpha, lam_alpha, b, c1, z):
+    cdef sample_reference_rv(self,
+            double U, double alpha, double lam_alpha, double b, double c1, double z):
         """
         Generate a sample from the reference (augmented) distribution conditional
         on U for the double-rejection algorithm
@@ -237,8 +250,10 @@ cdef class ExpTiltedStableDist():
             X = m + delta + E * a3
         return X, N, E, a, m, delta
 
-    def compute_log_accept_prob(self, X, N, E, a, m, alpha, lam_alpha, b, delta):
-
+    cdef double compute_log_accept_prob(self,
+            double X, double N, double E, double a, double m,
+            double alpha, double lam_alpha, double b, double delta
+        ):
         if X < 0:
             log_accept_prob = - INFINITY
         else:
@@ -253,24 +268,25 @@ cdef class ExpTiltedStableDist():
 
         return log_accept_prob
 
-    def zolotarev_pdf_exponentiated(self, x, alpha):
+    cdef double zolotarev_pdf_exponentiated(self, double x, double alpha):
         """
         Evaluates a function proportional to a power of the Zolotarev density.
         """
+        cdef double denominator, numerator
         denominator = pow(sinc(alpha * x), alpha) \
                       * pow(sinc((1. - alpha) * x), (1. - alpha))
         numerator = sinc(x)
         return numerator / denominator
 
-    def zolotarev_function(self, x, alpha):
-        val = pow(
+    cdef double zolotarev_function(self, double x, double alpha):
+        cdef double val = pow(
             pow((1. - alpha) * sinc((1. - alpha) * x), (1. - alpha))
             * pow(alpha * sinc(alpha * x), alpha)
             / sinc(x)
         , 1. / (1. - alpha))
         return val
 
-    def rand_standard_normal(self):
+    cdef double rand_standard_normal(self):
         # Sample via Polar method
         cdef double X, Y, sq_norm
         sq_norm = 1. # Placeholder value to pass through the first loop
