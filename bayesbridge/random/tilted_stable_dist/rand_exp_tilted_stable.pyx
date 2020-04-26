@@ -118,11 +118,10 @@ cdef class ExpTiltedStableDist():
 
     cdef double sample_by_double_rejection(self, double char_exp, double tilt):
 
-        cdef double b, tilt_power, gamma, xi, psi, \
+        cdef double tilt_power, gamma, xi, psi, \
             U, Z, z, X, N, E, a, m, delta, log_accept_prob
 
         # Pre-compute a bunch of quantities.
-        b = (1. - char_exp) / char_exp
         tilt_power = pow(tilt, char_exp)
         gamma = tilt_power * char_exp * (1. - char_exp)
         xi = (1. + sqrt(2. * gamma) * (2. + sqrt(.5 * M_PI))) / M_PI
@@ -133,12 +132,12 @@ cdef class ExpTiltedStableDist():
         while not accepted:
             U, Z, z = self.sample_aux_rv(xi, psi, gamma, char_exp, tilt_power)
             X, N, E, a, m, delta = \
-                self.sample_reference_rv(U, char_exp, tilt_power, b, z)
+                self.sample_reference_rv(U, char_exp, tilt_power, z)
             log_accept_prob = \
-                self.compute_log_accept_prob(X, N, E, a, m, char_exp, tilt_power, b, delta)
+                self.compute_log_accept_prob(X, N, E, a, m, char_exp, tilt_power, delta)
             accepted = (log_accept_prob > log(Z))
 
-        return pow(X, -b)
+        return pow(X, - (1. - char_exp) / char_exp)
 
     cdef sample_aux_rv(self,
             double xi, double psi, double gamma,
@@ -215,7 +214,7 @@ cdef class ExpTiltedStableDist():
         return accept_prob
 
     cdef sample_reference_rv(self,
-            double U, double char_exp, double tilt_power, double b, double z):
+            double U, double char_exp, double tilt_power, double z):
         """
         Generate a sample from the reference (augmented) distribution conditional
         on U for the double-rejection algorithm
@@ -227,7 +226,7 @@ cdef class ExpTiltedStableDist():
             a, m, delta: scalar quantities used later
         """
         a = self.zolotarev_function(U, char_exp)
-        m = pow(b / a, char_exp) * tilt_power
+        m = pow((1. - char_exp) / char_exp / a, char_exp) * tilt_power
         delta = sqrt(m * char_exp / a)
         a1 = delta * sqrt(.5 * M_PI)
         a3 = z / a
@@ -247,14 +246,16 @@ cdef class ExpTiltedStableDist():
 
     cdef double compute_log_accept_prob(self,
             double X, double N, double E, double a, double m,
-            double char_exp, double tilt_power, double b, double delta
+            double char_exp, double tilt_power, double delta
         ):
+        cdef double char_exp_odds = (1. - char_exp) / char_exp
         if X < 0:
             log_accept_prob = - INFINITY
         else:
             log_accept_prob = - (
                 a * (X - m)
-                + exp((1. / char_exp) * log(tilt_power) - b * log(m)) * (pow(m / X, b) - 1.)
+                + exp(log(tilt_power) / char_exp - char_exp_odds * log(m))
+                * (pow(m / X, char_exp_odds) - 1.)
             )
             if X < m:
                 log_accept_prob += N * N / 2.
