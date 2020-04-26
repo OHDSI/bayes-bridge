@@ -221,53 +221,51 @@ cdef class ExpTiltedStableDist():
         --------
             X : random variable from the reference distribution
             N, E : random variables used later for computing the acceptance prob
-            a, ref_argmax, mass_mid: scalar quantities used later
         """
-        cdef double a, ref_argmax, middle_width, expo_scale, \
+        cdef double a, left_thresh, right_thresh, expo_scale, \
             mass_left, mass_mid, mass_right, mass_total, X, V, N, E
         a = self.zolotarev_function(U, char_exp)
-        ref_argmax \
-            = pow((1. - char_exp) / char_exp / a, char_exp) * tilt_power
-        middle_width = sqrt(ref_argmax * char_exp / a)
+        left_thresh = pow((1. - char_exp) / char_exp / a, char_exp) * tilt_power
+        right_thresh = left_thresh + sqrt(left_thresh * char_exp / a)
         expo_scale = z / a
-        mass_left = middle_width * sqrt(.5 * M_PI)
-        mass_mid = middle_width
+        mass_left = (right_thresh - left_thresh) * sqrt(.5 * M_PI)
+        mass_mid = (right_thresh - left_thresh)
         mass_right = expo_scale
         mass_total = mass_left + mass_mid + mass_right
         V = self.next_double()
         N = 0.
         E = 0.
-        # Divided into three pieces at ref_argmax and (ref_argmax + mid_width)
+        # Divided into three pieces at left_thresh and (left_thresh + mid_width)
         if V < mass_left / mass_total:
             N = self.rand_standard_normal()
-            X = ref_argmax - middle_width * fabs(N)
+            X = left_thresh - (right_thresh - left_thresh) * fabs(N)
         elif V < (mass_left + mass_mid) / mass_total:
-            X = ref_argmax + middle_width * self.next_double()
+            X = left_thresh + (right_thresh - left_thresh) * self.next_double()
         else:
             E = - log(self.next_double())
-            X = ref_argmax + middle_width + E * mass_right
+            X = right_thresh + E * mass_right
 
         log_accept_prob = self.compute_log_accept_prob(
-            X, N, E, a, ref_argmax, char_exp, tilt_power, middle_width
+            X, N, E, left_thresh, right_thresh, a, char_exp, tilt_power
         )
         return X, log_accept_prob
 
     cdef double compute_log_accept_prob(self,
-            double X, double N, double E, double a, double ref_argmax,
-            double char_exp, double tilt_power, double middle_width
+            double X, double N, double E, double left_thresh, double right_thresh,
+            double a, double char_exp, double tilt_power
         ):
         cdef double char_exp_odds = (1. - char_exp) / char_exp
         if X < 0:
             log_accept_prob = - INFINITY
         else:
             log_accept_prob = - (
-                a * (X - ref_argmax)
-                + exp(log(tilt_power) / char_exp - char_exp_odds * log(ref_argmax))
-                * (pow(ref_argmax / X, char_exp_odds) - 1.)
+                a * (X - left_thresh)
+                + exp(log(tilt_power) / char_exp - char_exp_odds * log(left_thresh))
+                * (pow(left_thresh / X, char_exp_odds) - 1.)
             )
-            if X < ref_argmax:
+            if X < left_thresh:
                 log_accept_prob += N * N / 2.
-            elif X > ref_argmax + middle_width:
+            elif X > right_thresh:
                 log_accept_prob += E
 
         return log_accept_prob
