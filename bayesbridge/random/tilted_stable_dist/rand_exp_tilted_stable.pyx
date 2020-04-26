@@ -233,7 +233,8 @@ cdef class ExpTiltedStableDist():
         mass_right = expo_scale
         mass_total = mass_left + mass_mid + mass_right
         V = self.next_double()
-        N = 0.; E = 0. # Default values for log-probability calculation
+        N = 0.
+        E = 0.
         # Divided into three pieces at left_thresh and (left_thresh + mid_width)
         if V < mass_left / mass_total:
             N = self.rand_standard_normal()
@@ -262,8 +263,10 @@ cdef class ExpTiltedStableDist():
                 + exp(log(tilt_power) / char_exp - char_exp_odds * log(left_thresh))
                 * (pow(left_thresh / X, char_exp_odds) - 1.)
             )
-            log_accept_prob += N * N / 2. + E
-                # Non-zero only if X < left_thresh or X > right_thresh
+            if X < left_thresh:
+                log_accept_prob += N * N / 2.
+            elif X > right_thresh:
+                log_accept_prob += E
 
         return log_accept_prob
 
