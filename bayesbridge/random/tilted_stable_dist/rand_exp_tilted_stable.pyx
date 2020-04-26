@@ -109,12 +109,11 @@ cdef class ExpTiltedStableDist():
         return S
 
     cdef double sample_non_tilted_rv(self, double char_exp):
-        cdef double V, E, S
-        V = self.next_double()
-        E = - log(self.next_double())
-        S = pow(
-            self.zolotarev_function(M_PI * V, char_exp) / E
-        , (1. - char_exp) / char_exp)
+        cdef double S = pow(
+            - self.zolotarev_function(M_PI * self.next_double(), char_exp)
+                / log(self.next_double()),
+            (1. - char_exp) / char_exp
+        )
         return S
 
     cdef double sample_by_double_rejection(self, double char_exp, double lam):
