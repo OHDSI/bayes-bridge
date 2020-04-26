@@ -215,32 +215,40 @@ cdef class ExpTiltedStableDist():
             double U, double char_exp, double tilt_power, double z):
         """
         Generate a sample from the reference (augmented) distribution conditional
-        on U for the double-rejection algorithm
+        on U for the double-rejection algorithm. The algorithm use a rejection
+        sampler with half-Gaussian, uniform, and truncated exponential to the
+        left, middle, and right of a partitioned real-line.
 
         Returns:
         --------
             X : random variable from the reference distribution
             N, E : random variables used later for computing the acceptance prob
-            a, m, delta: scalar quantities used later
+            a, ref_argmax, mass_mid: scalar quantities used later
         """
+        cdef double a, ref_argmax, middle_width, expo_scale, \
+            mass_left, mass_mid, mass_right, mass_total, X, V, N, E
         a = self.zolotarev_function(U, char_exp)
-        m = pow((1. - char_exp) / char_exp / a, char_exp) * tilt_power
-        delta = sqrt(m * char_exp / a)
-        a1 = delta * sqrt(.5 * M_PI)
-        a3 = z / a
-        s = a1 + delta + a3
-        V2 = self.next_double()
+        ref_argmax \
+            = pow((1. - char_exp) / char_exp / a, char_exp) * tilt_power
+        middle_width = sqrt(ref_argmax * char_exp / a)
+        expo_scale = z / a
+        mass_left = middle_width * sqrt(.5 * M_PI)
+        mass_mid = middle_width
+        mass_right = expo_scale
+        mass_total = mass_left + mass_mid + mass_right
+        V = self.next_double()
         N = 0.
         E = 0.
-        if V2 < a1 / s:
+        # Divided into three pieces at ref_argmax and (ref_argmax + mid_width)
+        if V < mass_left / mass_total:
             N = self.rand_standard_normal()
-            X = m - delta * fabs(N)
-        elif V2 < (a1 + delta) / s:
-            X = m + delta * self.next_double()
+            X = ref_argmax - middle_width * fabs(N)
+        elif V < (mass_left + mass_mid) / mass_total:
+            X = ref_argmax + middle_width * self.next_double()
         else:
             E = - log(self.next_double())
-            X = m + delta + E * a3
-        return X, N, E, a, m, delta
+            X = ref_argmax + middle_width + E * mass_right
+        return X, N, E, a, ref_argmax, mass_mid
 
     cdef double compute_log_accept_prob(self,
             double X, double N, double E, double a, double m,
