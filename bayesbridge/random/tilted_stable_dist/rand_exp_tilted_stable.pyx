@@ -3,7 +3,10 @@ from libc.math cimport exp as exp_c
 from libc.math cimport fabs, pow, log, sqrt, sin, floor
 from libc.math cimport INFINITY, M_PI
 import random
+import numpy as np
+cimport numpy as np
 cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
+ctypedef np.uint8_t np_uint8
 ctypedef double (*rand_generator)()
 
 
@@ -49,7 +52,9 @@ cdef class ExpTiltedStableDist():
     def set_state(self, state):
         random.setstate(state)
 
-    def rv(self, char_exponent, tilt, method=None):
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def sample(self, char_exponent, tilt, method=None):
         """
         Generate a random variable from a stable distribution with
             characteristic exponent =  char_exponent < 1
@@ -74,24 +79,46 @@ cdef class ExpTiltedStableDist():
             stable distributions' by Devroye (2009)
         """
 
+        if not isinstance(char_exponent, np.ndarray) and isinstance(tilt, np.ndarray):
+            raise TypeError('Input must be numpy arrays.')
+        if not char_exponent.size == tilt.size:
+            raise ValueError('Input arrays must be of the same length.')
+        if not np.all(char_exponent < 1):
+            raise ValueError('Characteristic exponent must be smaller than 1.')
+
         if method is None:
             # Choose a likely faster method.
-            divide_conquer_cost = pow(tilt, char_exponent)
+            divide_conquer_cost = tilt ** char_exponent
             double_rejection_cost = 2.0
                 # The relative costs are implementation & architecture dependent.
-            if divide_conquer_cost < double_rejection_cost:
-                method = 'divide-conquer'
-            else:
-                method = 'double-rejection'
-
-        if method == 'divide-conquer':
-            X = self.sample_by_divide_and_conquer(char_exponent, tilt)
-        elif method == 'double-rejection':
-            X = self.sample_by_double_rejection(char_exponent, tilt)
+            use_divide_conquer = (divide_conquer_cost < double_rejection_cost)
+        elif method in ['divide-conquer', 'double-rejection']:
+            use_divide_conquer = np.tile(method == 'divide-conquer', tilt.size)
         else:
-            raise NotImplementedError()
+            raise ValueError("Unrecognized method name.")
 
-        return X
+        char_exponent = char_exponent.astype(np.double)
+        tilt = tilt.astype(np.double)
+        use_divide_conquer = use_divide_conquer.astype(np.uint8)
+        result = np.zeros(tilt.size, dtype=np.double)
+
+        cdef double[:] char_exponent_view = char_exponent
+        cdef double[:] tilt_view = tilt
+        cdef np_uint8[:] use_divide_conquer_view = use_divide_conquer
+        cdef double[:] result_view = result
+        cdef long n_sample = tilt.size
+        cdef Py_ssize_t i
+
+        for i in range(n_sample):
+            if use_divide_conquer_view[i]:
+                result_view[i] = self.sample_by_divide_and_conquer(
+                    char_exponent_view[i], tilt_view[i]
+                )
+            else:
+                result_view[i] = self.sample_by_double_rejection(
+                    char_exponent_view[i], tilt_view[i]
+                )
+        return result
 
     cdef double sample_by_divide_and_conquer(self, double char_exp, double tilt):
         cdef double X, c
