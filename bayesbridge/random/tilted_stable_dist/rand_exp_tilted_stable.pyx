@@ -38,10 +38,12 @@ cdef double python_builtin_next_double():
 
 cdef class ExpTiltedStableDist():
     cdef rand_generator next_double
+    cdef double TILT_POWER_THRESHOLD # For deciding the faster of two algorithms
 
     def __init__(self, seed=None):
         self.set_seed(seed)
         self.next_double = python_builtin_next_double
+        self.TILT_POWER_THRESHOLD = 2.
 
     def set_seed(self, seed):
         random.seed(seed)
@@ -93,7 +95,7 @@ cdef class ExpTiltedStableDist():
         if method is None:
             # Choose a likely faster method.
             divide_conquer_cost = tilt ** char_exponent
-            double_rejection_cost = 2.0
+            double_rejection_cost = self.TILT_POWER_THRESHOLD
                 # The relative costs are implementation & architecture dependent.
             use_divide_conquer = (divide_conquer_cost < double_rejection_cost)
         elif method in ['divide-conquer', 'double-rejection']:
