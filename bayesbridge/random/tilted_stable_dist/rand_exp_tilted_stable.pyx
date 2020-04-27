@@ -91,6 +91,8 @@ cdef class ExpTiltedStableDist():
             raise TypeError('Characteristic exponent must be float or numpy array.')
         if not np.all(char_exponent < 1):
             raise ValueError('Characteristic exponent must be smaller than 1.')
+        if not np.all(tilt > 0):
+            raise ValueError('Tilting parameter must be positive.')
 
         if method is None:
             # Choose a likely faster method.
