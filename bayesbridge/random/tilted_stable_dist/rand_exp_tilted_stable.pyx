@@ -37,8 +37,11 @@ cdef class ExpTiltedStableDist():
     cdef rand_generator next_double
 
     def __init__(self, seed=None):
-        random.seed(seed)
+        self.set_seed(seed)
         self.next_double = python_builtin_next_double
+
+    def set_seed(self, seed):
+        random.seed(seed)
 
     def get_state(self):
         return random.getstate()
