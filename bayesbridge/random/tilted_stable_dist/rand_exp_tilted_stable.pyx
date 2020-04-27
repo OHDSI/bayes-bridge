@@ -2,7 +2,6 @@ cimport cython
 from libc.math cimport exp as exp_c
 from libc.math cimport fabs, pow, log, sqrt, sin, floor
 from libc.math cimport INFINITY, M_PI
-import math
 import random
 cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
 ctypedef double (*rand_generator)()
@@ -152,15 +151,14 @@ cdef class ExpTiltedStableDist():
         while not accepted:
             U = self.sample_aux2_rv(xi, psi, gamma)
             if U > M_PI:
-                accept_prob = 0.
-            else:
-                zeta = sqrt(self.zolotarev_pdf_exponentiated(U, char_exp))
-                z = 1. / (1. - pow(1. + char_exp * zeta / sqrt(gamma), -1. / char_exp))
-                accept_prob = self.compute_aux2_accept_prob(
-                    U, xi, psi, zeta, z, tilt_power, gamma)
-            if accept_prob == 0.:
-                accepted = False
-            else:
+                continue
+
+            zeta = sqrt(self.zolotarev_pdf_exponentiated(U, char_exp))
+            z = 1. / (1. - pow(1. + char_exp * zeta / sqrt(gamma), -1. / char_exp))
+            accept_prob = self.compute_aux2_accept_prob(
+                U, xi, psi, zeta, z, tilt_power, gamma
+            )
+            if accept_prob > 0.:
                 V = self.next_double() / accept_prob
                 accepted = (U < M_PI and V <= 1.)
 
