@@ -74,7 +74,7 @@ cdef class ExpTiltedStableDist():
         if method is None:
             # Choose a likely faster method.
             divide_conquer_cost = pow(tilt, char_exponent)
-            double_rejection_cost = 5.0
+            double_rejection_cost = 2.0
                 # The relative costs are implementation & architecture dependent.
             if divide_conquer_cost < double_rejection_cost:
                 method = 'divide-conquer'
