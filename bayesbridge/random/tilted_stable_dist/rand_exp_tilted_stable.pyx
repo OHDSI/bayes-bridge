@@ -118,16 +118,16 @@ cdef class ExpTiltedStableDist():
 
     cdef double sample_by_double_rejection(self, double char_exp, double tilt):
 
-        cdef double U, Z, X, z, log_accept_prob
+        cdef double U, V, X, z, log_accept_prob
         cdef double tilt_power = pow(tilt, char_exp)
 
         # Start double-rejection sampling.
         cdef bint accepted = False
         while not accepted:
-            U, Z, z = self.sample_aux_rv(char_exp, tilt_power)
+            U, V, z = self.sample_aux_rv(char_exp, tilt_power)
             X, log_accept_prob = \
                 self.sample_reference_rv(U, char_exp, tilt_power, z)
-            accepted = (log_accept_prob > log(Z))
+            accepted = (log_accept_prob > log(V))
 
         return pow(X, - (1. - char_exp) / char_exp)
 
@@ -136,10 +136,10 @@ cdef class ExpTiltedStableDist():
         Samples an auxiliary random variable for the double-rejection algorithm.
         Returns:
             U : auxiliary random variable for the double-rejection algorithm
-            Z : uniform random variable independent of U, X
+            V : uniform random variable independent of U, X
             z : scalar quantity used later
         """
-        cdef double U, Z, z, accept_prob
+        cdef double U, V, z, accept_prob
         cdef double gamma, xi, psi
             # Intermediate quantities; could be computed outside the funciton
             # and reused in case of rejection
@@ -160,10 +160,10 @@ cdef class ExpTiltedStableDist():
             if accept_prob == 0.:
                 accepted = False
             else:
-                Z = self.next_double() / accept_prob
-                accepted = (U < M_PI and Z <= 1.)
+                V = self.next_double() / accept_prob
+                accepted = (U < M_PI and V <= 1.)
 
-        return U, Z, z
+        return U, V, z
 
     cdef double sample_aux2_rv(self,
             double xi, double psi, double gamma):
