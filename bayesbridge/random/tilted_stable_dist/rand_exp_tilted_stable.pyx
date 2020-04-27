@@ -78,11 +78,15 @@ cdef class ExpTiltedStableDist():
             'Random variate generation for exponentially and polynomially tilted
             stable distributions' by Devroye (2009)
         """
-
-        if not isinstance(char_exponent, np.ndarray) and isinstance(tilt, np.ndarray):
-            raise TypeError('Input must be numpy arrays.')
-        if not char_exponent.size == tilt.size:
-            raise ValueError('Input arrays must be of the same length.')
+        if not isinstance(tilt, np.ndarray):
+            raise TypeError('Tilt parameter must be a numpy array.')
+        if isinstance(char_exponent, (np.floating, float)):
+            char_exponent = np.tile(char_exponent, tilt.size)
+        elif isinstance(char_exponent, np.ndarray):
+            if not char_exponent.size == tilt.size:
+                raise ValueError('Input arrays must be of the same length.')
+        else:
+            raise TypeError('Characteristic exponent must be float or numpy array.')
         if not np.all(char_exponent < 1):
             raise ValueError('Characteristic exponent must be smaller than 1.')
 
