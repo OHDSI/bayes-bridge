@@ -131,7 +131,8 @@ cdef class ExpTiltedStableDist():
 
         return pow(X, - (1. - char_exp) / char_exp)
 
-    cdef sample_aux_rv(self, double char_exp, double tilt_power):
+    cdef (double, double, double) \
+        sample_aux_rv(self, double char_exp, double tilt_power):
         """
         Samples an auxiliary random variable for the double-rejection algorithm.
         Returns:
