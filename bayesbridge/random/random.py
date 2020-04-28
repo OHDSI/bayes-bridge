@@ -42,4 +42,4 @@ class BasicRandom():
         return omega
 
     def tilted_stable(self, char_exponent, tilt):
-        return self.ts.rv(char_exponent, tilt)
+        return self.ts.sample(char_exponent, tilt)

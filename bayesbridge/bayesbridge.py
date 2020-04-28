@@ -618,10 +618,9 @@ class BayesBridge():
 
     def update_local_scale(self, gscale, beta_with_shrinkage, bridge_exp):
 
-        lscale_sq = 1 / np.array([
-            2 * self.rg.tilted_stable(bridge_exp / 2, (beta_j / gscale) ** 2)
-            for beta_j in beta_with_shrinkage
-        ])
+        lscale_sq = .5 / self.rg.tilted_stable(
+            bridge_exp / 2, (beta_with_shrinkage / gscale) ** 2
+        )
         lscale = np.sqrt(lscale_sq)
 
         # TODO: Pick the lower and upper bound more carefully.
