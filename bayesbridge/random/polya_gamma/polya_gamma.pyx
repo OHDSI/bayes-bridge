@@ -50,10 +50,28 @@ cdef class PolyaGammaDist():
         for index in range(n_samples):
             for j in range(shape_view[index]):
                 result_view[index] \
-                    += self.rand_unit_shape_polyagamma(tilt_view[index])
+                    += self.rand_scalar_unit_shape_polyagamma(tilt_view[index])
         return result
 
-    cdef double rand_unit_shape_polyagamma(self, double tilt):
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def rand_unit_shape_polyagamma(self, tilt):
+
+        if not isinstance(tilt, np.ndarray):
+            raise TypeError('Input must be numpy arrays.')
+        tilt = tilt.astype(np.double)
+        result = np.empty(tilt.size, dtype=np.double)
+
+        cdef double[:] tilt_view = tilt
+        cdef double[:] result_view = result
+        cdef long n_samples = tilt_view.size
+        cdef Py_ssize_t index
+        for index in range(n_samples):
+            result_view[index] \
+                = self.rand_scalar_unit_shape_polyagamma(tilt_view[index])
+        return result
+
+    cdef double rand_scalar_unit_shape_polyagamma(self, double tilt):
         return .25 * self.rand_tilted_jocobi(.5 * tilt)
 
     cdef double rand_tilted_jocobi(self, double tilt):
