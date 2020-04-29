@@ -34,6 +34,19 @@ cdef class PolyaGammaDist():
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def rand_polyagamma(self, shape, tilt):
+        """
+        Sample from exponentially tilted Polya-Gamma distribution
+            p(x | shape, tilt) \propto \exp(- tilt^2 / 2 * x) p(x | shape, tilt=0)
+        via Devroye's alternatig series method.
+
+        Parameters
+        ----------
+        shape : numpy array of integers
+            Distribution is defined for non-integer values but the implemented
+            algorithm only support integer values.
+        tilt : numpy array of doubles
+            Sqrt of twice the negative tilting parameter, actually.
+        """
 
         if not isinstance(shape, np.ndarray) and isinstance(tilt, np.ndarray):
             raise TypeError('Input must be numpy arrays.')
