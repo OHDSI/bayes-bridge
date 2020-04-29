@@ -1,5 +1,5 @@
 # cython: cdivision = True
-from libc.math cimport exp, log, sqrt, M_PI
+from libc.math cimport exp, log, sqrt, fabs, M_PI
 import random
 import cython
 import numpy as np
@@ -88,7 +88,7 @@ cdef class PolyaGammaDist():
         return result
 
     cdef double rand_scalar_unit_shape_polyagamma(self, double tilt):
-        return .25 * self.rand_tilted_jocobi(.5 * tilt)
+        return .25 * self.rand_tilted_jocobi(.5 * fabs(tilt))
 
     cdef double rand_tilted_jocobi(self, double tilt):
         """
