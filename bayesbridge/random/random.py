@@ -10,16 +10,16 @@ class BasicRandom():
 
     def __init__(self, seed=None):
         self.np_random = np.random
-        self.pg = None
-        self.ts = None
+        self.pg = PolyaGammaDist()
+        self.ts = ExpTiltedStableDist()
         self.set_seed(seed)
 
     def set_seed(self, seed):
         self.np_random.seed(seed)
         pg_seed = np.random.randint(1, 1 + np.iinfo(np.uint32).max)
         ts_seed = np.random.randint(1, 1 + np.iinfo(np.uint32).max)
-        self.pg = PolyaGammaDist(seed=pg_seed)
-        self.ts = ExpTiltedStableDist(seed=ts_seed)
+        self.pg.set_seed(pg_seed)
+        self.ts.set_seed(ts_seed)
 
     def get_state(self):
         rand_gen_state = {
