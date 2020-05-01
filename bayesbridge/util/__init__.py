@@ -1,0 +1,1 @@
+from .simple_warnings import warn_message_only
