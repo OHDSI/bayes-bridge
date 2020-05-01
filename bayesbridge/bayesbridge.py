@@ -561,7 +561,8 @@ class BayesBridge():
             obs_prec = 1 / obs_var
         elif self.model.name == 'logit':
             obs_prec = self.rg.polya_gamma(
-                self.model.n_trial, self.model.X.dot(beta), self.model.X.shape[0])
+                self.model.n_trial.astype(np.intc), self.model.X.dot(beta)
+            )
 
         return obs_prec
 
