@@ -16,11 +16,14 @@ cdef class PolyaGammaDist():
     # Threshold below (and above) which the target density is bounded by inverse
     # Gaussian (and exponential) and have different analytical series expressions.
     cdef double THRESHOLD
+    # Number of terms in the infinite alternating series beyond which to truncate.
+    cdef int MAX_SERIES_TERMS
 
     def __init__(self, seed=None):
         self.set_seed(seed)
         self.next_double = python_builtin_next_double
         self.THRESHOLD = 2.0 / M_PI
+        self.MAX_SERIES_TERMS = 100
 
     def set_seed(self, seed):
         random.seed(seed)
@@ -161,6 +164,9 @@ cdef class PolyaGammaDist():
             else: # sign == 1
                 if U > partial_sum:
                     accepted = False
+                    is_determinate = True
+                elif n_summed >= self.MAX_SERIES_TERMS:
+                    acceted = True # Take the partial sum lower-bound as the target
                     is_determinate = True
             sign = - sign
 
