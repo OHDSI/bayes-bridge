@@ -1,9 +1,13 @@
+import platform
 import numpy as np
 import scipy as sp
 import scipy.sparse
-from ctypes import POINTER, c_int, c_char, c_char_p,  c_double, byref, cdll
+from ctypes import POINTER, c_int, c_char, c_char_p,  c_double, byref, cdll, windll
 
-mkl = cdll.LoadLibrary("libmkl_rt.dylib")
+if platform.system() == 'Windows':
+    mkl = windll.LoadLibrary("mkl_rt.dll")
+else:
+    mkl = cdll.LoadLibrary("libmkl_rt.dylib")
 
 
 def mkl_csr_matvec(A, x, transpose=False):
