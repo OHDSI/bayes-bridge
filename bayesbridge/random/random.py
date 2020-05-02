@@ -16,8 +16,8 @@ class BasicRandom():
 
     def set_seed(self, seed):
         self.np_random.seed(seed)
-        pg_seed = np.random.randint(1, 1 + np.iinfo(np.uint32).max)
-        ts_seed = np.random.randint(1, 1 + np.iinfo(np.uint32).max)
+        pg_seed = np.random.randint(1, 1 + np.iinfo(np.int32).max)
+        ts_seed = np.random.randint(1, 1 + np.iinfo(np.int32).max)
         self.pg.set_seed(pg_seed)
         self.ts.set_seed(ts_seed)
 

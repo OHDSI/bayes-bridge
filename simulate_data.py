@@ -17,7 +17,7 @@ def simulate_outcome(X, beta, model, intercept=0., n_trial=None, seed=None):
         if n_trial is None:
             n_trial = np.ones(X.shape[0])
         prob = 1 / (1 + np.exp(- intercept - X.dot(beta)))
-        n_success = np.random.binomial(n_trial.astype(np.int64), prob)
+        n_success = np.random.binomial(n_trial.astype(np.int32), prob)
         outcome = (n_success, n_trial)
     elif model == 'cox':
         outcome = CoxModel.simulate_outcome(X, beta, censoring_frac=.5)
