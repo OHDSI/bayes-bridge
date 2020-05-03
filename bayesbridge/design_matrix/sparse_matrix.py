@@ -1,7 +1,11 @@
+from warnings import warn
 import numpy as np
 import scipy.sparse as sparse
 from .abstract_matrix import AbstractDesignMatrix
-from .mkl_matvec import mkl_csr_matvec
+try:
+    from .mkl_matvec import mkl_csr_matvec
+except:
+    mkl_csr_matvec = None
 
 
 class SparseDesignMatrix(AbstractDesignMatrix):
@@ -23,6 +27,9 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         X = X.tocsr()
         X = self.remove_intercept_indicator(X)
 
+        if use_mkl and (mkl_csr_matvec is None):
+            warn("Could not load MKL Library. Will use Scipy's 'dot'.")
+            use_mkl = False
         self.use_mkl = use_mkl
 
         self.centered = center_predictor
