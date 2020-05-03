@@ -5,10 +5,13 @@ import scipy.sparse
 import ctypes
 from ctypes import POINTER, c_int, c_char, c_char_p,  c_double, byref
 
-if platform.system() == 'Windows':
-    mkl = ctypes.windll.LoadLibrary("mkl_rt.dll")
-else:
-    mkl = ctypes.cdll.LoadLibrary("libmkl_rt.dylib")
+try:
+    if platform.system() == 'Windows':
+        mkl = ctypes.windll.LoadLibrary("mkl_rt.dll")
+    else:
+        mkl = ctypes.cdll.LoadLibrary("libmkl_rt.dylib")
+except:
+    raise ImportError("Could not load Intel MKL Library.")
 
 
 def mkl_csr_matvec(A, x, transpose=False):
