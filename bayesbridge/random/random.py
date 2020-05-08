@@ -1,6 +1,6 @@
 import numpy as np
 from .polya_gamma import PolyaGammaDist
-from .tilted_stable_dist import ExpTiltedStableDist
+from .tilted_stable import ExpTiltedStableDist
 
 class BasicRandom():
     """

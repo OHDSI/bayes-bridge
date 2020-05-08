@@ -4,8 +4,8 @@ import numpy as np
 
 ext_modules = [
     Extension(
-        "rand_exp_tilted_stable",
-        ["rand_exp_tilted_stable.pyx"],
+        "tilted_stable",
+        ["tilted_stable.pyx"],
         include_dirs=[np.get_include()]
     )
 ]
