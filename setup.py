@@ -1,9 +1,23 @@
 from setuptools import setup, find_packages
 from distutils.extension import Extension
+import numpy as np
+
+ext_modules = [
+    Extension(
+        "bayesbridge.random.tilted_stable.tilted_stable",
+        sources=["bayesbridge/random/tilted_stable/tilted_stable.c"],
+        include_dirs=[np.get_include()]
+    ),
+    Extension(
+        "bayesbridge.random.polya_gamma.polya_gamma",
+        sources=["bayesbridge/random/polya_gamma/polya_gamma.c"],
+        include_dirs=[np.get_include()]
+    )
+]
 
 setup(
     name='bayesbridge',
-    version='0.1',
+    version='0.1.2',
     description=\
         'Generates posterior samples under Bayesian sparse regression based on '
         + 'the bridge prior using the CG-accelerated Gibbs sampler of Nishimura '
@@ -13,14 +27,9 @@ setup(
     author_email='akihiko4@g.ucla.edu',
     license='MIT',
     packages=find_packages(exclude=['tests', 'tests.*']),
-    ext_modules = [
-        Extension(
-            "bayesbridge.random.tilted_stable_dist.custom_math",
-            ["bayesbridge/random/tilted_stable_dist/custom_math.c"]
-        )
-    ],
+    ext_modules = ext_modules,
     install_requires=[
-        'numpy', 'scipy', 'pypolyagamma'
+        'numpy', 'scipy'
     ],
     zip_safe=False
 )
