@@ -1,0 +1,1 @@
+include bayesbridge/random/polya_gamma/scipy_ndtr.c
