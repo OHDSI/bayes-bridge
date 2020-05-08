@@ -12,7 +12,7 @@ setup(
     author='Akihiko (Aki) Nishimura',
     author_email='akihiko4@g.ucla.edu',
     license='MIT',
-    packages=find_packages(exclude=['./tests/*']),
+    packages=find_packages(exclude=['tests', 'tests.*']),
     ext_modules = [
         Extension(
             "bayesbridge.random.tilted_stable_dist.custom_math",
