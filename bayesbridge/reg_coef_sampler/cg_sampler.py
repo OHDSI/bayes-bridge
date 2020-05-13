@@ -17,7 +17,7 @@ class ConjugateGradientSampler():
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
            Sigma^{-1} = X' Omega X + prior_prec_sqrt^2, mu = Sigma z
         where D is assumed to be diagonal. For numerical stability, the code first sample
-        from the scaled parameter beta / precond_scale.
+        from the scaled parameter regress_coef / precond_scale.
 
         Param:
         ------

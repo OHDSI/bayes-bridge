@@ -284,12 +284,12 @@ class BayesBridge():
 
         if params_to_save == 'all':
             params_to_save = [
-                'beta', 'local_scale', 'global_scale', 'logp'
+                'regress_coef', 'local_scale', 'global_scale', 'logp'
             ]
             if self.model != 'cox':
                 params_to_save.append('obs_prec')
         elif params_to_save is None:
-            params_to_save = ['beta', 'global_scale', 'logp']
+            params_to_save = ['regress_coef', 'global_scale', 'logp']
 
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
@@ -304,7 +304,7 @@ class BayesBridge():
             )
 
         # Initial state of the Markov chain
-        beta, obs_prec, lscale, gscale, init, initial_optim_info = \
+        coef, obs_prec, lscale, gscale, init, initial_optim_info = \
             self.initialize_chain(init, bridge_exponent, n_init_optim_step)
         if n_init_optim_step > 0:
             self.print_status(
@@ -320,27 +320,27 @@ class BayesBridge():
         # Start Gibbs sampling
         for mcmc_iter in range(1, n_iter + 1):
 
-            beta, info = self.update_beta(
-                beta, obs_prec, gscale, lscale, sampling_method, precond_blocksize
+            coef, info = self.update_regress_coef(
+                coef, obs_prec, gscale, lscale, sampling_method, precond_blocksize
             )
 
-            obs_prec = self.update_obs_precision(beta)
+            obs_prec = self.update_obs_precision(coef)
 
-            # Draw from gscale | \beta and then lscale | gscale, \beta.
+            # Draw from gscale | coef and then lscale | gscale, coef.
             # (The order matters.)
             gscale = self.update_global_scale(
-                gscale, beta[self.n_unshrunk:], bridge_exponent,
+                gscale, coef[self.n_unshrunk:], bridge_exponent,
                 method=global_scale_update)
 
             lscale = self.update_local_scale(
-                gscale, beta[self.n_unshrunk:], bridge_exponent)
+                gscale, coef[self.n_unshrunk:], bridge_exponent)
 
             logp = self.compute_posterior_logprob(
-                beta, gscale, obs_prec, bridge_exponent
+                coef, gscale, obs_prec, bridge_exponent
             )
 
             self.manager.store_current_state(
-                samples, mcmc_iter, n_burnin, thin, beta, lscale, gscale,
+                samples, mcmc_iter, n_burnin, thin, coef, lscale, gscale,
                 obs_prec, logp, params_to_save
             )
             self.manager.store_sampling_info(
@@ -359,7 +359,7 @@ class BayesBridge():
                 samples['local_scale'] /= unit_bridge_magitude
 
         _markov_chain_state = \
-            self.manager.pack_parameters(beta, obs_prec, lscale, gscale)
+            self.manager.pack_parameters(coef, obs_prec, lscale, gscale)
 
         mcmc_output = {
             'samples': samples,
@@ -417,14 +417,14 @@ class BayesBridge():
     def initialize_chain(self, init, bridge_exp, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
 
-        if 'beta' in init:
-            beta = init['beta']
-            if not len(beta) == self.n_pred:
+        if 'regress_coef' in init:
+            coef = init['regress_coef']
+            if not len(coef) == self.n_pred:
                 raise ValueError('An invalid initial state.')
         else:
-            beta = np.zeros(self.n_pred)
+            coef = np.zeros(self.n_pred)
             if 'intercept' in init:
-                beta[0] = init['intercept']
+                coef[0] = init['intercept']
 
         if 'obs_prec' in init:
             obs_prec = np.ascontiguousarray(init['obs_prec'])
@@ -432,10 +432,10 @@ class BayesBridge():
             if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         elif self.model.name == 'linear':
-            obs_prec = np.mean((self.model.y - self.model.X.dot(beta)) ** 2) ** -1
+            obs_prec = np.mean((self.model.y - self.model.X.dot(coef)) ** 2) ** -1
         elif self.model.name == 'logit':
             obs_prec = LogisticModel.compute_polya_gamma_mean(
-                self.model.n_trial, self.model.X.dot(beta)
+                self.model.n_trial, self.model.X.dot(coef)
             )
         else:
             obs_prec = None
@@ -448,24 +448,24 @@ class BayesBridge():
         }
         optim_info['n_optim'] = n_optim
         for i in range(n_optim):
-            beta, info = self.reg_coef_sampler.search_mode(
-                beta, lscale, gscale, obs_prec, self.model
+            coef, info = self.reg_coef_sampler.search_mode(
+                coef, lscale, gscale, obs_prec, self.model
             )
             for key in info_keys:
                 optim_info[key][i] = info[key]
-            obs_prec = self.update_obs_precision(beta)
+            obs_prec = self.update_obs_precision(coef)
             lscale = self.update_local_scale(
-                gscale, beta[self.n_unshrunk:], bridge_exp
+                gscale, coef[self.n_unshrunk:], bridge_exp
             )
             
         init = {
-            'beta': beta,
+            'regress_coef': coef,
             'obs_prec': obs_prec,
             'local_scale': lscale,
             'global_scale': gscale
         }
 
-        return beta, obs_prec, lscale, gscale, init, optim_info
+        return coef, obs_prec, lscale, gscale, init, optim_info
 
     def initialize_shrinkage_parameters(self, init, bridge_exp):
         """
@@ -482,13 +482,13 @@ class BayesBridge():
             if not len(lscale) == (self.n_pred - self.n_unshrunk):
                 raise ValueError('An invalid initial state.')
 
-        elif 'beta' in init:
+        elif 'regress_coef' in init:
             gscale = self.update_global_scale(
-                None, init['beta'][self.n_unshrunk:], bridge_exp,
+                None, init['regress_coef'][self.n_unshrunk:], bridge_exp,
                 method='optimize'
             )
             lscale = self.update_local_scale(
-                gscale, init['beta'][self.n_unshrunk:], bridge_exp
+                gscale, init['regress_coef'][self.n_unshrunk:], bridge_exp
             )
         else:
             if 'global_scale' in init:
@@ -526,7 +526,7 @@ class BayesBridge():
             raise ValueError()
         return gscale, lscale, unit_bridge_magnitude
 
-    def update_beta(self, beta, obs_prec, gscale, lscale, sampling_method, precond_blocksize):
+    def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method, precond_blocksize):
 
         if sampling_method in ('direct', 'cg'):
 
@@ -536,32 +536,32 @@ class BayesBridge():
             elif self.model.name == 'logit':
                 y_gaussian = (self.model.n_success - self.model.n_trial / 2) / obs_prec
 
-            beta, info = self.reg_coef_sampler.sample_gaussian_posterior(
+            coef, info = self.reg_coef_sampler.sample_gaussian_posterior(
                 y_gaussian, self.model.X, obs_prec, gscale, lscale,
                 sampling_method, precond_blocksize
             )
 
         elif sampling_method in ['hmc', 'nuts']:
-            beta, info = self.reg_coef_sampler.sample_by_hmc(
-                beta, gscale, lscale, self.model, method=sampling_method
+            coef, info = self.reg_coef_sampler.sample_by_hmc(
+                coef, gscale, lscale, self.model, method=sampling_method
             )
 
         else:
             raise NotImplementedError()
 
-        return beta, info
+        return coef, info
 
-    def update_obs_precision(self, beta):
+    def update_obs_precision(self, coef):
 
         obs_prec = None
         if self.model.name == 'linear':
-            resid = self.model.y - self.model.X.dot(beta)
+            resid = self.model.y - self.model.X.dot(coef)
             scale = np.sum(resid ** 2) / 2
             obs_var = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
             obs_prec = 1 / obs_var
         elif self.model.name == 'logit':
             obs_prec = self.rg.polya_gamma(
-                self.model.n_trial.astype(np.intc), self.model.X.dot(beta)
+                self.model.n_trial.astype(np.intc), self.model.X.dot(coef)
             )
 
         return obs_prec
@@ -577,7 +577,7 @@ class BayesBridge():
         lower_bd = coef_expected_magnitude_lower_bd \
                    / self.compute_power_exp_ave_magnitude(bridge_exp)
             # Solve for the value of global shrinkage such that
-            # (expected value of beta given gscale) = coef_expected_magnitude_lower_bd.
+            # (expected value of regress_coef given gscale) = coef_expected_magnitude_lower_bd.
 
         if method == 'optimize':
             gscale = self.monte_carlo_em_global_scale(
@@ -611,7 +611,7 @@ class BayesBridge():
 
     def monte_carlo_em_global_scale(
             self, beta_with_shrinkage, bridge_exp):
-        """ Maximize the likelihood (not posterior conditional) 'beta | gscale'. """
+        """ Maximize the likelihood (not posterior conditional) 'coef | gscale'. """
         phi = len(beta_with_shrinkage) / bridge_exp \
               / np.sum(np.abs(beta_with_shrinkage) ** bridge_exp)
         gscale = phi ** - (1 / bridge_exp)
@@ -636,27 +636,27 @@ class BayesBridge():
 
         return lscale
 
-    def compute_posterior_logprob(self, beta, gscale, obs_prec, bridge_exp):
+    def compute_posterior_logprob(self, coef, gscale, obs_prec, bridge_exp):
 
         # Contributions from the likelihood.
-        params = [beta] if self.model.name != 'linear' else [beta, obs_prec]
+        params = [coef] if self.model.name != 'linear' else [coef, obs_prec]
         loglik, _ = self.model.compute_loglik_and_gradient(*params, loglik_only=True)
 
         # Contributions from the regularization.
-        loglik += - .5 * np.sum((beta / self.slab_size) ** 2)
+        loglik += - .5 * np.sum((coef / self.slab_size) ** 2)
 
         # Add contributions from the priors.
         prior_logp = 0
-        n_shrunk_coef = len(beta) - self.n_unshrunk
+        n_shrunk_coef = len(coef) - self.n_unshrunk
 
-        # for beta | gscale.
+        # for coef | gscale.
         prior_logp += \
             - n_shrunk_coef * math.log(gscale) \
-            - np.sum(np.abs(beta[self.n_unshrunk:] / gscale) ** bridge_exp)
+            - np.sum(np.abs(coef[self.n_unshrunk:] / gscale) ** bridge_exp)
 
         # for coefficients without shrinkage.
         prior_logp += - 1 / 2 * np.sum(
-            (beta[:self.n_unshrunk] / self.prior_sd_for_unshrunk) ** 2
+            (coef[:self.n_unshrunk] / self.prior_sd_for_unshrunk) ** 2
         )
         prior_logp += - np.sum(np.log(
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
@@ -704,8 +704,8 @@ class MarkovChainManager():
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
 
-        if 'beta' in params_to_save:
-            samples['beta'] = np.zeros((self.n_pred, n_sample))
+        if 'regress_coef' in params_to_save:
+            samples['regress_coef'] = np.zeros((self.n_pred, n_sample))
 
         if 'local_scale' in params_to_save:
             samples['local_scale'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
@@ -743,7 +743,7 @@ class MarkovChainManager():
         return keys
 
     def store_current_state(
-            self, samples, mcmc_iter, n_burnin, thin, beta, lscale,
+            self, samples, mcmc_iter, n_burnin, thin, coef, lscale,
             gscale, obs_prec, logp, params_to_save):
 
         if mcmc_iter <= n_burnin or (mcmc_iter - n_burnin) % thin != 0:
@@ -751,8 +751,8 @@ class MarkovChainManager():
 
         index = math.floor((mcmc_iter - n_burnin) / thin) - 1
 
-        if 'beta' in params_to_save:
-            samples['beta'][:, index] = beta
+        if 'regress_coef' in params_to_save:
+            samples['regress_coef'][:, index] = coef
 
         if 'local_scale' in params_to_save:
             samples['local_scale'][:, index] = lscale
@@ -779,9 +779,9 @@ class MarkovChainManager():
         for key in self.get_sampling_info_keys(sampling_method):
             sampling_info[key][index] = info[key]
 
-    def pack_parameters(self, beta, obs_prec, lscale, gscale):
+    def pack_parameters(self, coef, obs_prec, lscale, gscale):
         state = {
-            'beta': beta,
+            'regress_coef': coef,
             'local_scale': lscale,
             'global_scale': gscale,
         }

@@ -72,4 +72,4 @@ def get_last_sample_from_gibbs(bridge, exponent, hyper_param=None, seed=0):
         global_scale_prior_hyper_param=hyper_param,
         seed=seed, n_status_update=0
     )
-    return mcmc_output['samples']['beta'][:, -1]
+    return mcmc_output['samples']['regress_coef'][:, -1]
