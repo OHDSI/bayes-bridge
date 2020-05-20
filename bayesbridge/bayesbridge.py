@@ -119,7 +119,7 @@ class BayesBridge():
         unit_bridge_magnitude \
                 = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
-        log_sd = log10_sd / math.log(10.)
+        log_sd = self.change_log_base(log10_sd, from_=10., to=math.e)
         if self.global_scale_parametrization == 'coefficient':
             log_mean -= math.log(unit_bridge_magnitude)
         shape, rate = self.solve_for_global_scale_hyperparam(
