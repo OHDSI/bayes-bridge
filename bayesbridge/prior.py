@@ -7,7 +7,7 @@ class RegressionCoefPrior():
     def __init__(
             self, bridge_exponent=None,
             global_scale_prior_hyper_param=None,
-            global_scale_parametrization='coefficient'
+            global_scale_parametrization='regress_coef'
         ):
         """
 
@@ -17,8 +17,8 @@ class RegressionCoefPrior():
             Should contain pair of keys 'log10_mean' and 'log10_sd',
             specifying the prior mean and standard deviation of
             log10(global_scale).
-        global_scale_parametrization: str, {'raw', 'coefficient'}
-            If 'coefficient', scale the local and global scales so that the
+        global_scale_parametrization: str, {'raw', 'regress_coef'}
+            If 'regress_coef', scale the local and global scales so that the
             global scale parameter coincide with the prior expected
             magnitude of regression coefficients.
         """
@@ -38,7 +38,7 @@ class RegressionCoefPrior():
             self, log10_mean, log10_sd, bridge_exp, gscale_paramet):
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
         log_sd = self.change_log_base(log10_sd, from_=10., to=math.e)
-        if gscale_paramet == 'coefficient':
+        if gscale_paramet == 'regress_coef':
             unit_bridge_magnitude \
                 = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
             log_mean -= math.log(unit_bridge_magnitude)

@@ -265,9 +265,9 @@ class BayesBridge():
 
         runtime = time.time() - start_time
 
-        if self.prior.gscale_paramet == 'coefficient':
+        if self.prior.gscale_paramet == 'regress_coef':
             gscale, lscale, unit_bridge_magitude = \
-                self.adjust_scale(gscale, lscale, bridge_exponent, to='coefficient')
+                self.adjust_scale(gscale, lscale, bridge_exponent, to='regress_coef')
             if 'global_scale' in samples:
                 samples['global_scale'] *= unit_bridge_magitude
             if 'local_scale' in samples:
@@ -413,7 +413,7 @@ class BayesBridge():
                 gscale = gscale_default
             lscale = np.ones(self.n_pred - self.n_unshrunk) / gscale
 
-        if self.prior.gscale_paramet == 'coefficient':
+        if self.prior.gscale_paramet == 'regress_coef':
             # Gibbs sampler requires the raw parametrization. Technically only
             # gscale * lscale matters within the sampler due to the update order.
             gscale, lscale, unit_bridge_magnitude \
@@ -427,7 +427,7 @@ class BayesBridge():
         if to == 'raw':
             gscale /= unit_bridge_magnitude
             lscale *= unit_bridge_magnitude
-        elif to == 'coefficient':
+        elif to == 'regress_coef':
             gscale *= unit_bridge_magnitude
             lscale /= unit_bridge_magnitude
         else:
