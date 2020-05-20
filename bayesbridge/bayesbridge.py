@@ -2,7 +2,6 @@ import numpy as np
 import scipy as sp
 import scipy.linalg
 import scipy.sparse
-from scipy.special import polygamma as scipy_polygamma
 import math
 import time
 import pdb
@@ -11,6 +10,7 @@ from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .design_matrix import SparseDesignMatrix, DenseDesignMatrix
 from .model import LinearModel, LogisticModel, CoxModel
+from .prior import RegressionCoefPrior
 
 
 class BayesBridge():
@@ -19,7 +19,7 @@ class BayesBridge():
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
                  prior_sd_for_intercept=float('inf'), add_intercept=None,
                  center_predictor=False, regularizing_slab_size=float('inf'),
-                 prior_param=None, global_scale_parametrization='coefficient'):
+                 prior=None, global_scale_parametrization='coefficient'):
         """
         Params
         ------
@@ -100,10 +100,9 @@ class BayesBridge():
         self.n_unshrunk = n_coef_without_shrinkage
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
-        if prior_param is None:
-            prior_param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}
-                # Reference prior for a scale family.
-        self.prior_param = prior_param
+        if prior is None:
+            prior = RegressionCoefPrior()
+        self.prior = prior
         self.global_scale_parametrization = global_scale_parametrization
         self.rg = BasicRandom()
         self.manager = MarkovChainManager(
@@ -111,72 +110,6 @@ class BayesBridge():
         )
         self._prev_timestamp = None # For status update during Gibbs
         self._curr_timestamp = None
-
-    # TODO: Make a class to handle all the calculations related to the scale
-    #  parameters?
-    def set_global_scale_prior(
-            self, log10_mean, log10_sd, bridge_exp):
-        unit_bridge_magnitude \
-                = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
-        log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
-        log_sd = self.change_log_base(log10_sd, from_=10., to=math.e)
-        if self.global_scale_parametrization == 'coefficient':
-            log_mean -= math.log(unit_bridge_magnitude)
-        shape, rate = self.solve_for_global_scale_hyperparam(
-            log_mean, log_sd, bridge_exp
-        )
-        self.prior_param['gscale_neg_power'] = {'shape': shape, 'rate': rate}
-
-    @staticmethod
-    def change_log_base(val, from_=math.e, to=10.):
-        return val * math.log(from_) / math.log(to)
-
-    def solve_for_global_scale_hyperparam(self, log_mean, log_sd, bridge_exp):
-        """ Solve the hyper-parameters with the specified mean and sd in the log scale. """
-        # Function whose root coincides with the desired log-shape parameter.
-        f = lambda log_shape: (
-                math.sqrt(self.polygamma(1, math.exp(log_shape))) / bridge_exp
-                - log_sd
-            )
-        lower_lim = -10.  # Any sufficiently small number is fine.
-        if log_sd < 0:
-            raise ValueError("Variance has to be positive.")
-        elif log_sd > 10 ** 8:
-            raise ValueError("Specified prior variance is too large.")
-        lower, upper = self._find_root_bounds(f, lower_lim)
-
-        try:
-            log_shape = sp.optimize.brentq(f, lower, upper)
-        except BaseException as error:
-            print('Solving for the global scale gamma prior hyper-parameters '
-                  'failed; {}'.format(error))
-        shape = math.exp(log_shape)
-        rate = math.exp(
-            self.polygamma(0, shape) + bridge_exp * log_mean
-        )
-        return shape, rate
-
-    @staticmethod
-    def polygamma(n, x):
-        """ Wrap the scipy function so that it returns a scalar. """
-        return scipy_polygamma([n], x)[0]
-
-    @staticmethod
-    def _find_root_bounds(f, init_lower_lim, increment=5., max_lim=None):
-        if max_lim is None:
-            max_lim = init_lower_lim + 10 ** 4
-        if f(init_lower_lim) < 0:
-            raise ValueError(
-                "Objective function must have positive value "
-                "at the lower limit."
-            )
-        lower_lim = init_lower_lim
-        while f(lower_lim + increment) > 0 and lower_lim < max_lim:
-            lower_lim += increment
-        if lower_lim >= max_lim:
-            raise Exception()  # Replace with a warning.
-        upper_lim = lower_lim + increment
-        return (lower_lim, upper_lim)
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
@@ -239,7 +172,6 @@ class BayesBridge():
     #  and 2) sampler tuning parameters (maybe).
     def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exponent=.5,
               init={}, sampling_method='cg', precond_blocksize=0, seed=None,
-              global_scale_prior_hyper_param=None,
               global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
               hmc_curvature_est_stabilized=False):
@@ -255,9 +187,6 @@ class BayesBridge():
         sampling_method : str, {'direct', 'cg', 'hmc'}
         precond_blocksize : int
             size of the block preconditioner
-        global_scale_prior_hyper_param : dict
-            Hyper-parameters is specified via a pair of keys 'log10_mean'
-            and 'log10_sd'.
         global_scale_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
         n_init_optim_step : int
@@ -293,14 +222,6 @@ class BayesBridge():
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
         self._prev_timestamp = start_time
-
-        # Set the prior.
-        if global_scale_prior_hyper_param is not None:
-            self.set_global_scale_prior(
-                global_scale_prior_hyper_param['log10_mean'],
-                global_scale_prior_hyper_param['log10_sd'],
-                bridge_exponent
-            )
 
         # Initial state of the Markov chain
         coef, obs_prec, lscale, gscale, init, initial_optim_info = \
@@ -473,7 +394,8 @@ class BayesBridge():
         """
         gscale_default = .1
         if self.global_scale_parametrization == 'raw':
-            gscale_default /= self.compute_power_exp_ave_magnitude(bridge_exp)
+            gscale_default \
+                /= self.prior.compute_power_exp_ave_magnitude(bridge_exp)
 
         if 'local_scale' in init and 'global_scale' in init:
             lscale = init['local_scale']
@@ -504,17 +426,9 @@ class BayesBridge():
 
         return lscale, gscale
 
-    @staticmethod
-    def compute_power_exp_ave_magnitude(exponent, scale=1.):
-        """
-        Returns the expected value of the absolute value of a random variable
-        with density proportional to exp( - |x / scale|^exponent ).
-        """
-        return scale * math.gamma(2 / exponent) / math.gamma(1 / exponent)
-
     def adjust_scale(self, gscale, lscale, bridge_exp, to):
         unit_bridge_magnitude \
-            = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
+            = self.prior.compute_power_exp_ave_magnitude(bridge_exp, 1.)
         if to == 'raw':
             gscale /= unit_bridge_magnitude
             lscale *= unit_bridge_magnitude
@@ -574,7 +488,7 @@ class BayesBridge():
             return 1. # arbitrary float value as a placeholder
 
         lower_bd = coef_expected_magnitude_lower_bd \
-                   / self.compute_power_exp_ave_magnitude(bridge_exp)
+                   / self.prior.compute_power_exp_ave_magnitude(bridge_exp)
             # Solve for the value of global shrinkage such that
             # (expected value of regress_coef given gscale) = coef_expected_magnitude_lower_bd.
 
@@ -587,7 +501,7 @@ class BayesBridge():
             if np.count_nonzero(beta_with_shrinkage) == 0:
                 gscale = 0
             else:
-                prior_param = self.prior_param['gscale_neg_power']
+                prior_param = self.prior.param['gscale_neg_power']
                 shape, rate = prior_param['shape'], prior_param['rate']
                 shape += beta_with_shrinkage.size / bridge_exp
                 rate += np.sum(np.abs(beta_with_shrinkage) ** bridge_exp)
@@ -655,7 +569,7 @@ class BayesBridge():
         prior_logp += - np.sum(np.log(
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
         ))
-        prior_param = self.prior_param['gscale_neg_power']
+        prior_param = self.prior.param['gscale_neg_power']
         prior_logp += (prior_param['shape'] - 1.) * math.log(gscale) \
                       - prior_param['rate'] * gscale
 
