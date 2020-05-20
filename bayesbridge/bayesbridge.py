@@ -19,7 +19,7 @@ class BayesBridge():
                  n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
                  prior_sd_for_intercept=float('inf'), add_intercept=None,
                  center_predictor=False, regularizing_slab_size=float('inf'),
-                 prior=None, global_scale_parametrization='coefficient'):
+                 prior=None):
         """
         Params
         ------
@@ -36,10 +36,6 @@ class BayesBridge():
             without any shrinkage (a.k.a. regularization).
         prior_sd_for_unshrunk : float, numpy array
             If an array, the length must be the same as n_coef_without_shrinkage.
-        global_scale_parametrization: str, {'raw', 'coefficient'}
-            If 'coefficient', scale the local and global scales so that the
-            global scale parameter coincide with the prior expected
-            magnitude of regression coefficients.
         """
 
         # TODO: Make each MCMC run more "independent" i.e. not rely on the
@@ -103,7 +99,6 @@ class BayesBridge():
         if prior is None:
             prior = RegressionCoefPrior()
         self.prior = prior
-        self.global_scale_parametrization = global_scale_parametrization
         self.rg = BasicRandom()
         self.manager = MarkovChainManager(
             self.n_obs, self.n_pred, self.n_unshrunk, model
@@ -270,7 +265,7 @@ class BayesBridge():
 
         runtime = time.time() - start_time
 
-        if self.global_scale_parametrization == 'coefficient':
+        if self.prior.gscale_paramet == 'coefficient':
             gscale, lscale, unit_bridge_magitude = \
                 self.adjust_scale(gscale, lscale, bridge_exponent, to='coefficient')
             if 'global_scale' in samples:
@@ -393,7 +388,7 @@ class BayesBridge():
         2) regression coefficients only, and 3) global scale only.
         """
         gscale_default = .1
-        if self.global_scale_parametrization == 'raw':
+        if self.prior.gscale_paramet == 'raw':
             gscale_default \
                 /= self.prior.compute_power_exp_ave_magnitude(bridge_exp)
 
@@ -418,7 +413,7 @@ class BayesBridge():
                 gscale = gscale_default
             lscale = np.ones(self.n_pred - self.n_unshrunk) / gscale
 
-        if self.global_scale_parametrization == 'coefficient':
+        if self.prior.gscale_paramet == 'coefficient':
             # Gibbs sampler requires the raw parametrization. Technically only
             # gscale * lscale matters within the sampler due to the update order.
             gscale, lscale, unit_bridge_magnitude \

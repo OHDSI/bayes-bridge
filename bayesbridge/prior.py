@@ -5,7 +5,10 @@ from scipy.special import polygamma as scipy_polygamma
 class RegressionCoefPrior():
 
     def __init__(
-            self, bridge_exponent=None, global_scale_prior_hyper_param=None):
+            self, bridge_exponent=None,
+            global_scale_prior_hyper_param=None,
+            global_scale_parametrization='coefficient'
+        ):
         """
 
         Parameters
@@ -14,7 +17,12 @@ class RegressionCoefPrior():
             Should contain pair of keys 'log10_mean' and 'log10_sd',
             specifying the prior mean and standard deviation of
             log10(global_scale).
+        global_scale_parametrization: str, {'raw', 'coefficient'}
+            If 'coefficient', scale the local and global scales so that the
+            global scale parameter coincide with the prior expected
+            magnitude of regression coefficients.
         """
+        self.gscale_paramet = global_scale_parametrization
         if global_scale_prior_hyper_param is None:
             self.param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}
                 # Reference prior for a scale family.
@@ -22,16 +30,17 @@ class RegressionCoefPrior():
             shape, rate = self.solve_for_gscale_prior_hyperparam(
                 global_scale_prior_hyper_param['log10_mean'],
                 global_scale_prior_hyper_param['log10_sd'],
-                bridge_exponent
+                bridge_exponent, self.gscale_paramet
             )
             self.param['gscale_neg_power'] = {'shape': shape, 'rate': rate}
 
-    def solve_for_gscale_prior_hyperparam(self, log10_mean, log10_sd, bridge_exp):
-        unit_bridge_magnitude \
-                = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
+    def solve_for_gscale_prior_hyperparam(
+            self, log10_mean, log10_sd, bridge_exp, gscale_paramet):
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
         log_sd = self.change_log_base(log10_sd, from_=10., to=math.e)
-        if self.global_scale_parametrization == 'coefficient':
+        if gscale_paramet == 'coefficient':
+            unit_bridge_magnitude \
+                = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
             log_mean -= math.log(unit_bridge_magnitude)
         shape, rate = self.solve_for_gamma_param(
             log_mean, log_sd, bridge_exp

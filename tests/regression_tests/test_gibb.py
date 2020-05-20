@@ -6,7 +6,7 @@ import sys
 sys.path.append("..") # needed if pytest called from the parent directory
 sys.path.insert(0, '../..') # needed if pytest called from this directory.
 
-from bayesbridge import BayesBridge
+from bayesbridge import BayesBridge, RegressionCoefPrior
 from bayesbridge.model import CoxModel
 
 data_folder = 'saved_outputs'
@@ -34,10 +34,10 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
 
     outcome, X = simulate_data(model, matrix_format)
     n_unshrunk = 1 if model == 'cox' else 0
+    prior = RegressionCoefPrior(global_scale_parametrization='raw')
     bridge = BayesBridge(
-        outcome, X, model=model,
-        n_coef_without_shrinkage=n_unshrunk, prior_sd_for_unshrunk=2.,
-        global_scale_parametrization='raw'
+        outcome, X, model=model, prior=prior,
+        n_coef_without_shrinkage=n_unshrunk, prior_sd_for_unshrunk=2.
     )
     init = {
         'global_scale': .01,
