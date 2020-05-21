@@ -81,8 +81,6 @@ class BayesBridge():
         self.manager = MarkovChainManager(
             self.n_obs, self.n_pred, self.n_unshrunk, model
         )
-        self._prev_timestamp = None # For status update during Gibbs
-        self._curr_timestamp = None
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
@@ -186,13 +184,13 @@ class BayesBridge():
 
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
-        self._prev_timestamp = start_time
+        self.manager.stamp_time(start_time)
 
         # Initial state of the Markov chain
         coef, obs_prec, lscale, gscale, init, initial_optim_info = \
             self.initialize_chain(init, bridge_exponent, n_init_optim_step)
         if n_init_optim_step > 0:
-            self.print_status(
+            self.manager.print_status(
                 n_status_update, 0, n_iter, msg_type='optim', time_format='second')
 
         # Pre-allocate
@@ -231,7 +229,7 @@ class BayesBridge():
             self.manager.store_sampling_info(
                 sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method
             )
-            self.print_status(n_status_update, mcmc_iter, n_iter)
+            self.manager.print_status(n_status_update, mcmc_iter, n_iter)
 
         runtime = time.time() - start_time
 
@@ -267,35 +265,6 @@ class BayesBridge():
         }
 
         return mcmc_output
-
-    def print_status(self, n_status_update, mcmc_iter, n_iter,
-                     msg_type='sampling', time_format='minute'):
-
-        if n_status_update == 0:
-            return
-        n_iter_per_update = int(n_iter / n_status_update)
-        if mcmc_iter % n_iter_per_update != 0:
-            return
-
-        self._curr_timestamp = time.time()
-
-        time_elapsed = self._curr_timestamp - self._prev_timestamp
-        if time_format == 'second':
-            time_str = "{:.3g} seconds".format(time_elapsed)
-        elif time_format == 'minute':
-            time_str = "{:.3g} minutes".format(time_elapsed / 60)
-        else:
-            raise ValueError()
-
-        if msg_type == 'optim':
-            msg = "Initial optimization took " + time_str + "."
-        else:
-            msg = " ".join((
-                "{:d} Gibbs iterations complete:".format(mcmc_iter),
-                time_str, "has elasped since the last update."
-            ))
-        print(msg)
-        self._prev_timestamp = self._curr_timestamp
 
     def initialize_chain(self, init, bridge_exp, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
@@ -548,6 +517,8 @@ class MarkovChainManager():
         self.n_pred = n_pred
         self.n_unshrunk = n_unshrunk
         self.model_name = model_name
+        self._prev_timestamp = None # For status update during Gibbs
+        self._curr_timestamp = None
 
     def merge_outputs(self, mcmc_output, next_mcmc_output):
 
@@ -656,3 +627,35 @@ class MarkovChainManager():
         if self.model_name in ('linear', 'logit'):
             state['obs_prec'] = obs_prec
         return state
+
+    def stamp_time(self, curr_time):
+        self._prev_timestamp = curr_time
+
+    def print_status(self, n_status_update, mcmc_iter, n_iter,
+                     msg_type='sampling', time_format='minute'):
+
+        if n_status_update == 0:
+            return
+        n_iter_per_update = int(n_iter / n_status_update)
+        if mcmc_iter % n_iter_per_update != 0:
+            return
+
+        self._curr_timestamp = time.time()
+
+        time_elapsed = self._curr_timestamp - self._prev_timestamp
+        if time_format == 'second':
+            time_str = "{:.3g} seconds".format(time_elapsed)
+        elif time_format == 'minute':
+            time_str = "{:.3g} minutes".format(time_elapsed / 60)
+        else:
+            raise ValueError()
+
+        if msg_type == 'optim':
+            msg = "Initial optimization took " + time_str + "."
+        else:
+            msg = " ".join((
+                "{:d} Gibbs iterations complete:".format(mcmc_iter),
+                time_str, "has elasped since the last update."
+            ))
+        print(msg)
+        self._prev_timestamp = self._curr_timestamp
