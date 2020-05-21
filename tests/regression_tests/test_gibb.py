@@ -34,10 +34,12 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
 
     outcome, X = simulate_data(model, matrix_format)
     n_unshrunk = 1 if model == 'cox' else 0
-    prior = RegressionCoefPrior(global_scale_parametrization='raw')
+    prior = RegressionCoefPrior(
+        n_fixed_effect=n_unshrunk, sd_for_fixed_effect=2.,
+        global_scale_parametrization='raw'
+    )
     bridge = BayesBridge(
-        outcome, X, model=model, prior=prior,
-        n_coef_without_shrinkage=n_unshrunk, prior_sd_for_unshrunk=2.
+        outcome, X, model=model, prior=prior
     )
     init = {
         'global_scale': .01,

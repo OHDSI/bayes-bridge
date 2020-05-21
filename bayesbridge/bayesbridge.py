@@ -15,11 +15,8 @@ from .prior import RegressionCoefPrior
 
 class BayesBridge():
 
-    def __init__(self, outcome, X, model='linear',
-                 n_coef_without_shrinkage=0, prior_sd_for_unshrunk=float('inf'),
-                 prior_sd_for_intercept=float('inf'), add_intercept=None,
-                 center_predictor=False, regularizing_slab_size=float('inf'),
-                 prior=None):
+    def __init__(self, outcome, X, model='linear', add_intercept=None,
+                 center_predictor=False, prior=None):
         """
         Params
         ------
@@ -31,23 +28,17 @@ class BayesBridge():
         n_trial : vector
             Used for the logistic model for binomial outcomes.
         model : str, {'linear', 'logit'}
-        n_coef_without_shrinkage : int
-            The number of predictors whose coefficients are to be estimated
-            without any shrinkage (a.k.a. regularization).
-        prior_sd_for_unshrunk : float, numpy array
-            If an array, the length must be the same as n_coef_without_shrinkage.
         """
 
         # TODO: Make each MCMC run more "independent" i.e. not rely on the
         # previous instantiation of the class. The initial run of the Gibbs
         # sampler probably depends too much the stuffs here.
 
-        if not (np.isscalar(prior_sd_for_unshrunk)
-                or n_coef_without_shrinkage == len(prior_sd_for_unshrunk)):
-            raise ValueError('Invalid array size for prior sd.')
-
         if add_intercept is None:
             add_intercept = (model != 'cox')
+
+        if prior is None:
+            prior = RegressionCoefPrior()
 
         if model == 'cox':
             if add_intercept:
@@ -60,21 +51,13 @@ class BayesBridge():
                 event_time, censoring_time, X
             )
 
-        if np.isscalar(prior_sd_for_unshrunk):
-            prior_sd_for_unshrunk = \
-                prior_sd_for_unshrunk * np.ones(n_coef_without_shrinkage)
-
+        self.n_unshrunk = prior.n_fixed
+        self.prior_sd_for_unshrunk = prior.sd_for_fixed.copy()
         if add_intercept:
-            if np.isscalar(prior_sd_for_unshrunk):
-                prior_sd_for_unshrunk = np.concatenate((
-                    [prior_sd_for_intercept],
-                    n_coef_without_shrinkage * [prior_sd_for_unshrunk]
-                ))
-            else:
-                prior_sd_for_unshrunk = np.concatenate((
-                    [prior_sd_for_intercept], prior_sd_for_unshrunk
-                ))
-            n_coef_without_shrinkage += 1
+            self.n_unshrunk += 1
+            self.prior_sd_for_unshrunk = np.concatenate((
+                [prior.sd_for_intercept], self.prior_sd_for_unshrunk
+            ))
 
         DesignMatrix = SparseDesignMatrix \
             if sp.sparse.issparse(X) else DenseDesignMatrix
@@ -91,13 +74,8 @@ class BayesBridge():
         else:
             raise NotImplementedError()
 
-        self.prior_sd_for_unshrunk = np.atleast_1d(prior_sd_for_unshrunk)
-        self.slab_size = regularizing_slab_size
-        self.n_unshrunk = n_coef_without_shrinkage
         self.n_obs = X.shape[0]
         self.n_pred = X.shape[1]
-        if prior is None:
-            prior = RegressionCoefPrior()
         self.prior = prior
         self.rg = BasicRandom()
         self.manager = MarkovChainManager(
@@ -202,7 +180,7 @@ class BayesBridge():
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
                 self.n_pred, self.prior_sd_for_unshrunk, sampling_method,
-                hmc_curvature_est_stabilized, self.slab_size
+                hmc_curvature_est_stabilized, self.prior.slab_size
             )
 
         if params_to_save == 'all':
@@ -546,7 +524,7 @@ class BayesBridge():
         loglik, _ = self.model.compute_loglik_and_gradient(*params, loglik_only=True)
 
         # Contributions from the regularization.
-        loglik += - .5 * np.sum((coef / self.slab_size) ** 2)
+        loglik += - .5 * np.sum((coef / self.prior.slab_size) ** 2)
 
         # Add contributions from the priors.
         prior_logp = 0

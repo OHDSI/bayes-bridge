@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import scipy as sp
 from scipy.special import polygamma as scipy_polygamma
 
@@ -6,6 +7,10 @@ class RegressionCoefPrior():
 
     def __init__(
             self, bridge_exponent=None,
+            n_fixed_effect=0,
+            sd_for_intercept=float('inf'),
+            sd_for_fixed_effect=float('inf'),
+            regularizing_slab_size=float('inf'),
             global_scale_prior_hyper_param=None,
             global_scale_parametrization='regress_coef'
         ):
@@ -13,6 +18,12 @@ class RegressionCoefPrior():
 
         Parameters
         ----------
+        n_fixed_effect : int
+            The number of predictors --- other than intercept --- whose
+            coefficients are to be estimated with Gaussian priors of
+            pre-specified standard deviation(s).
+        prior_sd_for_unshrunk : float, numpy array
+            If an array, the length must be the same as n_fixed_effect.
         global_scale_prior_hyper_param : dict
             Should contain pair of keys 'log10_mean' and 'log10_sd',
             specifying the prior mean and standard deviation of
@@ -22,6 +33,16 @@ class RegressionCoefPrior():
             global scale parameter coincide with the prior expected
             magnitude of regression coefficients.
         """
+        if not (np.isscalar(sd_for_fixed_effect)
+                or n_fixed_effect == len(sd_for_fixed_effect)):
+            raise ValueError('Invalid array size for prior sd.')
+
+        if np.isscalar(sd_for_fixed_effect):
+            sd_for_fixed_effect = sd_for_fixed_effect * np.ones(n_fixed_effect)
+        self.sd_for_intercept = sd_for_intercept
+        self.sd_for_fixed = sd_for_fixed_effect
+        self.slab_size = regularizing_slab_size
+        self.n_fixed = n_fixed_effect
         self.gscale_paramet = global_scale_parametrization
         if global_scale_prior_hyper_param is None:
             self.param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}
