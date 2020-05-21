@@ -54,8 +54,7 @@ class SparseRegressionCoefficientSampler():
                 setattr(self, attr, state[attr])
 
     def sample_gaussian_posterior(
-            self, y, X, obs_prec, gscale, lscale,
-            method='cg', precond_blocksize=0):
+            self, y, X, obs_prec, gscale, lscale, method='cg'):
         """
         Param:
         ------
@@ -90,7 +89,7 @@ class SparseRegressionCoefficientSampler():
             beta, cg_info = self.cg_sampler.sample(
                 X, obs_prec, prior_prec_sqrt, v,
                 beta_init=beta_condmean_guess,
-                precond_by='prior+block', precond_blocksize=precond_blocksize,
+                precond_by='prior',
                 beta_scaled_sd=beta_precond_scale_sd,
                 maxiter=500, atol=10e-6 * np.sqrt(X.shape[1])
             )
