@@ -105,11 +105,6 @@ class BayesBridge():
         self.rg.set_state(mcmc_output['_random_gen_state'])
 
         init = mcmc_output['_markov_chain_state']
-        if 'precond_blocksize' in mcmc_output:
-            precond_blocksize = mcmc_output['precond_blocksize']
-        else:
-            precond_blocksize = 0
-
         thin, bridge_exp, sampling_method, global_scale_update = (
             mcmc_output[key] for key in [
                 'thin', 'bridge_exponent', 'sampling_method', 'global_scale_update'
@@ -129,7 +124,6 @@ class BayesBridge():
         next_mcmc_output = self.gibbs(
             0, n_iter, thin, bridge_exp, init,
             sampling_method=sampling_method,
-            precond_blocksize=precond_blocksize,
             global_scale_update=global_scale_update,
             params_to_save=params_to_save,
             n_status_update=n_status_update,
@@ -144,7 +138,7 @@ class BayesBridge():
     # TODO: Make dedicated functions for specifying 1) prior hyper-parameters,
     #  and 2) sampler tuning parameters (maybe).
     def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exponent=.5,
-              init={}, sampling_method='cg', precond_blocksize=0, seed=None,
+              init={}, sampling_method='cg', seed=None,
               global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
               hmc_curvature_est_stabilized=False):
@@ -158,8 +152,6 @@ class BayesBridge():
         n_post_burnin : int
             number of posterior draws to be saved
         sampling_method : str, {'direct', 'cg', 'hmc'}
-        precond_blocksize : int
-            size of the block preconditioner
         global_scale_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
         n_init_optim_step : int
@@ -214,7 +206,7 @@ class BayesBridge():
         for mcmc_iter in range(1, n_iter + 1):
 
             coef, info = self.update_regress_coef(
-                coef, obs_prec, gscale, lscale, sampling_method, precond_blocksize
+                coef, obs_prec, gscale, lscale, sampling_method
             )
 
             obs_prec = self.update_obs_precision(coef)
@@ -273,8 +265,6 @@ class BayesBridge():
             '_random_gen_state': self.rg.get_state(),
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
-        if sampling_method == 'cg' and precond_blocksize > 0:
-            mcmc_output['precond_blocksize'] = precond_blocksize
 
         return mcmc_output
 
@@ -412,7 +402,7 @@ class BayesBridge():
             raise ValueError()
         return gscale, lscale, unit_bridge_magnitude
 
-    def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method, precond_blocksize):
+    def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
 
         if sampling_method in ('direct', 'cg'):
 
@@ -424,7 +414,7 @@ class BayesBridge():
 
             coef, info = self.reg_coef_sampler.sample_gaussian_posterior(
                 y_gaussian, self.model.X, obs_prec, gscale, lscale,
-                sampling_method, precond_blocksize
+                sampling_method
             )
 
         elif sampling_method in ['hmc', 'nuts']:
