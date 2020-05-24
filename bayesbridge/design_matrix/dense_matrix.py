@@ -1,6 +1,7 @@
 import numpy as np
 from .abstract_matrix import AbstractDesignMatrix
 
+
 class DenseDesignMatrix(AbstractDesignMatrix):
     
     def __init__(self, X, center_predictor=False, add_intercept=True,
@@ -19,6 +20,8 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         if add_intercept:
             X = np.hstack((np.ones((X.shape[0], 1)), X))
         self.X = X
+        self.intercept_added = add_intercept
+        self.centered = center_predictor
 
     @property
     def shape(self):
