@@ -70,7 +70,7 @@ class BayesBridge():
             self.model = LinearModel(outcome, X)
         elif model == 'logit':
             n_success, n_trial = outcome
-            self.model = LogisticModel(n_success, X, n_trial)
+            self.model = LogisticModel(n_success, n_trial, X)
         elif model == 'cox':
             self.model = CoxModel(event_time, censoring_time, X)
         else:

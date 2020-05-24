@@ -26,7 +26,7 @@ def test_linear_model_gradient_and_hessian():
 def test_logitstic_model_hessian_matvec():
     y, X, beta = simulate_data(model='logit', seed=0, return_design_mat=True)
     n_success, n_trial = y
-    logit_model = LogisticModel(n_success, X, n_trial)
+    logit_model = LogisticModel(n_success, n_trial, X)
     f = logit_model.compute_loglik_and_gradient
     hessian_matvec = logit_model.get_hessian_matvec_operator(beta)
     assert numerical_direc_deriv_is_close(f, beta, hessian_matvec, seed=0)
