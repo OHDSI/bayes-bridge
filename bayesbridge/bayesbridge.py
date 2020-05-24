@@ -9,8 +9,7 @@ from .util import simplify_warnings # Monkey patch the warning format
 from warnings import warn
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
-from .design_matrix import SparseDesignMatrix, DenseDesignMatrix
-from .model import LinearModel, LogisticModel, CoxModel
+from .model import RegressionModel, LogisticModel
 from .prior import RegressionCoefPrior
 from .chain_manager import MarkovChainManager
 
@@ -36,52 +35,28 @@ class BayesBridge():
         # previous instantiation of the class. The initial run of the Gibbs
         # sampler probably depends too much the stuffs here.
 
-        if add_intercept is None:
-            add_intercept = (model != 'cox')
-
         if prior is None:
             prior = RegressionCoefPrior()
 
-        if model == 'cox':
-            if add_intercept:
-                add_intercept = False
-                warn(
-                    "Intercept is not identifiable in the Cox model and will "
-                    "not be added.")
-            event_time, censoring_time = outcome
-            event_time, censoring_time, X = CoxModel.preprocess_data(
-                event_time, censoring_time, X
-            )
+        model = RegressionModel(
+            outcome, X, model, add_intercept, center_predictor
+        )
 
         self.n_unshrunk = prior.n_fixed
         self.prior_sd_for_unshrunk = prior.sd_for_fixed.copy()
-        if add_intercept:
+        if model.X.intercept_added:
             self.n_unshrunk += 1
             self.prior_sd_for_unshrunk = np.concatenate((
                 [prior.sd_for_intercept], self.prior_sd_for_unshrunk
             ))
 
-        DesignMatrix = SparseDesignMatrix \
-            if sp.sparse.issparse(X) else DenseDesignMatrix
-        X = DesignMatrix(
-            X, add_intercept=add_intercept, center_predictor=center_predictor)
-
-        if model == 'linear':
-            self.model = LinearModel(outcome, X)
-        elif model == 'logit':
-            n_success, n_trial = outcome
-            self.model = LogisticModel(n_success, n_trial, X)
-        elif model == 'cox':
-            self.model = CoxModel(event_time, censoring_time, X)
-        else:
-            raise NotImplementedError()
-
-        self.n_obs = X.shape[0]
-        self.n_pred = X.shape[1]
+        self.n_obs = model.X.shape[0]
+        self.n_pred = model.X.shape[1]
+        self.model = model
         self.prior = prior
         self.rg = BasicRandom()
         self.manager = MarkovChainManager(
-            self.n_obs, self.n_pred, self.n_unshrunk, model
+            self.n_obs, self.n_pred, self.n_unshrunk, model.name
         )
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
