@@ -9,6 +9,3 @@ def simplified_format(
     return to_print
 
 warnings.formatwarning = simplified_format
-
-def warn_message_only(message, category=UserWarning):
-    warnings.warn(message, category, stacklevel=2)

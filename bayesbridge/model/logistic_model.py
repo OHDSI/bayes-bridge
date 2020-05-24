@@ -1,7 +1,7 @@
 from .abstract_model import AbstractModel
 import numpy as np
 import numpy.random
-from bayesbridge.util.simple_warnings import warn_message_only
+from warnings import warn
 
 class LogisticModel(AbstractModel):
 
@@ -12,7 +12,7 @@ class LogisticModel(AbstractModel):
         self.check_input_validity(n_success, n_trial, X)
         if n_trial is None:
             n_trial = np.ones(len(n_success))
-            warn_message_only(
+            warn(
                 "The numbers of trials were not specified. The binary "
                 "outcome is assumed."
             )

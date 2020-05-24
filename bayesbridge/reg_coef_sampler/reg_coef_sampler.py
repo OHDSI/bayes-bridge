@@ -2,6 +2,7 @@ import math
 import numpy as np
 import scipy as sp
 import scipy.sparse
+from warnings import warn
 from functools import partial
 from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
@@ -10,7 +11,6 @@ from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo import hmc
 from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.nuts import NoUTurnSampler
 from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.stepsize_adapter \
     import HamiltonianBasedStepsizeAdapter
-from bayesbridge.util import warn_message_only
 
 
 class SparseRegressionCoefficientSampler():
@@ -282,7 +282,7 @@ class SparseRegressionCoefficientSampler():
                     warn_optim_failure=False):
 
         if (not use_newton_method) and require_trust_region:
-            warn_message_only("Trust regions are used only for Newton methods.")
+            warn("Trust regions are used only for Newton methods.")
 
         precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec \
             = self.define_function_for_optim(beta, lscale, gscale, obs_prec, model)
@@ -304,7 +304,7 @@ class SparseRegressionCoefficientSampler():
         )
         model.X.memoize_dot(False)
         if (not optim_result.success) and warn_optim_failure:
-            warn_message_only(
+            warn(
                 "The regression coefficient mode (conditionally on the scale "
                 "parameters could not be located within {:d} iterations of optimization "
                 "steps. Proceeding with the current best estimate.".format(

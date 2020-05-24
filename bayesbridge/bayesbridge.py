@@ -5,7 +5,8 @@ import scipy.sparse
 import math
 import time
 import pdb
-from .util.simple_warnings import warn_message_only
+from .util import simplify_warnings # Monkey patch the warning format
+from warnings import warn
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .design_matrix import SparseDesignMatrix, DenseDesignMatrix
@@ -44,7 +45,7 @@ class BayesBridge():
         if model == 'cox':
             if add_intercept:
                 add_intercept = False
-                warn_message_only(
+                warn(
                     "Intercept is not identifiable in the Cox model and will "
                     "not be added.")
             event_time, censoring_time = outcome
@@ -97,7 +98,7 @@ class BayesBridge():
         """
 
         if merge and deallocate:
-            warn_message_only(
+            warn(
                 "To merge the outputs, the previous one cannot be deallocated.")
             deallocate = False
 
@@ -443,7 +444,7 @@ class BayesBridge():
 
         if (method is not None) and gscale < lower_bd:
             gscale = lower_bd
-            warn_message_only(
+            warn(
                 "The global shrinkage parameter update returned an unreasonably "
                 "small value. Returning a specified lower bound value instead."
             )
@@ -467,11 +468,11 @@ class BayesBridge():
 
         # TODO: Pick the lower and upper bound more carefully.
         if np.any(lscale == 0):
-            warn_message_only(
+            warn(
                 "Local scale parameter under-flowed. Replacing with a small number.")
             lscale[lscale == 0] = 10e-16
         elif np.any(np.isinf(lscale)):
-            warn_message_only(
+            warn(
                 "Local scale parameter over-flowed. Replacing with a large number.")
             lscale[np.isinf(lscale)] = 2.0 / gscale
 

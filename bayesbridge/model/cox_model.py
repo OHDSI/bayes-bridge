@@ -1,7 +1,7 @@
 from .abstract_model import AbstractModel
 import numpy as np
 import scipy as sp
-from bayesbridge.util.simple_warnings import warn_message_only
+from warnings import warn
 
 
 class CoxModel(AbstractModel):
@@ -94,7 +94,7 @@ class CoxModel(AbstractModel):
         if is_sorted:
             return event_time, censoring_time, X
 
-        warn_message_only(
+        warn(
             "The observations and design matrix will be sorted so that the event "
             "times are in the ascending order and censoring times in the descending order."
         )
@@ -127,7 +127,7 @@ class CoxModel(AbstractModel):
         is_uninformative = (censoring_time < np.min(event_time))
 
         if np.any(is_uninformative):
-            warn_message_only(
+            warn(
                 "Some observations do not contribute to the likelihood, so "
                 "they are being removed."
             )

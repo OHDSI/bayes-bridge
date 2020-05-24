@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 import scipy.sparse
 import scipy.linalg
-from ..util.simple_warnings import warn_message_only
+from warnings import warn
 
 class ConjugateGradientSampler():
 
@@ -58,7 +58,7 @@ class ConjugateGradientSampler():
         )
 
         if info != 0:
-            warn_message_only(
+            warn(
                 "The conjugate gradient algorithm did not achieve the requested " +
                 "tolerance level. You may increase the maxiter or use the dense " +
                 "linear algebra instead."
