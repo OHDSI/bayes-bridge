@@ -85,7 +85,10 @@ class CoxModel(AbstractModel):
                 event_time == float("inf"),
                 censoring_time < float('inf')
             )):
-            raise ValueError("Censoring indicators are inconsistent.")
+            raise ValueError(
+                "Either event or censoring time must be infinity for each "
+                "observation."
+            )
 
         is_sorted = (
             np.all(event_time[:-1] <= event_time[1:])
