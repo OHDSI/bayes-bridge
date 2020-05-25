@@ -16,8 +16,7 @@ from .chain_manager import MarkovChainManager
 
 class BayesBridge():
 
-    def __init__(self, outcome, X, model='linear', add_intercept=None,
-                 center_predictor=False, prior=None):
+    def __init__(self, model, prior=None):
         """
         Params
         ------
@@ -38,10 +37,8 @@ class BayesBridge():
         if prior is None:
             prior = RegressionCoefPrior()
 
-        model = RegressionModel(
-            outcome, X, model, add_intercept, center_predictor
-        )
-
+        self.n_obs = model.n_obs
+        self.n_pred = model.n_pred
         self.n_unshrunk = prior.n_fixed
         self.prior_sd_for_unshrunk = prior.sd_for_fixed.copy()
         if model.intercept_added:
@@ -50,8 +47,6 @@ class BayesBridge():
                 [prior.sd_for_intercept], self.prior_sd_for_unshrunk
             ))
 
-        self.n_obs = model.n_obs
-        self.n_pred = model.n_pred
         self.model = model
         self.prior = prior
         self.rg = BasicRandom()

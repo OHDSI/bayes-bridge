@@ -1,1 +1,1 @@
-from .bayesbridge import BayesBridge, RegressionCoefPrior
+from .bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior

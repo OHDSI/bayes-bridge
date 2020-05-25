@@ -6,7 +6,7 @@ import sys
 sys.path.append("..") # needed if pytest called from the parent directory
 sys.path.insert(0, '../..') # needed if pytest called from this directory.
 
-from bayesbridge import BayesBridge, RegressionCoefPrior
+from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 from bayesbridge.model import CoxModel
 
 data_folder = 'saved_outputs'
@@ -25,22 +25,21 @@ def test_gibbs(request):
         samples = run_gibbs(model, sampling_method, matrix_format, restart_im_middle)
         assert is_same_as_prev_output(samples, sampling_method, model, test_dirname)
 
-def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
+def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=False):
 
     n_burnin = 0
     n_post_burnin = 10
     thin = 1
     reg_exponent = 0.5
 
-    outcome, X = simulate_data(model, matrix_format)
-    n_unshrunk = 1 if model == 'cox' else 0
+    outcome, X = simulate_data(model_type, matrix_format)
+    n_unshrunk = 1 if model_type == 'cox' else 0
     prior = RegressionCoefPrior(
         n_fixed_effect=n_unshrunk, sd_for_fixed_effect=2.,
         global_scale_parametrization='raw'
     )
-    bridge = BayesBridge(
-        outcome, X, model=model, prior=prior
-    )
+    model = RegressionModel(outcome, X, model_type)
+    bridge = BayesBridge(model, prior)
     init = {
         'global_scale': .01,
         'local_scale': np.ones(X.shape[1] - n_unshrunk)
@@ -56,7 +55,7 @@ def run_gibbs(model, sampling_method, matrix_format, restart_in_middle=False):
     )
 
     if restart_in_middle:
-        reinit_bridge = BayesBridge(outcome, X, model=model)
+        reinit_bridge = BayesBridge(model, prior)
         mcmc_output = reinit_bridge.gibbs_additional_iter(
             mcmc_output, n_total_post_burnin - n_post_burnin, merge=True
         )
