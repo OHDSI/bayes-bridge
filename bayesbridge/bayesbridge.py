@@ -44,14 +44,14 @@ class BayesBridge():
 
         self.n_unshrunk = prior.n_fixed
         self.prior_sd_for_unshrunk = prior.sd_for_fixed.copy()
-        if model.X.intercept_added:
+        if model.intercept_added:
             self.n_unshrunk += 1
             self.prior_sd_for_unshrunk = np.concatenate((
                 [prior.sd_for_intercept], self.prior_sd_for_unshrunk
             ))
 
-        self.n_obs = model.X.shape[0]
-        self.n_pred = model.X.shape[1]
+        self.n_obs = model.n_obs
+        self.n_pred = model.n_pred
         self.model = model
         self.prior = prior
         self.rg = BasicRandom()
