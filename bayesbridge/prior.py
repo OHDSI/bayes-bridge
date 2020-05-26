@@ -76,6 +76,16 @@ class RegressionCoefPrior():
         }
         return info
 
+    def clone(self, **kwargs):
+        """ Make a clone with only specified attributes modified. """
+        info = self.get_info()
+        for key in kwargs.keys():
+            if key in info:
+                info[key] = kwargs[key]
+        # TODO: recompute shape and rate if the bridge exponent or global
+        # scale parametrization has been modified.
+        return RegressionCoefPrior(**info)
+
     def solve_for_gscale_prior_hyperparam(
             self, log10_mean, log10_sd, bridge_exp, gscale_paramet):
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
