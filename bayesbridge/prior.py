@@ -47,15 +47,34 @@ class RegressionCoefPrior():
         self.bridge_exp = bridge_exponent
         self.gscale_paramet = global_scale_parametrization
         if global_scale_prior_hyper_param is None:
-            self.param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}
-                # Reference prior for a scale family.
+            self.param = {
+                'gscale_neg_power': {'shape': 0., 'rate': 0.},
+                    # Reference prior for a scale family.
+                'gscale': None
+            }
+
         else:
+            log10_mean = global_scale_prior_hyper_param['log10_mean']
+            log10_sd = global_scale_prior_hyper_param['log10_sd']
             shape, rate = self.solve_for_gscale_prior_hyperparam(
-                global_scale_prior_hyper_param['log10_mean'],
-                global_scale_prior_hyper_param['log10_sd'],
-                bridge_exponent, self.gscale_paramet
+                log10_mean, log10_sd, bridge_exponent, self.gscale_paramet
             )
-            self.param = {'gscale_neg_power': {'shape': shape, 'rate': rate}}
+            self.param = {
+                'gscale_neg_power': {'shape': shape, 'rate': rate},
+                'gscale': {'log10_mean': log10_mean, 'log10_sd': log10_sd}
+            }
+
+    def get_info(self):
+        info = {
+            'bridge_exponent': self.bridge_exp,
+            'n_fixed_effect': self.n_fixed,
+            'sd_for_intercept': self.sd_for_intercept,
+            'sd_for_fixed_effect': self.sd_for_fixed,
+            'regularizing_slab_size': self.slab_size,
+            'global_scale_prior_hyper_param': self.param['gscale'],
+            'global_scale_parametrization': self.gscale_paramet
+        }
+        return info
 
     def solve_for_gscale_prior_hyperparam(
             self, log10_mean, log10_sd, bridge_exp, gscale_paramet):
