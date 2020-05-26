@@ -53,7 +53,7 @@ class RegressionCoefPrior():
                 global_scale_prior_hyper_param['log10_sd'],
                 bridge_exponent, self.gscale_paramet
             )
-            self.param['gscale_neg_power'] = {'shape': shape, 'rate': rate}
+            self.param = {'gscale_neg_power': {'shape': shape, 'rate': rate}}
 
     def solve_for_gscale_prior_hyperparam(
             self, log10_mean, log10_sd, bridge_exp, gscale_paramet):
