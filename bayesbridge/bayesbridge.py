@@ -92,7 +92,7 @@ class BayesBridge():
             mcmc_output.clear()
 
         next_mcmc_output = self.gibbs(
-            0, n_iter, thin, bridge_exp, init,
+            0, n_iter, thin, init,
             sampling_method=sampling_method,
             global_scale_update=global_scale_update,
             params_to_save=params_to_save,
@@ -107,7 +107,7 @@ class BayesBridge():
 
     # TODO: Make dedicated functions for specifying 1) prior hyper-parameters,
     #  and 2) sampler tuning parameters (maybe).
-    def gibbs(self, n_burnin, n_post_burnin, thin=1, bridge_exponent=.5,
+    def gibbs(self, n_burnin, n_post_burnin, thin=1,
               init={}, sampling_method='cg', seed=None,
               global_scale_update='sample', params_to_save=None,
               n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
@@ -160,7 +160,7 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         coef, obs_prec, lscale, gscale, init, initial_optim_info = \
-            self.initialize_chain(init, bridge_exponent, n_init_optim_step)
+            self.initialize_chain(init, self.prior.bridge_exp, n_init_optim_step)
         if n_init_optim_step > 0:
             self.manager.print_status(
                 n_status_update, 0, n_iter, msg_type='optim', time_format='second')
@@ -184,14 +184,14 @@ class BayesBridge():
             # Draw from gscale | coef and then lscale | gscale, coef.
             # (The order matters.)
             gscale = self.update_global_scale(
-                gscale, coef[self.n_unshrunk:], bridge_exponent,
+                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
                 method=global_scale_update)
 
             lscale = self.update_local_scale(
-                gscale, coef[self.n_unshrunk:], bridge_exponent)
+                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp)
 
             logp = self.compute_posterior_logprob(
-                coef, gscale, obs_prec, bridge_exponent
+                coef, gscale, obs_prec, self.prior.bridge_exp
             )
 
             self.manager.store_current_state(
@@ -207,7 +207,7 @@ class BayesBridge():
 
         if self.prior.gscale_paramet == 'regress_coef':
             gscale, lscale, unit_bridge_magitude = \
-                self.adjust_scale(gscale, lscale, bridge_exponent, to='regress_coef')
+                self.adjust_scale(gscale, lscale, self.prior.bridge_exp, to='regress_coef')
             if 'global_scale' in samples:
                 samples['global_scale'] *= unit_bridge_magitude
             if 'local_scale' in samples:
@@ -225,7 +225,7 @@ class BayesBridge():
             'seed': seed,
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
-            'bridge_exponent': bridge_exponent,
+            'bridge_exponent': self.prior.bridge_exp,
             'sampling_method': sampling_method,
             'runtime': runtime,
             'global_scale_update': global_scale_update,

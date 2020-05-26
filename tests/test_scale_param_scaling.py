@@ -95,7 +95,6 @@ def get_last_sample_from_gibbs(bridge, exponent, seed=0):
     mcmc_output = bridge.gibbs(
         n_burnin=0, n_post_burnin=10,
         sampling_method='direct',
-        bridge_exponent=exponent,
         init={'apriori_coef_scale': .1},
         seed=seed, n_status_update=0
     )

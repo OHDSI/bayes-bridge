@@ -6,7 +6,8 @@ from scipy.special import polygamma as scipy_polygamma
 class RegressionCoefPrior():
 
     def __init__(
-            self, bridge_exponent=None,
+            self,
+            bridge_exponent=.5,
             n_fixed_effect=0,
             sd_for_intercept=float('inf'),
             sd_for_fixed_effect=float('inf'),
@@ -43,6 +44,7 @@ class RegressionCoefPrior():
         self.sd_for_fixed = sd_for_fixed_effect
         self.slab_size = regularizing_slab_size
         self.n_fixed = n_fixed_effect
+        self.bridge_exp = bridge_exponent
         self.gscale_paramet = global_scale_parametrization
         if global_scale_prior_hyper_param is None:
             self.param = {'gscale_neg_power': {'shape': 0., 'rate': 0.}}

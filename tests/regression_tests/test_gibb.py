@@ -30,13 +30,13 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
     n_burnin = 0
     n_post_burnin = 10
     thin = 1
-    reg_exponent = 0.5
+    bridge_exponent = 0.5
 
     outcome, X = simulate_data(model_type, matrix_format)
     n_unshrunk = 1 if model_type == 'cox' else 0
     prior = RegressionCoefPrior(
         n_fixed_effect=n_unshrunk, sd_for_fixed_effect=2.,
-        global_scale_parametrization='raw'
+        bridge_exponent=bridge_exponent, global_scale_parametrization='raw'
     )
     model = RegressionModel(outcome, X, model_type)
     bridge = BayesBridge(model, prior)
@@ -50,7 +50,7 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
         n_post_burnin = math.ceil(n_total_post_burnin / 2)
 
     mcmc_output = bridge.gibbs(
-        n_burnin, n_post_burnin, thin, reg_exponent, init,
+        n_burnin, n_post_burnin, thin, init,
         sampling_method=sampling_method, seed=0, params_to_save='all'
     )
 
