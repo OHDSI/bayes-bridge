@@ -206,12 +206,13 @@ class BayesBridge():
         runtime = time.time() - start_time
 
         if self.prior.gscale_paramet == 'regress_coef':
-            gscale, lscale, unit_bridge_magitude = \
-                self.adjust_scale(gscale, lscale, self.prior.bridge_exp, to='regress_coef')
-            if 'global_scale' in samples:
-                samples['global_scale'] *= unit_bridge_magitude
-            if 'local_scale' in samples:
-                samples['local_scale'] /= unit_bridge_magitude
+            gscale, lscale = \
+                self.prior.adjust_scale(gscale, lscale, to='regress_coef')
+            gscale_samples = samples.get('global_scale', 0.)
+            lscale_samples = samples.get('local_scale', 0.)
+            self.prior.adjust_scale(
+                gscale_samples, lscale_samples, to='regress_coef'
+            ) # Modify in place.
 
         _markov_chain_state = \
             self.manager.pack_parameters(coef, obs_prec, lscale, gscale)
@@ -325,23 +326,10 @@ class BayesBridge():
         if self.prior.gscale_paramet == 'regress_coef':
             # Gibbs sampler requires the raw parametrization. Technically only
             # gscale * lscale matters within the sampler due to the update order.
-            gscale, lscale, unit_bridge_magnitude \
-                = self.adjust_scale(gscale, lscale, bridge_exp, to='raw')
+            gscale, lscale \
+                = self.prior.adjust_scale(gscale, lscale, to='raw')
 
         return lscale, gscale
-
-    def adjust_scale(self, gscale, lscale, bridge_exp, to):
-        unit_bridge_magnitude \
-            = self.prior.compute_power_exp_ave_magnitude(bridge_exp, 1.)
-        if to == 'raw':
-            gscale /= unit_bridge_magnitude
-            lscale *= unit_bridge_magnitude
-        elif to == 'regress_coef':
-            gscale *= unit_bridge_magnitude
-            lscale /= unit_bridge_magnitude
-        else:
-            raise ValueError()
-        return gscale, lscale, unit_bridge_magnitude
 
     def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
 

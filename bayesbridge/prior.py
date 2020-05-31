@@ -86,6 +86,19 @@ class RegressionCoefPrior():
         # scale parametrization has been modified.
         return RegressionCoefPrior(**info)
 
+    def adjust_scale(self, gscale, lscale, to):
+        unit_bridge_magnitude \
+            = self.compute_power_exp_ave_magnitude(self.bridge_exp, 1.)
+        if to == 'raw':
+            gscale /= unit_bridge_magnitude
+            lscale *= unit_bridge_magnitude
+        elif to == 'regress_coef':
+            gscale *= unit_bridge_magnitude
+            lscale /= unit_bridge_magnitude
+        else:
+            raise ValueError()
+        return gscale, lscale
+
     def solve_for_gscale_prior_hyperparam(
             self, log10_mean, log10_sd, bridge_exp, gscale_paramet):
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
