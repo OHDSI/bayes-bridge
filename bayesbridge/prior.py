@@ -55,6 +55,11 @@ class RegressionCoefPrior():
             }
 
         else:
+            keys = global_scale_prior_hyper_param.keys()
+            if not ({'log10_mean', 'log10_sd'} <= keys):
+                raise ValueError(
+                    "Dictionary should contain keys 'log10_mean' and 'log10_sd.'"
+                )
             log10_mean = global_scale_prior_hyper_param['log10_mean']
             log10_sd = global_scale_prior_hyper_param['log10_sd']
             shape, rate = self.solve_for_gscale_prior_hyperparam(
