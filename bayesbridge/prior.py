@@ -111,7 +111,14 @@ class RegressionCoefPrior():
         return val * math.log(from_) / math.log(to)
 
     def solve_for_gamma_param(self, log_mean, log_sd, bridge_exp):
-        """ Find hyper-parameters matching specified mean and sd in log scale. """
+        """ Find hyper-parameters matching specified mean and sd in log scale.
+
+        Determine the shape and rate parameters of a Gamma prior on
+            phi = gscale ** (- 1 / bridge_exp)
+        so that the mean and sd of log(phi) coincide with log_mean and log_sd.
+        The calculations are done in the 'raw' parametrization of gscale,
+        as opposed to the 'regress_coef' parametrization.
+        """
 
         f = lambda log_shape: (
             math.sqrt(self._polygamma(1, math.exp(log_shape))) / bridge_exp
