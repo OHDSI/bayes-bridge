@@ -1,4 +1,5 @@
 import math
+from warnings import warn
 import numpy as np
 import scipy as sp
 from scipy.special import polygamma as scipy_polygamma
@@ -82,6 +83,8 @@ class RegressionCoefPrior():
         for key in kwargs.keys():
             if key in info:
                 info[key] = kwargs[key]
+            else:
+                warn("'{:s} is not a valid keyward argument.".format(key))
         # TODO: recompute shape and rate if the bridge exponent or global
         # scale parametrization has been modified.
         return RegressionCoefPrior(**info)
