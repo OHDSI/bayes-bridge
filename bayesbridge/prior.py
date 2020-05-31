@@ -63,7 +63,7 @@ class RegressionCoefPrior():
             self.param = {
                 'gscale_neg_power': {'shape': shape, 'rate': rate},
                 'gscale': {'log10_mean': log10_mean, 'log10_sd': log10_sd}
-            }
+            } # Prior is always specified in the 'raw' parametrization.
 
     def get_info(self):
         info = {
@@ -85,8 +85,6 @@ class RegressionCoefPrior():
                 info[key] = kwargs[key]
             else:
                 warn("'{:s} is not a valid keyward argument.".format(key))
-        # TODO: recompute shape and rate if the bridge exponent or global
-        # scale parametrization has been modified.
         return RegressionCoefPrior(**info)
 
     def adjust_scale(self, gscale, lscale, to):
