@@ -8,7 +8,7 @@ from bayesbridge.model import LinearModel, LogisticModel, CoxModel
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 
 
-def test_scale_param_scaling():
+def test_gscale_parametrization():
     """ Check sampler outputs are invariant under global scale parametrization. """
 
     y, X, beta = simulate_data(model='logit', seed=0)
