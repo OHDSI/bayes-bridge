@@ -76,7 +76,7 @@ class RegressionCoefPrior():
 
     def get_info(self):
         sd_for_fixed = self.sd_for_fixed
-        if np.all(sd_for_fixed == sd_for_fixed[0]):
+        if len(sd_for_fixed) > 0 and np.all(sd_for_fixed == sd_for_fixed[0]):
             sd_for_fixed = sd_for_fixed[0]
         info = {
             'bridge_exponent': self.bridge_exp,
