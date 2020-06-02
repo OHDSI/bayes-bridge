@@ -37,7 +37,10 @@ class RegressionCoefPrior():
         """
         if not (np.isscalar(sd_for_fixed_effect)
                 or n_fixed_effect == len(sd_for_fixed_effect)):
-            raise ValueError('Invalid array size for prior sd.')
+            raise ValueError(
+                "Prior sd for fixed effects must be specified either by a "
+                "scalar or array of the same length as n_fixed_effect."
+            )
 
         if np.isscalar(sd_for_fixed_effect):
             sd_for_fixed_effect = sd_for_fixed_effect * np.ones(n_fixed_effect)
