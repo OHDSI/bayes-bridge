@@ -86,6 +86,8 @@ class RegressionCoefPrior():
     def clone(self, **kwargs):
         """ Make a clone with only specified attributes modified. """
         info = self.get_info()
+        if 'global_scale_parametrization' in kwargs:
+            raise ValueError("Change of parametrization is not supported.")
         for key in kwargs.keys():
             if key in info:
                 info[key] = kwargs[key]
