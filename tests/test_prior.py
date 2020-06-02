@@ -128,12 +128,7 @@ def test_gscale_paramet_invariance():
     # After appropriately adjusting the hyper-parameter, the two samples
     # should agree.
     gscale_hyper_param['log10_mean'] += np.log10(bridge_magnitude)
-    prior = RegressionCoefPrior(
-        bridge_exponent=bridge_exp,
-        regularizing_slab_size=1.,
-        global_scale_prior_hyper_param=gscale_hyper_param,
-        global_scale_parametrization='regress_coef'
-    )
+    prior = prior.clone(global_scale_prior_hyper_param=gscale_hyper_param)
     bridge = BayesBridge(model, prior)
     coef_sample_expected_mag_scaling \
         = get_last_sample_from_gibbs(bridge, bridge_exp)
