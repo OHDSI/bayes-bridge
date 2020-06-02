@@ -68,7 +68,8 @@ class RegressionCoefPrior():
             self.param = {
                 'gscale_neg_power': {'shape': shape, 'rate': rate},
                 'gscale': {'log10_mean': log10_mean, 'log10_sd': log10_sd}
-            } # Prior is always specified in the 'raw' parametrization.
+            }   # Hyper-parameters on the negative power are specified in
+                # terms of the 'raw' parametrization.
 
     def get_info(self):
         info = {
