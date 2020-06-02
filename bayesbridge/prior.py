@@ -75,11 +75,14 @@ class RegressionCoefPrior():
                 # terms of the 'raw' parametrization.
 
     def get_info(self):
+        sd_for_fixed = self.sd_for_fixed
+        if np.all(sd_for_fixed == sd_for_fixed[0]):
+            sd_for_fixed = sd_for_fixed[0]
         info = {
             'bridge_exponent': self.bridge_exp,
             'n_fixed_effect': self.n_fixed,
             'sd_for_intercept': self.sd_for_intercept,
-            'sd_for_fixed_effect': self.sd_for_fixed,
+            'sd_for_fixed_effect': sd_for_fixed,
             'regularizing_slab_size': self.slab_size,
             'global_scale_prior_hyper_param': self.param['gscale'],
             'global_scale_parametrization': self.gscale_paramet

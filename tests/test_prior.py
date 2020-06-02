@@ -8,6 +8,35 @@ from bayesbridge.model import LinearModel, LogisticModel, CoxModel
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 
 
+def test_clone():
+
+    kwargs = {
+        'bridge_exponent': 1. / 8,
+        'n_fixed_effect': 1,
+        'sd_for_fixed_effect': 1.11,
+        'regularizing_slab_size': 2.22,
+        'global_scale_prior_hyper_param': {'log10_mean': - 4., 'log10_sd': 1.}
+    }
+
+    prior = RegressionCoefPrior(**kwargs)
+
+    changed_kw = {
+        'n_fixed_effect': 3,
+        'global_scale_prior_hyper_param': {'log10_mean': - 6., 'log10_sd': 1.5}
+    }
+    kwargs_alt = kwargs.copy()
+    for key, val in changed_kw.items():
+        kwargs_alt[key] = val
+    cloned = prior.clone(**changed_kw)
+    changed_prior = RegressionCoefPrior(**kwargs_alt)
+
+    assert np.all(
+        cloned.__dict__.pop('sd_for_fixed')
+        == changed_prior.__dict__.pop('sd_for_fixed')
+    )
+    assert cloned.__dict__ == changed_prior.__dict__
+
+
 def test_gscale_parametrization():
     """ Check that the Gamma hyper-parameters do not depend on parametrization. """
 
