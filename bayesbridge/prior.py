@@ -16,20 +16,30 @@ class RegressionCoefPrior():
             global_scale_prior_hyper_param=None,
             global_scale_parametrization='regress_coef'
         ):
-        """
+        """ Encapisulate prior information for BayesBridge.
 
         Parameters
         ----------
+        bridge_exponent : float < 2
+            Exponent of the bridge prior on regression coefficients.
         n_fixed_effect : int
-            The number of predictors --- other than intercept --- whose
-            coefficients are to be estimated with Gaussian priors of
-            pre-specified standard deviation(s).
-        prior_sd_for_unshrunk : float, numpy array
+            Number of predictors --- other than intercept and placed at the
+            first columns of the design matrices --- whose coefficients are
+            estimated with Gaussian priors of pre-specified standard
+            deviation(s).
+        sd_for_intercept : float
+        sd_for_fixed_effect : float, numpy array
             If an array, the length must be the same as n_fixed_effect.
-        global_scale_prior_hyper_param : dict
+        regularizing_slab_size : float
+            Half-width / standard deviation of the Gaussian tail-regularizer on
+            the bridge prior. Used to impose soft prior constraints on a
+            range of regression coefficients in case the data provides limited
+            information (e.g. because of complete separation).
+        global_scale_prior_hyper_param : dict, None
             Should contain pair of keys 'log10_mean' and 'log10_sd',
             specifying the prior mean and standard deviation of
-            log10(global_scale).
+            log10(global_scale). If None, the default reference prior for a
+            scale parameter is used.
         global_scale_parametrization: str, {'raw', 'regress_coef'}
             If 'regress_coef', scale the local and global scales so that the
             global scale parameter coincide with the prior expected
