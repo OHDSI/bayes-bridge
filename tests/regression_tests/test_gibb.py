@@ -36,7 +36,7 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
     n_unshrunk = 1 if model_type == 'cox' else 0
     prior = RegressionCoefPrior(
         n_fixed_effect=n_unshrunk, sd_for_fixed_effect=2.,
-        bridge_exponent=bridge_exponent, global_scale_parametrization='raw'
+        bridge_exponent=bridge_exponent, _global_scale_parametrization='raw'
     )
     model = RegressionModel(outcome, X, model_type)
     bridge = BayesBridge(model, prior)

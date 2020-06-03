@@ -205,7 +205,7 @@ class BayesBridge():
 
         runtime = time.time() - start_time
 
-        if self.prior.gscale_paramet == 'regress_coef':
+        if self.prior._gscale_paramet == 'regress_coef':
             gscale, lscale = \
                 self.prior.adjust_scale(gscale, lscale, to='regress_coef')
             gscale_samples = samples.get('global_scale', 0.)
@@ -298,7 +298,7 @@ class BayesBridge():
         2) regression coefficients only, and 3) global scale only.
         """
         gscale_default = .1
-        if self.prior.gscale_paramet == 'raw':
+        if self.prior._gscale_paramet == 'raw':
             gscale_default \
                 /= self.prior.compute_power_exp_ave_magnitude(bridge_exp)
 
@@ -323,7 +323,7 @@ class BayesBridge():
                 gscale = gscale_default
             lscale = np.ones(self.n_pred - self.n_unshrunk) / gscale
 
-        if self.prior.gscale_paramet == 'regress_coef':
+        if self.prior._gscale_paramet == 'regress_coef':
             # Gibbs sampler requires the raw parametrization. Technically only
             # gscale * lscale matters within the sampler due to the update order.
             gscale, lscale \

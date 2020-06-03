@@ -46,7 +46,7 @@ def test_gscale_parametrization():
     prior_coef_scale = RegressionCoefPrior(
         bridge_exponent=bridge_exp,
         global_scale_prior_hyper_param=gscale_hyper_param,
-        global_scale_parametrization='regress_coef'
+        _global_scale_parametrization='regress_coef'
     )
 
     unit_bridge_magnitude \
@@ -55,7 +55,7 @@ def test_gscale_parametrization():
     prior_raw_scale = RegressionCoefPrior(
         bridge_exponent=bridge_exp,
         global_scale_prior_hyper_param=gscale_hyper_param,
-        global_scale_parametrization='raw'
+        _global_scale_parametrization='raw'
     )
     assert (
         prior_coef_scale.param['gscale_neg_power'] == prior_raw_scale.param['gscale_neg_power']
@@ -73,7 +73,7 @@ def test_gscale_paramet_invariance():
     prior = RegressionCoefPrior(
         bridge_exponent=bridge_exp,
         regularizing_slab_size=1.,
-        global_scale_parametrization='raw'
+        _global_scale_parametrization='raw'
     )
     bridge = BayesBridge(model, prior)
     coef_sample_raw_scaling = get_last_sample_from_gibbs(bridge, bridge_exp)
@@ -81,7 +81,7 @@ def test_gscale_paramet_invariance():
     prior = RegressionCoefPrior(
         bridge_exponent=bridge_exp,
         regularizing_slab_size=1.,
-        global_scale_parametrization='regress_coef'
+        _global_scale_parametrization='regress_coef'
     )
     bridge = BayesBridge(model, prior)
     coef_sample_expected_mag_scaling = get_last_sample_from_gibbs(bridge, bridge_exp)
@@ -103,7 +103,7 @@ def test_gscale_paramet_invariance():
         bridge_exponent=bridge_exp,
         regularizing_slab_size=1.,
         global_scale_prior_hyper_param=gscale_hyper_param,
-        global_scale_parametrization='raw'
+        _global_scale_parametrization='raw'
     )
     bridge = BayesBridge(model, prior)
     coef_sample_raw_scaling \
@@ -113,7 +113,7 @@ def test_gscale_paramet_invariance():
         bridge_exponent=bridge_exp,
         regularizing_slab_size=1.,
         global_scale_prior_hyper_param=gscale_hyper_param,
-        global_scale_parametrization='regress_coef'
+        _global_scale_parametrization='regress_coef'
     )
     bridge = BayesBridge(model, prior)
     coef_sample_expected_mag_scaling \

@@ -14,7 +14,7 @@ class RegressionCoefPrior():
             sd_for_fixed_effect=float('inf'),
             regularizing_slab_size=float('inf'),
             global_scale_prior_hyper_param=None,
-            global_scale_parametrization='regress_coef'
+            _global_scale_parametrization='regress_coef'
         ):
         """ Encapisulate prior information for BayesBridge.
 
@@ -40,7 +40,10 @@ class RegressionCoefPrior():
             specifying the prior mean and standard deviation of
             log10(global_scale). If None, the default reference prior for a
             scale parameter is used.
-        global_scale_parametrization: str, {'raw', 'regress_coef'}
+
+        Other Parameters
+        ----------------
+        _global_scale_parametrization: str, {'raw', 'regress_coef'}
             If 'regress_coef', scale the local and global scales so that the
             global scale parameter coincide with the prior expected
             magnitude of regression coefficients.
@@ -59,7 +62,7 @@ class RegressionCoefPrior():
         self.slab_size = regularizing_slab_size
         self.n_fixed = n_fixed_effect
         self.bridge_exp = bridge_exponent
-        self.gscale_paramet = global_scale_parametrization
+        self._gscale_paramet = _global_scale_parametrization
         if global_scale_prior_hyper_param is None:
             self.param = {
                 'gscale_neg_power': {'shape': 0., 'rate': 0.},
@@ -76,7 +79,7 @@ class RegressionCoefPrior():
             log10_mean = global_scale_prior_hyper_param['log10_mean']
             log10_sd = global_scale_prior_hyper_param['log10_sd']
             shape, rate = self.solve_for_gscale_prior_hyperparam(
-                log10_mean, log10_sd, bridge_exponent, self.gscale_paramet
+                log10_mean, log10_sd, bridge_exponent, self._gscale_paramet
             )
             self.param = {
                 'gscale_neg_power': {'shape': shape, 'rate': rate},
@@ -95,14 +98,14 @@ class RegressionCoefPrior():
             'sd_for_fixed_effect': sd_for_fixed,
             'regularizing_slab_size': self.slab_size,
             'global_scale_prior_hyper_param': self.param['gscale'],
-            'global_scale_parametrization': self.gscale_paramet
+            '_global_scale_parametrization': self._gscale_paramet
         }
         return info
 
     def clone(self, **kwargs):
         """ Make a clone with only specified attributes modified. """
         info = self.get_info()
-        if 'global_scale_parametrization' in kwargs:
+        if '_global_scale_parametrization' in kwargs:
             raise ValueError("Change of parametrization is not supported.")
         for key in kwargs.keys():
             if key in info:
