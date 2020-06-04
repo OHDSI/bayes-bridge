@@ -18,8 +18,8 @@ def RegressionModel(
     Parameters
     ----------
     outcome : 1-d numpy array, tuple of two 1-d numpy arrays
-        (n_success, n_trial) if family == 'logistic'.
-        The outcome is assumed binary if n_trial is None.
+        n_success or (n_success, n_trial) if family == 'logistic'. If
+        the input is a single array, then outcome is assumed binary.
         (event_time, censoring_time) if family == 'cox'.
     X : numpy array or scipy sparse matrix
     family : str, {'linear', 'logit', 'cox'}
@@ -53,7 +53,11 @@ def RegressionModel(
     if family == 'linear':
         model = LinearModel(outcome, design)
     elif family == 'logit':
-        n_success, n_trial = outcome
+        if isinstance(outcome, tuple):
+            n_success, n_trial = outcome
+        else:
+            n_success = outcome
+            n_trial = None
         model = LogisticModel(n_success, n_trial, design)
     elif family == 'cox':
         model = CoxModel(event_time, censoring_time, design)
