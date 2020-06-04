@@ -10,17 +10,22 @@ def RegressionModel(
         outcome, X, family='linear',
         add_intercept=None, center_predictor=False
     ):
-    """
-    Params
-    ------
-    outcome : vector if family == 'linear' else tuple
+    """ Prepare input data to BayesBridge, with pre-processings as needed.
+
+    For the Cox model, the observations (rows of X) are reordered to optimize
+    likelihood, gradient, and Hessian evaluations.
+
+    Parameters
+    ----------
+    outcome : 1-d numpy array, tuple of two 1-d numpy arrays
         (n_success, n_trial) if family == 'logistic'.
-            The outcome is assumed binary if n_trial is None.
-        (event_time, censoring_time) if family == 'cox'
+        The outcome is assumed binary if n_trial is None.
+        (event_time, censoring_time) if family == 'cox'.
     X : numpy array or scipy sparse matrix
-    n_trial : vector
-        Used for the logistic family for binomial outcomes.
-    family : str, {'linear', 'logit'}
+    family : str, {'linear', 'logit', 'cox'}
+    add_intercept : bool, None
+        If None, add intercept except when family == 'cox'
+    center_predictor : bool
     """
 
     # TODO: Make each MCMC run more "independent" i.e. not rely on the
