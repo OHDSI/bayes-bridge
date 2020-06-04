@@ -15,19 +15,14 @@ from .chain_manager import MarkovChainManager
 
 
 class BayesBridge():
+    """ Generate posterior samples for a given model and prior. """
 
     def __init__(self, model, prior=RegressionCoefPrior()):
         """
-        Params
-        ------
-        outcome : vector if model == 'linear' else tuple
-            (n_success, n_trial) if model == 'logistic'.
-                The outcome is assumed binary if n_trial is None.
-            (event_time, censoring_time) if model == 'cox'
-        X : numpy array or scipy sparse matrix
-        n_trial : vector
-            Used for the logistic model for binomial outcomes.
-        model : str, {'linear', 'logit'}
+        Parameters
+        ----------
+        model : RegressionModel object
+        prior : RegressionCoefPrior object
         """
 
         # TODO: Make each MCMC run more "independent" i.e. not rely on the
