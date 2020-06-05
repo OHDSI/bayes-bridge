@@ -62,9 +62,9 @@ class SparseRegressionCoefficientSampler():
             beta_init: vector
                 Used when when method == 'cg' as the starting value of the
                 preconditioned conjugate gradient algorithm.
-            method: {'direct', 'cg'}
-                If 'direct', a sample is generated using a direct method based on the
-                direct linear algebra. If 'cg', the preconditioned conjugate gradient
+            method: {'cholesky', 'cg'}
+                If 'cholesky', a sample is generated using a cholesky method based on the
+                cholesky linear algebra. If 'cg', the preconditioned conjugate gradient
                 sampler is used.
 
         """
@@ -78,7 +78,7 @@ class SparseRegressionCoefficientSampler():
         prior_prec_sqrt = 1 / prior_sd
 
         info = {}
-        if method == 'direct':
+        if method == 'cholesky':
             beta = generate_gaussian_with_weight(
                 X, obs_prec, prior_prec_sqrt, v)
 

@@ -12,8 +12,8 @@ from bayesbridge.model import CoxModel
 data_folder = 'saved_outputs'
 test_combo = [
     ('linear', 'cg', 'dense', False),
-    ('logit', 'direct', 'dense', False),
-    ('logit', 'direct', 'dense', True),
+    ('logit', 'cholesky', 'dense', False),
+    ('logit', 'cholesky', 'dense', True),
     ('logit', 'cg', 'sparse', False),
     ('cox', 'hmc', 'sparse', False)
 ]

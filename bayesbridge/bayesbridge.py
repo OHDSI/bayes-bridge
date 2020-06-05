@@ -113,7 +113,7 @@ class BayesBridge():
             number of burn-in samples to be discarded
         n_post_burnin : int
             number of posterior draws to be saved
-        sampling_method : str, {'direct', 'cg', 'hmc'}
+        sampling_method : str, {'cholesky', 'cg', 'hmc'}
         global_scale_update : str, {'sample', 'optimize', None}
         params_to_save : {None, 'all', list of str}
         n_init_optim_step : int
@@ -325,7 +325,7 @@ class BayesBridge():
 
     def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
 
-        if sampling_method in ('direct', 'cg'):
+        if sampling_method in ('cholesky', 'cg'):
 
             if self.model.name == 'linear':
                 y_gaussian = self.model.y
