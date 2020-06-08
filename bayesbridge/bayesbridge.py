@@ -91,26 +91,26 @@ class BayesBridge():
         self.rg.set_state(mcmc_output['_random_gen_state'])
 
         init = mcmc_output['_markov_chain_state']
-        thin, bridge_exp = (
-            mcmc_output[key] for key in ['thin', 'bridge_exponent']
+        thin, bridge_exp, reg_coef_sampling_method = (
+            mcmc_output[key]
+            for key in ['thin', 'bridge_exponent', 'reg_coef_sampling_method']
         )
         params_to_save = mcmc_output['samples'].keys()
-        options = mcmc_output['options'].copy()
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-            self.n_pred, self.prior_sd_for_unshrunk, options['reg_coef_sampling_method']
+            self.n_pred, self.prior_sd_for_unshrunk, reg_coef_sampling_method
         )
         self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
 
         if deallocate:
-            mcmc_output.clear()
+            mcmc_output['samples'].clear()
 
         next_mcmc_output = self.gibbs(
             0, n_iter, thin, init=init,
             params_to_save=params_to_save,
             n_status_update=n_status_update,
-            options=options,
+            options=mcmc_output['options'],
             _add_iter_mode=True
         )
         if merge:
