@@ -17,7 +17,7 @@ from .chain_manager import MarkovChainManager
 class SamplerOptions():
 
     def __init__(self, reg_coef_sampling_method,
-                 global_scale_update='sample', n_init_optim=10,
+                 global_scale_update='sample',
                  hmc_curvature_est_stabilized=False):
         """
 
@@ -25,24 +25,16 @@ class SamplerOptions():
         ----------
         reg_coef_sampling_method
         global_scale_update : str, {'sample', 'optimize', None}
-        n_init_optim : int
-            If > 0, the Markov chain will be run after the specified number of
-            optimization steps in which the regression coefficients are
-            optimized conditionally on the shrinkage parameters. During the
-            optimization, the global shrinkage parameter is fixed while the
-            local ones are sampled.
         hmc_curvature_est_stabilized
         """
         self.coef_sampling_method = reg_coef_sampling_method
         self.gscale_update = global_scale_update
-        self.n_init_optim = n_init_optim
         self.curvature_est_stabilized = hmc_curvature_est_stabilized
 
     def get_info(self):
         return {
             'reg_coef_sampling_method': self.coef_sampling_method,
             'global_scale_update': self.gscale_update,
-            'n_init_optim': self.n_init_optim,
             'hmc_curvature_est_stabilized': self.curvature_est_stabilized
         }
 
@@ -131,7 +123,7 @@ class BayesBridge():
     #  and 2) sampler tuning parameters (maybe).
     def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
               init={}, params_to_save=None, n_status_update=0,
-              regress_coef_sampling_method=None, options=None,
+              regress_coef_sampling_method=None, n_init_optim=10, options=None,
               _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
@@ -143,6 +135,12 @@ class BayesBridge():
         n_post_burnin : int
             number of posterior draws to be saved
         regress_coef_sampling_method : {None, 'cholesky', 'cg', 'hmc'}
+        n_init_optim : int
+            If > 0, the Markov chain will be run after the specified number of
+            optimization steps in which the regression coefficients are
+            optimized conditionally on the shrinkage parameters. During the
+            optimization, the global shrinkage parameter is fixed while the
+            local ones are sampled.
         params_to_save : {None, 'all', list of str}
         n_status_update : int
             Number of updates to print on stdout during the sampler run.
@@ -161,7 +159,7 @@ class BayesBridge():
         n_iter = n_burnin + n_post_burnin
 
         if _add_iter_mode:
-            options.n_init_optim = 0
+            n_init_optim = 0
         else:
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
@@ -185,8 +183,8 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         coef, obs_prec, lscale, gscale, init, initial_optim_info = \
-            self.initialize_chain(init, self.prior.bridge_exp, options.n_init_optim)
-        if options.n_init_optim > 0:
+            self.initialize_chain(init, self.prior.bridge_exp, n_init_optim)
+        if n_init_optim > 0:
             self.manager.print_status(
                 n_status_update, 0, n_iter, msg_type='optim', time_format='second')
 
