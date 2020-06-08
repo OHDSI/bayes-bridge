@@ -14,6 +14,38 @@ from .prior import RegressionCoefPrior
 from .chain_manager import MarkovChainManager
 
 
+class SamplerOptions():
+
+    def __init__(self, reg_coef_sampling_method,
+                 global_scale_update='sample', n_init_optim=10,
+                 hmc_curvature_est_stabilized=False):
+        """
+
+        Parameters
+        ----------
+        reg_coef_sampling_method
+        global_scale_update : str, {'sample', 'optimize', None}
+        n_init_optim : int
+            If > 0, the Markov chain will be run after the specified number of
+            optimization steps in which the regression coefficients are
+            optimized conditionally on the shrinkage parameters. During the
+            optimization, the global shrinkage parameter is fixed while the
+            local ones are sampled.
+        hmc_curvature_est_stabilized
+        """
+        self.coef_sampling_method = reg_coef_sampling_method
+        self.gscale_update = global_scale_update
+        self.n_init_optim = n_init_optim
+        self.curvature_est_stabilized = hmc_curvature_est_stabilized
+
+    def get_info(self):
+        return {
+            'reg_coef_sampling_method': self.coef_sampling_method,
+            'global_scale_update': self.gscale_update,
+            'n_init_optim': self.n_init_optim,
+            'hmc_curvature_est_stabilized': self.curvature_est_stabilized
+        }
+
 class BayesBridge():
     """ Generate posterior samples for a given model and prior. """
 
@@ -67,16 +99,15 @@ class BayesBridge():
         self.rg.set_state(mcmc_output['_random_gen_state'])
 
         init = mcmc_output['_markov_chain_state']
-        thin, bridge_exp, sampling_method, global_scale_update = (
-            mcmc_output[key] for key in [
-                'thin', 'bridge_exponent', 'sampling_method', 'global_scale_update'
-            ]
+        thin, bridge_exp = (
+            mcmc_output[key] for key in ['thin', 'bridge_exponent']
         )
         params_to_save = mcmc_output['samples'].keys()
+        options = mcmc_output['options'].copy()
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-            self.n_pred, self.prior_sd_for_unshrunk, sampling_method
+            self.n_pred, self.prior_sd_for_unshrunk, options['reg_coef_sampling_method']
         )
         self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
 
@@ -84,11 +115,10 @@ class BayesBridge():
             mcmc_output.clear()
 
         next_mcmc_output = self.gibbs(
-            0, n_iter, thin, init,
-            sampling_method=sampling_method,
-            global_scale_update=global_scale_update,
+            0, n_iter, thin, init=init,
             params_to_save=params_to_save,
             n_status_update=n_status_update,
+            options=options,
             _add_iter_mode=True
         )
         if merge:
@@ -99,11 +129,10 @@ class BayesBridge():
 
     # TODO: Make dedicated functions for specifying 1) prior hyper-parameters,
     #  and 2) sampler tuning parameters (maybe).
-    def gibbs(self, n_burnin, n_post_burnin, thin=1,
-              init={}, sampling_method='cg', seed=None,
-              global_scale_update='sample', params_to_save=None,
-              n_init_optim_step=10, n_status_update=0, _add_iter_mode=False,
-              hmc_curvature_est_stabilized=False):
+    def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
+              init={}, params_to_save=None, n_status_update=0,
+              regress_coef_sampling_method=None, options=None,
+              _add_iter_mode=False):
         """
         MCMC implementation for the Bayesian bridge.
 
@@ -113,28 +142,32 @@ class BayesBridge():
             number of burn-in samples to be discarded
         n_post_burnin : int
             number of posterior draws to be saved
-        sampling_method : str, {'cholesky', 'cg', 'hmc'}
-        global_scale_update : str, {'sample', 'optimize', None}
+        regress_coef_sampling_method : {None, 'cholesky', 'cg', 'hmc'}
         params_to_save : {None, 'all', list of str}
-        n_init_optim_step : int
-            If > 0, the Markov chain will be run after the specified number of
-            optimization steps in which the regression coefficients are
-            optimized conditionally on the shrinkage parameters. During the
-            optimization, the global shrinkage parameter is fixed while the
-            local ones are sampled.
         n_status_update : int
             Number of updates to print on stdout during the sampler run.
+
+        Other Parameters
+        ----------------
+        options : None, dict, SamplerOptions
+            SamplerOptions class or a dict whose keywords are used as inputs
+            to the class.
         """
 
+        if not isinstance(options, SamplerOptions):
+            options = self.initialize_options(
+                regress_coef_sampling_method, options
+            )
         n_iter = n_burnin + n_post_burnin
 
         if _add_iter_mode:
-            n_init_optim_step = 0
+            options.n_init_optim = 0
         else:
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-                self.n_pred, self.prior_sd_for_unshrunk, sampling_method,
-                hmc_curvature_est_stabilized, self.prior.slab_size
+                self.n_pred, self.prior_sd_for_unshrunk,
+                options.coef_sampling_method, options.curvature_est_stabilized,
+                self.prior.slab_size
             )
 
         if params_to_save == 'all':
@@ -152,8 +185,8 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         coef, obs_prec, lscale, gscale, init, initial_optim_info = \
-            self.initialize_chain(init, self.prior.bridge_exp, n_init_optim_step)
-        if n_init_optim_step > 0:
+            self.initialize_chain(init, self.prior.bridge_exp, options.n_init_optim)
+        if options.n_init_optim > 0:
             self.manager.print_status(
                 n_status_update, 0, n_iter, msg_type='optim', time_format='second')
 
@@ -161,14 +194,15 @@ class BayesBridge():
         samples = {}
         sampling_info = {}
         self.manager.pre_allocate(
-            samples, sampling_info, n_post_burnin, thin, params_to_save, sampling_method
+            samples, sampling_info, n_post_burnin, thin, params_to_save,
+            options.coef_sampling_method
         )
 
         # Start Gibbs sampling
         for mcmc_iter in range(1, n_iter + 1):
 
             coef, info = self.update_regress_coef(
-                coef, obs_prec, gscale, lscale, sampling_method
+                coef, obs_prec, gscale, lscale, options.coef_sampling_method
             )
 
             obs_prec = self.update_obs_precision(coef)
@@ -177,7 +211,8 @@ class BayesBridge():
             # (The order matters.)
             gscale = self.update_global_scale(
                 gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
-                method=global_scale_update)
+                method=options.gscale_update
+            )
 
             lscale = self.update_local_scale(
                 gscale, coef[self.n_unshrunk:], self.prior.bridge_exp)
@@ -191,7 +226,8 @@ class BayesBridge():
                 obs_prec, logp, params_to_save
             )
             self.manager.store_sampling_info(
-                sampling_info, info, mcmc_iter, n_burnin, thin, sampling_method
+                sampling_info, info, mcmc_iter, n_burnin, thin,
+                options.coef_sampling_method
             )
             self.manager.print_status(n_status_update, mcmc_iter, n_iter)
 
@@ -219,9 +255,9 @@ class BayesBridge():
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
             'bridge_exponent': self.prior.bridge_exp,
-            'sampling_method': sampling_method,
+            'reg_coef_sampling_method': options.coef_sampling_method,
             'runtime': runtime,
-            'global_scale_update': global_scale_update,
+            'options': options.get_info(),
             'initial_optimization_info': initial_optim_info,
             'reg_coef_sampling_info': sampling_info,
             '_markov_chain_state': _markov_chain_state,
@@ -230,6 +266,46 @@ class BayesBridge():
         }
 
         return mcmc_output
+
+    def initialize_options(self, reg_coef_sampling_method, options):
+
+        if options is None:
+            options = {}
+
+        if 'reg_coef_sampling_method' in options:
+            if reg_coef_sampling_method is not None:
+                warn("Duplicate specification of method for sampling "
+                     "regression coefficient. Will use the dictionary one.")
+            reg_coef_sampling_method = options['reg_coef_sampling_method']
+
+        if self.model.name in ('linear', 'logit'):
+
+            # TODO: Make the choice between Cholesky and CG more carefully.
+            MATMUL_COST_THRESHOLD = 10 ** 12
+            # TODO: Implement Woodbury-based Gaussian sampler.
+            if self.n_pred > self.n_obs:
+                warn("Sampler has not been optimized for 'small n' problem.")
+
+            smaller_dim_size = min(self.model.n_obs, self.model.n_pred)
+            larger_dim_size = max(self.model.n_obs, self.model.n_pred)
+            matmul_cost = smaller_dim_size ** 2 * larger_dim_size
+            direct_linalg_preferred = (matmul_cost < MATMUL_COST_THRESHOLD)
+
+            if reg_coef_sampling_method is None:
+                if direct_linalg_preferred:
+                    reg_coef_sampling_method = 'cholesky'
+                else:
+                    reg_coef_sampling_method = 'cg'
+            else:
+                if reg_coef_sampling_method == 'cg' and direct_linalg_preferred:
+                    warn("Design matrix may be too small to benefit from the "
+                         "conjugate gradient sampler.")
+
+        else:
+            reg_coef_sampling_method = 'hmc'
+
+        options['reg_coef_sampling_method'] = reg_coef_sampling_method
+        return SamplerOptions(**options)
 
     def initialize_chain(self, init, bridge_exp, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
