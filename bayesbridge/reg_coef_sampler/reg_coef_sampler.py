@@ -7,9 +7,9 @@ from functools import partial
 from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
 from .direct_gaussian_sampler import generate_gaussian_with_weight
-from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo import hmc
-from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.nuts import NoUTurnSampler
-from bayesbridge.reg_coef_sampler.hamiltonian_monte_carlo.stepsize_adapter \
+from .hamiltonian_monte_carlo import hmc
+from .hamiltonian_monte_carlo.nuts import NoUTurnSampler
+from .hamiltonian_monte_carlo.stepsize_adapter \
     import HamiltonianBasedStepsizeAdapter
 
 
