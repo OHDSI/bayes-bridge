@@ -1,3 +1,4 @@
-from .bayesbridge import (
-    BayesBridge, RegressionModel, RegressionCoefPrior, SamplerOptions
-)
+from .bayesbridge import BayesBridge
+from .gibbs_util import SamplerOptions
+from .prior import RegressionCoefPrior
+from .model import RegressionModel
