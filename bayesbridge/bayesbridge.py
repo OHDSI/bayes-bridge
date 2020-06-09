@@ -11,7 +11,7 @@ from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .model import RegressionModel, LogisticModel
 from .prior import RegressionCoefPrior
-from .chain_manager import MarkovChainManager
+from .gibbs_util import MarkovChainManager
 
 
 class SamplerOptions():
