@@ -1,15 +1,11 @@
 import numpy as np
-import scipy as sp
-import scipy.linalg
-import scipy.sparse
 import math
 import time
-import pdb
 from .util import simplify_warnings # Monkey patch the warning format
 from warnings import warn
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
-from .model import RegressionModel, LogisticModel
+from .model import LogisticModel
 from .prior import RegressionCoefPrior
 from .gibbs_util import MarkovChainManager, SamplerOptions
 
