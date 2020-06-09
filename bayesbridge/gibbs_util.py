@@ -1,6 +1,75 @@
 import math
 import time
+from warnings import warn
 import numpy as np
+
+
+class SamplerOptions():
+
+    def __init__(self, reg_coef_sampling_method,
+                 global_scale_update='sample',
+                 hmc_curvature_est_stabilized=False):
+        """
+
+        Parameters
+        ----------
+        reg_coef_sampling_method
+        global_scale_update : str, {'sample', 'optimize', None}
+        hmc_curvature_est_stabilized
+        """
+        self.coef_sampling_method = reg_coef_sampling_method
+        self.gscale_update = global_scale_update
+        self.curvature_est_stabilized = hmc_curvature_est_stabilized
+
+    def get_info(self):
+        return {
+            'reg_coef_sampling_method': self.coef_sampling_method,
+            'global_scale_update': self.gscale_update,
+            'hmc_curvature_est_stabilized': self.curvature_est_stabilized
+        }
+
+    @staticmethod
+    def create(reg_coef_sampling_method, options, model_name, n_obs, n_pred):
+        """ Initialize class with, if unspecified, an appropriate default
+        sampling method based on the type and size of model.
+        """
+        if options is None:
+            options = {}
+
+        if 'reg_coef_sampling_method' in options:
+            if reg_coef_sampling_method is not None:
+                warn("Duplicate specification of method for sampling "
+                     "regression coefficient. Will use the dictionary one.")
+            reg_coef_sampling_method = options['reg_coef_sampling_method']
+
+        if model_name in ('linear', 'logit'):
+
+            # TODO: Make the choice between Cholesky and CG more carefully.
+            MATMUL_COST_THRESHOLD = 10 ** 12
+            # TODO: Implement Woodbury-based Gaussian sampler.
+            if n_pred > n_obs:
+                warn("Sampler has not been optimized for 'small n' problem.")
+
+            smaller_dim_size = min(n_obs, n_pred)
+            larger_dim_size = max(n_obs, n_pred)
+            matmul_cost = smaller_dim_size ** 2 * larger_dim_size
+            direct_linalg_preferred = (matmul_cost < MATMUL_COST_THRESHOLD)
+
+            if reg_coef_sampling_method is None:
+                if direct_linalg_preferred:
+                    reg_coef_sampling_method = 'cholesky'
+                else:
+                    reg_coef_sampling_method = 'cg'
+            else:
+                if reg_coef_sampling_method == 'cg' and direct_linalg_preferred:
+                    warn("Design matrix may be too small to benefit from the "
+                         "conjugate gradient sampler.")
+
+        else:
+            reg_coef_sampling_method = 'hmc'
+
+        options['reg_coef_sampling_method'] = reg_coef_sampling_method
+        return SamplerOptions(**options)
 
 
 class MarkovChainManager():

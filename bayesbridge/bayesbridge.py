@@ -11,32 +11,8 @@ from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .model import RegressionModel, LogisticModel
 from .prior import RegressionCoefPrior
-from .gibbs_util import MarkovChainManager
+from .gibbs_util import MarkovChainManager, SamplerOptions
 
-
-class SamplerOptions():
-
-    def __init__(self, reg_coef_sampling_method,
-                 global_scale_update='sample',
-                 hmc_curvature_est_stabilized=False):
-        """
-
-        Parameters
-        ----------
-        reg_coef_sampling_method
-        global_scale_update : str, {'sample', 'optimize', None}
-        hmc_curvature_est_stabilized
-        """
-        self.coef_sampling_method = reg_coef_sampling_method
-        self.gscale_update = global_scale_update
-        self.curvature_est_stabilized = hmc_curvature_est_stabilized
-
-    def get_info(self):
-        return {
-            'reg_coef_sampling_method': self.coef_sampling_method,
-            'global_scale_update': self.gscale_update,
-            'hmc_curvature_est_stabilized': self.curvature_est_stabilized
-        }
 
 class BayesBridge():
     """ Generate posterior samples for a given model and prior. """
@@ -153,8 +129,9 @@ class BayesBridge():
         """
 
         if not isinstance(options, SamplerOptions):
-            options = self.initialize_options(
-                regress_coef_sampling_method, options
+            options = SamplerOptions.create(
+                regress_coef_sampling_method, options,
+                self.model.name, self.n_obs, self.n_pred
             )
         n_iter = n_burnin + n_post_burnin
 
@@ -265,45 +242,6 @@ class BayesBridge():
 
         return mcmc_output
 
-    def initialize_options(self, reg_coef_sampling_method, options):
-
-        if options is None:
-            options = {}
-
-        if 'reg_coef_sampling_method' in options:
-            if reg_coef_sampling_method is not None:
-                warn("Duplicate specification of method for sampling "
-                     "regression coefficient. Will use the dictionary one.")
-            reg_coef_sampling_method = options['reg_coef_sampling_method']
-
-        if self.model.name in ('linear', 'logit'):
-
-            # TODO: Make the choice between Cholesky and CG more carefully.
-            MATMUL_COST_THRESHOLD = 10 ** 12
-            # TODO: Implement Woodbury-based Gaussian sampler.
-            if self.n_pred > self.n_obs:
-                warn("Sampler has not been optimized for 'small n' problem.")
-
-            smaller_dim_size = min(self.model.n_obs, self.model.n_pred)
-            larger_dim_size = max(self.model.n_obs, self.model.n_pred)
-            matmul_cost = smaller_dim_size ** 2 * larger_dim_size
-            direct_linalg_preferred = (matmul_cost < MATMUL_COST_THRESHOLD)
-
-            if reg_coef_sampling_method is None:
-                if direct_linalg_preferred:
-                    reg_coef_sampling_method = 'cholesky'
-                else:
-                    reg_coef_sampling_method = 'cg'
-            else:
-                if reg_coef_sampling_method == 'cg' and direct_linalg_preferred:
-                    warn("Design matrix may be too small to benefit from the "
-                         "conjugate gradient sampler.")
-
-        else:
-            reg_coef_sampling_method = 'hmc'
-
-        options['reg_coef_sampling_method'] = reg_coef_sampling_method
-        return SamplerOptions(**options)
 
     def initialize_chain(self, init, bridge_exp, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
