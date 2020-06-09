@@ -17,6 +17,8 @@ class SamplerOptions():
         global_scale_update : str, {'sample', 'optimize', None}
         hmc_curvature_est_stabilized
         """
+        if reg_coef_sampling_method not in ('cholesky', 'cg', 'hmc'):
+            raise ValueError("Unsupported sampling method.")
         self.coef_sampling_method = reg_coef_sampling_method
         self.gscale_update = global_scale_update
         self.curvature_est_stabilized = hmc_curvature_est_stabilized
@@ -66,6 +68,9 @@ class SamplerOptions():
                          "conjugate gradient sampler.")
 
         else:
+            if reg_coef_sampling_method != 'hmc':
+                warn("Specified sampler is not supported for the {:s} "
+                     "model. Will use HMC instead.".format(model_name))
             reg_coef_sampling_method = 'hmc'
 
         options['reg_coef_sampling_method'] = reg_coef_sampling_method
