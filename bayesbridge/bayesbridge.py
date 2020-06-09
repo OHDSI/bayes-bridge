@@ -25,10 +25,6 @@ class BayesBridge():
         prior : RegressionCoefPrior object
         """
 
-        # TODO: Make each MCMC run more "independent" i.e. not rely on the
-        # previous instantiation of the class. The initial run of the Gibbs
-        # sampler probably depends too much the stuffs here.
-
         self.n_obs = model.n_obs
         self.n_pred = model.n_pred
         self.n_unshrunk = prior.n_fixed
@@ -95,8 +91,6 @@ class BayesBridge():
 
         return next_mcmc_output
 
-    # TODO: Make dedicated functions for specifying 1) prior hyper-parameters,
-    #  and 2) sampler tuning parameters (maybe).
     def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
               init={}, params_to_save=None, n_status_update=0,
               regress_coef_sampling_method=None, n_init_optim=10, options=None,
