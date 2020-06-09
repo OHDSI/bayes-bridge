@@ -10,12 +10,11 @@ class SamplerOptions():
                  global_scale_update='sample',
                  hmc_curvature_est_stabilized=False):
         """
-
         Parameters
         ----------
-        reg_coef_sampling_method
+        reg_coef_sampling_method : {'cholesky', 'cg', 'hmc'}
         global_scale_update : str, {'sample', 'optimize', None}
-        hmc_curvature_est_stabilized
+        hmc_curvature_est_stabilized : bool
         """
         if reg_coef_sampling_method not in ('cholesky', 'cg', 'hmc'):
             raise ValueError("Unsupported sampling method.")

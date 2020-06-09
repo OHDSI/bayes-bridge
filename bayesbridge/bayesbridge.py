@@ -11,7 +11,7 @@ from .gibbs_util import MarkovChainManager, SamplerOptions
 
 
 class BayesBridge():
-    """ Generate posterior samples for a given model and prior. """
+    """ Generates posterior samples under a given model and prior. """
 
     def __init__(self, model, prior=RegressionCoefPrior()):
         """
@@ -43,12 +43,24 @@ class BayesBridge():
     def gibbs_additional_iter(
             self, mcmc_output, n_iter, n_status_update=0,
             merge=False, deallocate=False):
-        """
-        Continue running the Gibbs sampler from the previous state.
+        """ Resume Gibbs sampler from the last state.
 
         Parameter
         ---------
-        mcmc_output : the output of the 'gibbs' method.
+        mcmc_output : dict
+            Output of a previous call to the 'gibbs' method.
+        n_iter : int
+        n_status_update : int
+        merge : bool
+            If True, merge the Gibbs sampler outputs from the previous and
+            current runs and then return.
+        deallocate : bool
+            If True, clear the samples from the previous Gibbs run to save
+            memory.
+
+        Returns
+        -------
+        next_mcmc_output : dict
         """
 
         if merge and deallocate:
@@ -91,8 +103,7 @@ class BayesBridge():
               init={}, params_to_save=None, n_status_update=0,
               regress_coef_sampling_method=None, n_init_optim=10, options=None,
               _add_iter_mode=False):
-        """
-        MCMC implementation for the Bayesian bridge.
+        """ Gibbs sampler for Bayesian bridge posteriors.
 
         Parameters
         ----------
@@ -101,6 +112,12 @@ class BayesBridge():
         n_post_burnin : int
             number of posterior draws to be saved
         regress_coef_sampling_method : {None, 'cholesky', 'cg', 'hmc'}
+            If None, the method is chosen via a crude heuristic based on the
+            model type and size of design matrix. For linear and logistic
+            models with large and sparse design matrix, the conjugate gradient
+            sampler ('cg') is preferred over the Cholesky decomposition based
+            sampler ('cholesky'). For other models, only Hamiltonian Monte
+            Carlo ('hmc') can be used.
         n_init_optim : int
             If > 0, the Markov chain will be run after the specified number of
             optimization steps in which the regression coefficients are
@@ -108,6 +125,12 @@ class BayesBridge():
             optimization, the global shrinkage parameter is fixed while the
             local ones are sampled.
         params_to_save : {None, 'all', list of str}
+            Specifies which parameters to save during MCMC iterations. If None,
+            the most relevant parameters --- regression coefficients,
+            global scale, posterior log-density --- are saved. Use all to save
+            all the parameters (but beaware of the extra memory requirement),
+            including local scale and, depending on the model, precision (
+            inverse variance) of observations.
         n_status_update : int
             Number of updates to print on stdout during the sampler run.
 
@@ -116,6 +139,16 @@ class BayesBridge():
         options : None, dict, SamplerOptions
             SamplerOptions class or a dict whose keywords are used as inputs
             to the class.
+
+        Returns
+        -------
+        mcmc_output : dict
+            Contains posterior samples under the key 'samples,' along with the
+            sampler settings to reproduce and resume the sampling process.
+        samples = mcmc_output['samples'] : dict of numpy arrays
+            See the params_to_save documentation for its values. For
+            vector-valued parameters like regression coefficients, the 1st
+            dimension or columns of the array correspond to the parameter.
         """
 
         if not isinstance(options, SamplerOptions):
