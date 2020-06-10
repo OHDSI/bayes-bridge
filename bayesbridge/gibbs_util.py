@@ -88,7 +88,7 @@ class MarkovChainManager():
 
     def merge_outputs(self, mcmc_output, next_mcmc_output):
 
-        for output_key in ['samples', 'reg_coef_sampling_info']:
+        for output_key in ['samples', '_reg_coef_sampling_info']:
             curr_output = mcmc_output[output_key]
             next_output = next_mcmc_output[output_key]
             next_mcmc_output[output_key] = {

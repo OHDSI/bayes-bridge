@@ -243,6 +243,7 @@ class BayesBridge():
         _markov_chain_state = \
             self.manager.pack_parameters(coef, obs_prec, lscale, gscale)
 
+        _reg_coef_sampling_info = None
         mcmc_output = {
             'samples': samples,
             'init': init,
@@ -257,7 +258,7 @@ class BayesBridge():
             'runtime': runtime,
             'options': options.get_info(),
             'initial_optimization_info': initial_optim_info,
-            'reg_coef_sampling_info': sampling_info,
+            '_reg_coef_sampling_info': sampling_info,
             '_markov_chain_state': _markov_chain_state,
             '_random_gen_state': self.rg.get_state(),
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
