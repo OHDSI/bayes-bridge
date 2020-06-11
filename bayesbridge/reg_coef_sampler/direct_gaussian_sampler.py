@@ -18,8 +18,12 @@ def generate_gaussian_with_weight(X, omega, D, z, rand_gen=None):
     fisher_info = X.compute_fisher_info(weight=omega, diag_only=True)
     fisher_info[fisher_info < 0.] = 0.
     fisher_info_sqrt = np.sqrt(fisher_info)
-    diag_sqrt *= np.sqrt(1 + (fisher_info_sqrt / diag_sqrt) ** 2)
-    diag_sqrt[D == 0] = fisher_info_sqrt[D == 0]
+    has_pos_prior_prec = (D > 0)
+    has_zero_prior_prec = np.logical_not(has_pos_prior_prec)
+    diag_sqrt[has_pos_prior_prec] *= np.sqrt(
+        1. + (fisher_info_sqrt[has_pos_prior_prec] / diag_sqrt[has_pos_prior_prec]) ** 2
+    )
+    diag_sqrt[has_zero_prior_prec] = fisher_info_sqrt[has_zero_prior_prec]
     inv_sqrt_diag_scale = 1 / diag_sqrt
     Phi_scaled = inv_sqrt_diag_scale[:, np.newaxis] \
         * X.compute_fisher_info(omega) * inv_sqrt_diag_scale[np.newaxis, :]
