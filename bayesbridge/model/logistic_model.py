@@ -7,9 +7,9 @@ class LogisticModel(AbstractModel):
 
     # TODO: Python crushes during the Gibbs if n_success has the second
     # dimension (instead of being a vector). Add checks for the inputs.
-    def __init__(self, n_success, n_trial, X):
+    def __init__(self, n_success, n_trial, design):
 
-        self.check_input_validity(n_success, n_trial, X)
+        self.check_input_validity(n_success, n_trial, design)
         if n_trial is None:
             n_trial = np.ones(len(n_success))
             warn(
@@ -19,22 +19,22 @@ class LogisticModel(AbstractModel):
 
         self.n_trial = n_trial.astype('float64')
         self.n_success = n_success.astype('float64')
-        self.X = X
+        self.design = design
         self.name = 'logit'
 
-    def check_input_validity(self, n_success, n_trial, X):
+    def check_input_validity(self, n_success, n_trial, design):
 
         if n_trial is None:
             if np.max(n_success) > 1:
                 raise ValueError(
                     "If not binary, the number of trials must be specified.")
-            if not len(n_success) == X.shape[0]:
+            if not len(n_success) == design.shape[0]:
                 raise ValueError(
                     "Incompatible sizes of the outcome and design matrix."
                 )
             return # No need to check the rest for the default initialization.
 
-        if not len(n_trial) == len(n_success) == X.shape[0]:
+        if not len(n_trial) == len(n_success) == design.shape[0]:
             raise ValueError(
                 "Incompatible sizes of the outcome vectors and design matrix."
             )
@@ -47,7 +47,7 @@ class LogisticModel(AbstractModel):
                 "Number of successes cannot be larger than that of trials.")
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
-        logit_prob = self.X.dot(beta)
+        logit_prob = self.design.dot(beta)
         predicted_prob = LogisticModel.convert_to_probability_scale(logit_prob)
         loglik = np.sum(
             self.n_success * logit_prob \
@@ -56,19 +56,19 @@ class LogisticModel(AbstractModel):
         if loglik_only:
             grad = None
         else:
-            grad = self.X.Tdot(self.n_success - self.n_trial * predicted_prob)
+            grad = self.design.Tdot(self.n_success - self.n_trial * predicted_prob)
         return loglik, grad
 
     def compute_hessian(self, beta):
-        predicted_prob = LogisticModel.compute_predicted_prob(self.X, beta)
+        predicted_prob = LogisticModel.compute_predicted_prob(self.design, beta)
         weight = predicted_prob * (1 - predicted_prob)
-        return - self.X.compute_fisher_info(weight)
+        return - self.design.compute_fisher_info(weight)
 
     def get_hessian_matvec_operator(self, beta):
-        predicted_prob = LogisticModel.compute_predicted_prob(self.X, beta)
+        predicted_prob = LogisticModel.compute_predicted_prob(self.design, beta)
         weight = predicted_prob * (1 - predicted_prob)
         hessian_op = lambda v: \
-            - self.X.Tdot(self.n_trial * weight * self.X.dot(v))
+            - self.design.Tdot(self.n_trial * weight * self.design.dot(v))
         return hessian_op
 
     @staticmethod

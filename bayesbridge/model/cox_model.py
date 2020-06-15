@@ -6,7 +6,7 @@ from warnings import warn
 
 class CoxModel(AbstractModel):
 
-    def __init__(self, event_time, censoring_time, X):
+    def __init__(self, event_time, censoring_time, design):
         """
 
         Parameters
@@ -51,7 +51,7 @@ class CoxModel(AbstractModel):
         self.n_appearance_in_risk_set = n_appearance
         self.risk_set_start_index = risk_set_start_index
         self.risk_set_end_index = risk_set_end_index
-        self.X = X
+        self.design = design
         self.name = 'cox'
 
     @staticmethod
@@ -196,16 +196,16 @@ class CoxModel(AbstractModel):
                 rel_hazard, hazard_sum_over_risk_set,
                 self.risk_set_start_index, self.risk_set_end_index, self.n_appearance_in_risk_set
             )
-            v = np.zeros(self.X.shape[0])
+            v = np.zeros(self.design.shape[0])
             v[:self.n_event] = 1
             v -= hazard_matrix.sum_over_events()
-            grad = self.X.Tdot(v)
+            grad = self.design.Tdot(v)
 
         return loglik, grad
 
     def _compute_relative_hazard(self, beta):
 
-        log_rel_hazard = self.X.dot(beta)
+        log_rel_hazard = self.design.dot(beta)
         log_rel_hazard = CoxModel._shift_log_hazard(log_rel_hazard)
 
         rel_hazard = np.exp(log_rel_hazard)
@@ -264,8 +264,8 @@ class CoxModel(AbstractModel):
             self.risk_set_start_index, self.risk_set_end_index, self.n_appearance_in_risk_set
         )
         def hessian_op(beta):
-            X_beta = self.X.dot(beta)
-            result_vec = - self.X.Tdot(
+            X_beta = self.design.dot(beta)
+            result_vec = - self.design.Tdot(
                 W.sum_over_events() * X_beta - W.Tdot(W.dot(X_beta))
             )
             return result_vec

@@ -5,15 +5,15 @@ class AbstractModel():
 
     @property
     def n_obs(self):
-        return self.X.shape[0]
+        return self.design.shape[0]
 
     @property
     def n_pred(self):
-        return self.X.shape[1]
+        return self.design.shape[1]
 
     @property
     def intercept_added(self):
-        return self.X.intercept_added
+        return self.design.intercept_added
 
     @abc.abstractmethod
     def compute_loglik_and_gradient(self, beta, loglik_only=False):

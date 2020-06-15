@@ -54,23 +54,21 @@ class SparseRegressionCoefficientSampler():
                 setattr(self, attr, state[attr])
 
     def sample_gaussian_posterior(
-            self, y, X, obs_prec, gscale, lscale, method='cg'):
+            self, y, design, obs_prec, gscale, lscale, method='cg'):
         """
-        Param:
-        ------
-            X: Matrix object
-            beta_init: vector
-                Used when when method == 'cg' as the starting value of the
-                preconditioned conjugate gradient algorithm.
-            method: {'cholesky', 'cg'}
-                If 'cholesky', a sample is generated using a cholesky method based on the
-                cholesky linear algebra. If 'cg', the preconditioned conjugate gradient
-                sampler is used.
-
+        Parameters
+        ----------
+        beta_init: vector
+            Used when when method == 'cg' as the starting value of the
+            preconditioned conjugate gradient algorithm.
+        method: {'cholesky', 'cg'}
+            If 'cholesky', a sample is generated using a cholesky method based on the
+            cholesky linear algebra. If 'cg', the preconditioned conjugate gradient
+            sampler is used.
         """
         # TODO: Comment on the form of the posterior.
 
-        v = X.Tdot(obs_prec * y)
+        v = design.Tdot(obs_prec * y)
         prior_shrunk_scale = self.compute_prior_shrunk_scale(gscale, lscale)
         prior_sd = np.concatenate((
             self.prior_sd_for_unshrunk, prior_shrunk_scale
@@ -80,18 +78,18 @@ class SparseRegressionCoefficientSampler():
         info = {}
         if method == 'cholesky':
             beta = generate_gaussian_with_weight(
-                X, obs_prec, prior_prec_sqrt, v)
+                design, obs_prec, prior_prec_sqrt, v)
 
         elif method == 'cg':
             beta_condmean_guess = \
                 self.regcoef_summarizer.extrapolate_beta_condmean(gscale, lscale)
             beta_precond_scale_sd = self.regcoef_summarizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
-                X, obs_prec, prior_prec_sqrt, v,
+                design, obs_prec, prior_prec_sqrt, v,
                 beta_init=beta_condmean_guess,
                 precond_by='prior',
                 beta_scaled_sd=beta_precond_scale_sd,
-                maxiter=500, atol=10e-6 * np.sqrt(X.shape[1])
+                maxiter=500, atol=10e-6 * np.sqrt(design.shape[1])
             )
             self.regcoef_summarizer.update(beta, gscale, lscale)
             info['n_cg_iter'] = cg_info['n_iter']
@@ -294,15 +292,15 @@ class SparseRegressionCoefficientSampler():
         )
 
         beta_precond = beta / precond_scale
-        model.X.memoize_dot(True)
-        model.X.reset_matvec_count()
+        model.design.memoize_dot(True)
+        model.design.reset_matvec_count()
             # Avoid matrix-vector multiplication with the same input.
         optim_result = sp.optimize.minimize(
             compute_negative_logp, beta_precond, method=optim_method,
             jac=compute_negative_grad, hessp=precond_hessian_matvec,
             options=optim_options
         )
-        model.X.memoize_dot(False)
+        model.design.memoize_dot(False)
         if (not optim_result.success) and warn_optim_failure:
             warn(
                 "The regression coefficient mode (conditionally on the scale "
@@ -321,7 +319,7 @@ class SparseRegressionCoefficientSampler():
                 # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
             'n_hess_eval': optim_result.get('nhev', 0),
                 # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
-            'n_design_matvec': model.X.n_matvec,
+            'n_design_matvec': model.design.n_matvec,
         }
         return beta, info
 

@@ -284,10 +284,10 @@ class BayesBridge():
             if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
         elif self.model.name == 'linear':
-            obs_prec = np.mean((self.model.y - self.model.X.dot(coef)) ** 2) ** -1
+            obs_prec = np.mean((self.model.y - self.model.design.dot(coef)) ** 2) ** -1
         elif self.model.name == 'logit':
             obs_prec = LogisticModel.compute_polya_gamma_mean(
-                self.model.n_trial, self.model.X.dot(coef)
+                self.model.n_trial, self.model.design.dot(coef)
             )
         else:
             obs_prec = None
@@ -369,7 +369,7 @@ class BayesBridge():
                 y_gaussian = (self.model.n_success - self.model.n_trial / 2) / obs_prec
 
             coef, info = self.reg_coef_sampler.sample_gaussian_posterior(
-                y_gaussian, self.model.X, obs_prec, gscale, lscale,
+                y_gaussian, self.model.design, obs_prec, gscale, lscale,
                 sampling_method
             )
 
@@ -387,13 +387,13 @@ class BayesBridge():
 
         obs_prec = None
         if self.model.name == 'linear':
-            resid = self.model.y - self.model.X.dot(coef)
+            resid = self.model.y - self.model.design.dot(coef)
             scale = np.sum(resid ** 2) / 2
             obs_var = scale / self.rg.np_random.gamma(self.n_obs / 2, 1)
             obs_prec = 1 / obs_var
         elif self.model.name == 'logit':
             obs_prec = self.rg.polya_gamma(
-                self.model.n_trial.astype(np.intc), self.model.X.dot(coef)
+                self.model.n_trial.astype(np.intc), self.model.design.dot(coef)
             )
 
         return obs_prec
