@@ -112,6 +112,7 @@ class BayesBridge():
         n_post_burnin : int
             number of posterior draws to be saved
         coef_sampler_type : {None, 'cholesky', 'cg', 'hmc'}
+            Specifies the sampling method used to update regression coefficients.
             If None, the method is chosen via a crude heuristic based on the
             model type and size of design matrix. For linear and logistic
             models with large and sparse design matrix, the conjugate gradient
