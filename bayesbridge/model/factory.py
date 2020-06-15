@@ -28,10 +28,6 @@ def RegressionModel(
     center_predictor : bool
     """
 
-    # TODO: Make each MCMC run more "independent" i.e. not rely on the
-    # previous instantiation of the class. The initial run of the Gibbs
-    # sampler probably depends too much the stuffs here.
-
     if add_intercept is None:
         add_intercept = (family != 'cox')
 
