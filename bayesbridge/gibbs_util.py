@@ -6,42 +6,42 @@ import numpy as np
 
 class SamplerOptions():
 
-    def __init__(self, reg_coef_sampling_method,
+    def __init__(self, regress_coef_sampler,
                  global_scale_update='sample',
                  hmc_curvature_est_stabilized=False):
         """
         Parameters
         ----------
-        reg_coef_sampling_method : {'cholesky', 'cg', 'hmc'}
+        regress_coef_sampler : {'cholesky', 'cg', 'hmc'}
         global_scale_update : str, {'sample', 'optimize', None}
         hmc_curvature_est_stabilized : bool
         """
-        if reg_coef_sampling_method not in ('cholesky', 'cg', 'hmc'):
-            raise ValueError("Unsupported sampling method.")
-        self.coef_sampling_method = reg_coef_sampling_method
+        if regress_coef_sampler not in ('cholesky', 'cg', 'hmc'):
+            raise ValueError("Unsupported regression coefficient sampler.")
+        self.coef_sampler_type = regress_coef_sampler
         self.gscale_update = global_scale_update
         self.curvature_est_stabilized = hmc_curvature_est_stabilized
 
     def get_info(self):
         return {
-            'reg_coef_sampling_method': self.coef_sampling_method,
+            'regress_coef_sampler': self.coef_sampler_type,
             'global_scale_update': self.gscale_update,
             'hmc_curvature_est_stabilized': self.curvature_est_stabilized
         }
 
     @staticmethod
-    def create(reg_coef_sampling_method, options, model_name, n_obs, n_pred):
+    def create(regress_coef_sampler, options, model_name, n_obs, n_pred):
         """ Initialize class with, if unspecified, an appropriate default
         sampling method based on the type and size of model.
         """
         if options is None:
             options = {}
 
-        if 'reg_coef_sampling_method' in options:
-            if reg_coef_sampling_method is not None:
+        if 'regress_coef_sampler' in options:
+            if regress_coef_sampler is not None:
                 warn("Duplicate specification of method for sampling "
                      "regression coefficient. Will use the dictionary one.")
-            reg_coef_sampling_method = options['reg_coef_sampling_method']
+            regress_coef_sampler = options['regress_coef_sampler']
 
         if model_name in ('linear', 'logit'):
 
@@ -56,23 +56,23 @@ class SamplerOptions():
             matmul_cost = smaller_dim_size ** 2 * larger_dim_size
             direct_linalg_preferred = (matmul_cost < MATMUL_COST_THRESHOLD)
 
-            if reg_coef_sampling_method is None:
+            if regress_coef_sampler is None:
                 if direct_linalg_preferred:
-                    reg_coef_sampling_method = 'cholesky'
+                    regress_coef_sampler = 'cholesky'
                 else:
-                    reg_coef_sampling_method = 'cg'
+                    regress_coef_sampler = 'cg'
             else:
-                if reg_coef_sampling_method == 'cg' and direct_linalg_preferred:
+                if regress_coef_sampler == 'cg' and direct_linalg_preferred:
                     warn("Design matrix may be too small to benefit from the "
                          "conjugate gradient sampler.")
 
         else:
-            if reg_coef_sampling_method != 'hmc':
+            if regress_coef_sampler != 'hmc':
                 warn("Specified sampler is not supported for the {:s} "
                      "model. Will use HMC instead.".format(model_name))
-            reg_coef_sampling_method = 'hmc'
+            regress_coef_sampler = 'hmc'
 
-        options['reg_coef_sampling_method'] = reg_coef_sampling_method
+        options['regress_coef_sampler'] = regress_coef_sampler
         return SamplerOptions(**options)
 
 

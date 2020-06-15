@@ -71,15 +71,15 @@ class BayesBridge():
         self.rg.set_state(mcmc_output['_random_gen_state'])
 
         init = mcmc_output['_markov_chain_state']
-        thin, bridge_exp, reg_coef_sampling_method = (
+        thin, bridge_exp, coef_sampler_type = (
             mcmc_output[key]
-            for key in ['thin', 'bridge_exponent', 'reg_coef_sampling_method']
+            for key in ['thin', 'bridge_exponent', 'regress_coef_sampler']
         )
         params_to_save = mcmc_output['samples'].keys()
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-            self.n_pred, self.prior_sd_for_unshrunk, reg_coef_sampling_method
+            self.n_pred, self.prior_sd_for_unshrunk, coef_sampler_type
         )
         self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
 
@@ -101,7 +101,7 @@ class BayesBridge():
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
               init={}, params_to_save=None, n_status_update=0,
-              regress_coef_sampling_method=None, n_init_optim=10, options=None,
+              regress_coef_sampler=None, n_init_optim=10, options=None,
               _add_iter_mode=False):
         """ Gibbs sampler for Bayesian bridge posteriors.
 
@@ -111,7 +111,7 @@ class BayesBridge():
             number of burn-in samples to be discarded
         n_post_burnin : int
             number of posterior draws to be saved
-        regress_coef_sampling_method : {None, 'cholesky', 'cg', 'hmc'}
+        regress_coef_sampler : {None, 'cholesky', 'cg', 'hmc'}
             If None, the method is chosen via a crude heuristic based on the
             model type and size of design matrix. For linear and logistic
             models with large and sparse design matrix, the conjugate gradient
@@ -153,7 +153,7 @@ class BayesBridge():
 
         if not isinstance(options, SamplerOptions):
             options = SamplerOptions.create(
-                regress_coef_sampling_method, options,
+                regress_coef_sampler, options,
                 self.model.name, self.n_obs, self.n_pred
             )
         n_iter = n_burnin + n_post_burnin
@@ -164,7 +164,7 @@ class BayesBridge():
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
                 self.n_pred, self.prior_sd_for_unshrunk,
-                options.coef_sampling_method, options.curvature_est_stabilized,
+                options.coef_sampler_type, options.curvature_est_stabilized,
                 self.prior.slab_size
             )
 
@@ -193,14 +193,14 @@ class BayesBridge():
         sampling_info = {}
         self.manager.pre_allocate(
             samples, sampling_info, n_post_burnin, thin, params_to_save,
-            options.coef_sampling_method
+            options.coef_sampler_type
         )
 
         # Start Gibbs sampling
         for mcmc_iter in range(1, n_iter + 1):
 
             coef, info = self.update_regress_coef(
-                coef, obs_prec, gscale, lscale, options.coef_sampling_method
+                coef, obs_prec, gscale, lscale, options.coef_sampler_type
             )
 
             obs_prec = self.update_obs_precision(coef)
@@ -225,7 +225,7 @@ class BayesBridge():
             )
             self.manager.store_sampling_info(
                 sampling_info, info, mcmc_iter, n_burnin, thin,
-                options.coef_sampling_method
+                options.coef_sampler_type
             )
             self.manager.print_status(n_status_update, mcmc_iter, n_iter)
 
@@ -254,7 +254,7 @@ class BayesBridge():
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
             'bridge_exponent': self.prior.bridge_exp,
-            'reg_coef_sampling_method': options.coef_sampling_method,
+            'regress_coef_sampler': options.coef_sampler_type,
             'runtime': runtime,
             'options': options.get_info(),
             'initial_optimization_info': initial_optim_info,
