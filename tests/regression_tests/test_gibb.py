@@ -51,7 +51,7 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
 
     mcmc_output = bridge.gibbs(
         n_burnin, n_post_burnin, thin=thin, init=init,
-        regress_coef_sampler=sampling_method, seed=0, params_to_save='all'
+        coef_sampler_type=sampling_method, seed=0, params_to_save='all'
     )
 
     if restart_in_middle:

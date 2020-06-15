@@ -73,7 +73,7 @@ class BayesBridge():
         init = mcmc_output['_markov_chain_state']
         thin, bridge_exp, coef_sampler_type = (
             mcmc_output[key]
-            for key in ['thin', 'bridge_exponent', 'regress_coef_sampler']
+            for key in ['thin', 'bridge_exponent', 'coef_sampler_type']
         )
         params_to_save = mcmc_output['samples'].keys()
 
@@ -101,7 +101,7 @@ class BayesBridge():
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
               init={}, params_to_save=('coef', 'global_scale', 'logp'),
-              regress_coef_sampler=None, n_init_optim=10, n_status_update=0,
+              coef_sampler_type=None, n_init_optim=10, n_status_update=0,
               options=None, _add_iter_mode=False):
         """ Gibbs sampler for Bayesian bridge posteriors.
 
@@ -111,7 +111,7 @@ class BayesBridge():
             number of burn-in samples to be discarded
         n_post_burnin : int
             number of posterior draws to be saved
-        regress_coef_sampler : {None, 'cholesky', 'cg', 'hmc'}
+        coef_sampler_type : {None, 'cholesky', 'cg', 'hmc'}
             If None, the method is chosen via a crude heuristic based on the
             model type and size of design matrix. For linear and logistic
             models with large and sparse design matrix, the conjugate gradient
@@ -153,7 +153,7 @@ class BayesBridge():
 
         if not isinstance(options, SamplerOptions):
             options = SamplerOptions.create(
-                regress_coef_sampler, options,
+                coef_sampler_type, options,
                 self.model.name, self.n_obs, self.n_pred
             )
         n_iter = n_burnin + n_post_burnin
@@ -252,7 +252,7 @@ class BayesBridge():
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
             'bridge_exponent': self.prior.bridge_exp,
-            'regress_coef_sampler': options.coef_sampler_type,
+            'coef_sampler_type': options.coef_sampler_type,
             'runtime': runtime,
             'options': options.get_info(),
             'initial_optimization_info': initial_optim_info,
