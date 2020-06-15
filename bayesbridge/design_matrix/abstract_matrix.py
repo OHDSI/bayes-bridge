@@ -27,6 +27,11 @@ class AbstractDesignMatrix():
         """ Multiply by the transpose of the matrix. """
         pass
 
+    @property
+    @abc.abstractmethod
+    def is_sparse(self):
+        pass
+
     def memoize_dot(self, flag=True):
         self.memoized = flag
         if self.v_prev is None:

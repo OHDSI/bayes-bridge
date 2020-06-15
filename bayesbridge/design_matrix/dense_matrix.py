@@ -27,6 +27,10 @@ class DenseDesignMatrix(AbstractDesignMatrix):
     def shape(self):
         return self.X.shape
 
+    @property
+    def is_sparse(self):
+        return False
+
     def dot(self, v):
 
         if self.memoized and np.all(self.v_prev == v):

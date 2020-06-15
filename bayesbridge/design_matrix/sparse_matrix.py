@@ -46,6 +46,10 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         shape = self.X_main.shape
         return shape[0], shape[1] + int(self.intercept_added)
 
+    @property
+    def is_sparse(self):
+        return True
+
     def dot(self, v):
 
         if self.memoized:
