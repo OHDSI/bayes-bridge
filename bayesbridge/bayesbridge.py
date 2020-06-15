@@ -172,7 +172,7 @@ class BayesBridge():
             params_to_save = (
                 'coef', 'local_scale', 'global_scale', 'logp'
             )
-            if self.model != 'cox':
+            if self.model.name != 'cox':
                 params_to_save += ('obs_prec', )
 
         n_status_update = min(n_iter, n_status_update)
