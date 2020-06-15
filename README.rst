@@ -23,10 +23,12 @@ Usage
 
 .. code-block:: python
 
-    bridge = BayesBridge(y, X, model='logit')
+    model = RegressionModel(y, X, family='logit')
+    prior = RegressionCoefPrior(bridge_exponent=.5)
+    bridge = BayesBridge(model, prior)
     mcmc_output = bridge.gibbs(
-        n_burnin=100, n_post_burnin=300, thin=1,
-        mvnorm_method='direct' # try 'cg' if X is large and sparse
+        n_burnin=100, n_post_burnin=1000, thin=1,
+        regress_coef_sampler='cholesky' # Try 'cg' for large and sparse X
     )
     samples = mcmc_output['samples']
 
