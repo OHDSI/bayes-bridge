@@ -8,7 +8,7 @@ from ..design_matrix import DenseDesignMatrix, SparseDesignMatrix
 
 def RegressionModel(
         outcome, X, family='linear',
-        add_intercept=None, center_predictor=False
+        add_intercept=None, center_predictor=True
     ):
     """ Prepare input data to BayesBridge, with pre-processings as needed.
 

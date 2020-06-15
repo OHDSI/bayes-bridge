@@ -38,7 +38,7 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
         n_fixed_effect=n_unshrunk, sd_for_fixed_effect=2.,
         bridge_exponent=bridge_exponent, _global_scale_parametrization='raw'
     )
-    model = RegressionModel(outcome, X, model_type)
+    model = RegressionModel(outcome, X, model_type, center_predictor=False)
     bridge = BayesBridge(model, prior)
     init = {
         'global_scale': .01,
