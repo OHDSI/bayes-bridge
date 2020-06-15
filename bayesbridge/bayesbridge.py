@@ -229,13 +229,13 @@ class BayesBridge():
 
         runtime = time.time() - start_time
 
-        if self.prior._gscale_paramet == 'regress_coef':
+        if self.prior._gscale_paramet == 'coef_magnitude':
             gscale, lscale = \
-                self.prior.adjust_scale(gscale, lscale, to='regress_coef')
+                self.prior.adjust_scale(gscale, lscale, to='coef_magnitude')
             gscale_samples = samples.get('global_scale', 0.)
             lscale_samples = samples.get('local_scale', 0.)
             self.prior.adjust_scale(
-                gscale_samples, lscale_samples, to='regress_coef'
+                gscale_samples, lscale_samples, to='coef_magnitude'
             ) # Modify in place.
 
         _markov_chain_state = \
@@ -349,7 +349,7 @@ class BayesBridge():
                 gscale = gscale_default
             lscale = np.ones(self.n_pred - self.n_unshrunk) / gscale
 
-        if self.prior._gscale_paramet == 'regress_coef':
+        if self.prior._gscale_paramet == 'coef_magnitude':
             # Gibbs sampler requires the raw parametrization. Technically only
             # gscale * lscale matters within the sampler due to the update order.
             gscale, lscale \

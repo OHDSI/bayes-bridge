@@ -14,7 +14,7 @@ class RegressionCoefPrior():
             sd_for_fixed_effect=float('inf'),
             regularizing_slab_size=float('inf'),
             global_scale_prior_hyper_param=None,
-            _global_scale_parametrization='regress_coef'
+            _global_scale_parametrization='coef_magnitude'
         ):
         """ Encapisulate prior information for BayesBridge.
 
@@ -43,8 +43,8 @@ class RegressionCoefPrior():
 
         Other Parameters
         ----------------
-        _global_scale_parametrization: str, {'raw', 'regress_coef'}
-            If 'regress_coef', scale the local and global scales so that the
+        _global_scale_parametrization: str, {'raw', 'coef_magnitude'}
+            If 'coef_magnitude', scale the local and global scales so that the
             global scale parameter coincide with the prior expected
             magnitude of regression coefficients.
         """
@@ -120,7 +120,7 @@ class RegressionCoefPrior():
         if to == 'raw':
             gscale /= unit_bridge_magnitude
             lscale *= unit_bridge_magnitude
-        elif to == 'regress_coef':
+        elif to == 'coef_magnitude':
             gscale *= unit_bridge_magnitude
             lscale /= unit_bridge_magnitude
         else:
@@ -131,7 +131,7 @@ class RegressionCoefPrior():
             self, log10_mean, log10_sd, bridge_exp, gscale_paramet):
         log_mean = self.change_log_base(log10_mean, from_=10., to=math.e)
         log_sd = self.change_log_base(log10_sd, from_=10., to=math.e)
-        if gscale_paramet == 'regress_coef':
+        if gscale_paramet == 'coef_magnitude':
             unit_bridge_magnitude \
                 = self.compute_power_exp_ave_magnitude(bridge_exp, 1.)
             log_mean -= math.log(unit_bridge_magnitude)
@@ -158,7 +158,7 @@ class RegressionCoefPrior():
             phi = gscale ** (- 1 / bridge_exp)
         so that the mean and sd of log(phi) coincide with log_mean and log_sd.
         The calculations are done in the 'raw' parametrization of gscale,
-        as opposed to the 'regress_coef' parametrization.
+        as opposed to the 'coef_magnitude' parametrization.
         """
 
         f = lambda log_shape: (
