@@ -100,9 +100,9 @@ class BayesBridge():
         return next_mcmc_output
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
-              init={}, params_to_save=None, n_status_update=0,
-              regress_coef_sampler=None, n_init_optim=10, options=None,
-              _add_iter_mode=False):
+              init={}, params_to_save=('regress_coef', 'global_scale', 'logp'),
+              regress_coef_sampler=None, n_init_optim=10, n_status_update=0,
+              options=None, _add_iter_mode=False):
         """ Gibbs sampler for Bayesian bridge posteriors.
 
         Parameters
@@ -124,7 +124,7 @@ class BayesBridge():
             optimized conditionally on the shrinkage parameters. During the
             optimization, the global shrinkage parameter is fixed while the
             local ones are sampled.
-        params_to_save : {None, 'all', list of str}
+        params_to_save : {'all', tuple or list of str}
             Specifies which parameters to save during MCMC iterations. If None,
             the most relevant parameters --- regression coefficients,
             global scale, posterior log-density --- are saved. Use all to save
@@ -169,13 +169,11 @@ class BayesBridge():
             )
 
         if params_to_save == 'all':
-            params_to_save = [
+            params_to_save = (
                 'regress_coef', 'local_scale', 'global_scale', 'logp'
-            ]
+            )
             if self.model != 'cox':
-                params_to_save.append('obs_prec')
-        elif params_to_save is None:
-            params_to_save = ['regress_coef', 'global_scale', 'logp']
+                params_to_save += ('obs_prec', )
 
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
