@@ -109,8 +109,8 @@ class MarkovChainManager():
 
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
 
-        if 'regress_coef' in params_to_save:
-            samples['regress_coef'] = np.zeros((self.n_pred, n_sample))
+        if 'coef' in params_to_save:
+            samples['coef'] = np.zeros((self.n_pred, n_sample))
 
         if 'local_scale' in params_to_save:
             samples['local_scale'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
@@ -156,8 +156,8 @@ class MarkovChainManager():
 
         index = math.floor((mcmc_iter - n_burnin) / thin) - 1
 
-        if 'regress_coef' in params_to_save:
-            samples['regress_coef'][:, index] = coef
+        if 'coef' in params_to_save:
+            samples['coef'][:, index] = coef
 
         if 'local_scale' in params_to_save:
             samples['local_scale'][:, index] = lscale
@@ -186,7 +186,7 @@ class MarkovChainManager():
 
     def pack_parameters(self, coef, obs_prec, lscale, gscale):
         state = {
-            'regress_coef': coef,
+            'coef': coef,
             'local_scale': lscale,
             'global_scale': gscale,
         }

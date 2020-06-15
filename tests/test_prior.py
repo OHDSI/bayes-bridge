@@ -147,4 +147,4 @@ def get_last_sample_from_gibbs(bridge, exponent, seed=0):
         init={'apriori_coef_scale': .1},
         seed=seed, n_status_update=0
     )
-    return mcmc_output['samples']['regress_coef'][:, -1]
+    return mcmc_output['samples']['coef'][:, -1]

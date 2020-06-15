@@ -100,7 +100,7 @@ class BayesBridge():
         return next_mcmc_output
 
     def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
-              init={}, params_to_save=('regress_coef', 'global_scale', 'logp'),
+              init={}, params_to_save=('coef', 'global_scale', 'logp'),
               regress_coef_sampler=None, n_init_optim=10, n_status_update=0,
               options=None, _add_iter_mode=False):
         """ Gibbs sampler for Bayesian bridge posteriors.
@@ -170,7 +170,7 @@ class BayesBridge():
 
         if params_to_save == 'all':
             params_to_save = (
-                'regress_coef', 'local_scale', 'global_scale', 'logp'
+                'coef', 'local_scale', 'global_scale', 'logp'
             )
             if self.model != 'cox':
                 params_to_save += ('obs_prec', )
@@ -268,8 +268,8 @@ class BayesBridge():
     def initialize_chain(self, init, bridge_exp, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
 
-        if 'regress_coef' in init:
-            coef = init['regress_coef']
+        if 'coef' in init:
+            coef = init['coef']
             if not len(coef) == self.n_pred:
                 raise ValueError('An invalid initial state.')
         else:
@@ -310,7 +310,7 @@ class BayesBridge():
             )
             
         init = {
-            'regress_coef': coef,
+            'coef': coef,
             'obs_prec': obs_prec,
             'local_scale': lscale,
             'global_scale': gscale
@@ -334,13 +334,13 @@ class BayesBridge():
             if not len(lscale) == (self.n_pred - self.n_unshrunk):
                 raise ValueError('An invalid initial state.')
 
-        elif 'regress_coef' in init:
+        elif 'coef' in init:
             gscale = self.update_global_scale(
-                None, init['regress_coef'][self.n_unshrunk:], bridge_exp,
+                None, init['coef'][self.n_unshrunk:], bridge_exp,
                 method='optimize'
             )
             lscale = self.update_local_scale(
-                gscale, init['regress_coef'][self.n_unshrunk:], bridge_exp
+                gscale, init['coef'][self.n_unshrunk:], bridge_exp
             )
         else:
             if 'global_scale' in init:

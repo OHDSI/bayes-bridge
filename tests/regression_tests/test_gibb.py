@@ -103,11 +103,11 @@ def get_filename(sampling_method, model):
 
 def save_data(samples, sampling_method, model):
     filepath = data_folder + '/' + get_filename(sampling_method, model)
-    np.save(filepath, samples['regress_coef'])
+    np.save(filepath, samples['coef'])
 
 def is_same_as_prev_output(samples, sampling_method, model, test_dirname):
     prev_sample = load_data(sampling_method, model, test_dirname)
-    return np.allclose(samples['regress_coef'], prev_sample, rtol=.001, atol=10e-6)
+    return np.allclose(samples['coef'], prev_sample, rtol=.001, atol=10e-6)
 
 
 if __name__ == '__main__':
