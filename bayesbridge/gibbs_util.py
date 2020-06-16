@@ -43,6 +43,9 @@ class SamplerOptions():
                      "regression coefficient. Will use the dictionary one.")
             coef_sampler_type = options['coef_sampler_type']
 
+        if coef_sampler_type not in (None, 'cholesky', 'cg', 'hmc'):
+            raise ValueError("Unsupported sampler type.")
+
         if model_name in ('linear', 'logit'):
 
             # TODO: Make the choice between Cholesky and CG more carefully.
