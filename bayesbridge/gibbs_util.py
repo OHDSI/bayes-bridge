@@ -30,7 +30,7 @@ class SamplerOptions():
         }
 
     @staticmethod
-    def create(coef_sampler_type, options, model_name, n_obs, n_pred):
+    def create(coef_sampler_type, options, model_name, design):
         """ Initialize class with, if unspecified, an appropriate default
         sampling method based on the type and size of model.
         """
@@ -48,30 +48,30 @@ class SamplerOptions():
 
         if model_name in ('linear', 'logit'):
 
-            # TODO: Make the choice between Cholesky and CG more carefully.
-            MATMUL_COST_THRESHOLD = 10 ** 12
+            n_obs, n_pred = design.shape
+            if not design.is_sparse:
+                preferred_method = 'cholesky'
+            else:
+                # TODO: Make more informed choice between Cholesky and CG.
+                frac = design.nnz / (n_obs * n_pred)
+                fisher_info_cost = frac ** 2 * n_obs * n_pred ** 2
+                cg_cost = design.nnz * 100.
+                preferred_method = 'cg' if cg_cost < fisher_info_cost \
+                    else 'cholesky'
+
             # TODO: Implement Woodbury-based Gaussian sampler.
             if n_pred > n_obs:
                 warn("Sampler has not been optimized for 'small n' problem.")
 
-            smaller_dim_size = min(n_obs, n_pred)
-            larger_dim_size = max(n_obs, n_pred)
-            matmul_cost = smaller_dim_size ** 2 * larger_dim_size
-            direct_linalg_preferred = (matmul_cost < MATMUL_COST_THRESHOLD)
-
             if coef_sampler_type is None:
-                if direct_linalg_preferred:
-                    coef_sampler_type = 'cholesky'
-                else:
-                    coef_sampler_type = 'cg'
-            else:
-                if coef_sampler_type == 'cg' and direct_linalg_preferred:
-                    warn("Design matrix may be too small to benefit from the "
-                         "conjugate gradient sampler.")
+                coef_sampler_type = preferred_method
+            elif coef_sampler_type not in ('hmc', preferred_method):
+                warn("Specified sampler may not be optimal. Worth experimenting "
+                     "with the '{:s}' option.".format(preferred_method))
 
         else:
             if coef_sampler_type != 'hmc':
-                warn("Specified sampler is not supported for the {:s} "
+                warn("Specified sampler type is not supported for the {:s} "
                      "model. Will use HMC instead.".format(model_name))
             coef_sampler_type = 'hmc'
 

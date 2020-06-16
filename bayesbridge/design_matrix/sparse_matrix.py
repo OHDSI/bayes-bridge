@@ -50,6 +50,14 @@ class SparseDesignMatrix(AbstractDesignMatrix):
     def is_sparse(self):
         return True
 
+    @property
+    def nnz(self):
+        """ Currently exists only to estimate the cost of matrix-matrix and
+        matrix-vector operations. Does not correspond to the actual nnz of the
+        represented design matrix.
+        """
+        return self.X_main.nnz
+
     def dot(self, v):
 
         if self.memoized:

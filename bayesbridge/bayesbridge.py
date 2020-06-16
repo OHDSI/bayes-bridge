@@ -154,8 +154,7 @@ class BayesBridge():
 
         if not isinstance(options, SamplerOptions):
             options = SamplerOptions.create(
-                coef_sampler_type, options,
-                self.model.name, self.n_obs, self.n_pred
+                coef_sampler_type, options, self.model.name, self.model.design
             )
         n_iter = n_burnin + n_post_burnin
 
