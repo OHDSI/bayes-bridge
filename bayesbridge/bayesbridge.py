@@ -268,6 +268,13 @@ class BayesBridge():
     def initialize_chain(self, init, bridge_exp, n_optim):
         # Choose the user-specified state if provided, the default ones otherwise.
 
+        valid_param_name \
+            = ('coef', 'local_scale', 'global_scale', 'obs_prec', 'logp')
+        for key in init:
+            if key not in valid_param_name:
+                warn("'{:s}' is not a valid parameter name and "
+                     "will be ignored.".format(key))
+
         if 'coef' in init:
             coef = init['coef']
             if not len(coef) == self.n_pred:
