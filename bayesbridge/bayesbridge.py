@@ -114,11 +114,11 @@ class BayesBridge():
         coef_sampler_type : {None, 'cholesky', 'cg', 'hmc'}
             Specifies the sampling method used to update regression coefficients.
             If None, the method is chosen via a crude heuristic based on the
-            model type and size of design matrix. For linear and logistic
-            models with large and sparse design matrix, the conjugate gradient
-            sampler ('cg') is preferred over the Cholesky decomposition based
-            sampler ('cholesky'). For other models, only Hamiltonian Monte
-            Carlo ('hmc') can be used.
+            model type, as well as size and sparsity level of design matrix.
+            For linear and logistic models with large and sparse design matrix,
+            the conjugate gradient sampler ('cg') is preferred over the
+            Cholesky decomposition based sampler ('cholesky'). For other
+            models, only Hamiltonian Monte Carlo ('hmc') can be used.
         n_init_optim : int
             If > 0, the Markov chain will be run after the specified number of
             optimization steps in which the regression coefficients are
