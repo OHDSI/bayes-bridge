@@ -36,7 +36,7 @@ Usage
 
 where `y` is a 1-D numpy array and `X` is a 2-D numpy array or scipy sparse matrix.
 
-Currently the linear and logistic model (binomial outcomes) are supported. See `bayesbridge_demo.ipynb` for demonstration of further features.
+Currently the linear and logistic model (binomial outcomes) are supported. See `demo.ipynb` for demonstration of further features.
 
 Citation
 --------
