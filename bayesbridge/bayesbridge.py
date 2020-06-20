@@ -147,9 +147,11 @@ class BayesBridge():
             Contains posterior samples under the key 'samples,' along with the
             sampler settings to reproduce and resume the sampling process.
         samples = mcmc_output['samples'] : dict of numpy arrays
-            See the params_to_save documentation for its values. For
-            vector-valued parameters like regression coefficients, the 1st
-            dimension or columns of the array correspond to the parameter.
+            Contains MCMC samples of the parameters as specified by
+            **params_to_save**. The last dimension of the arrays correspond
+            to MCMC iterations; for example,
+            :code:`samples['coef'][:, 0]`
+            is the first MCMC sample of regression coefficients.
         """
 
         if not isinstance(options, SamplerOptions):
