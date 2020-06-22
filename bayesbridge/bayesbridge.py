@@ -11,7 +11,7 @@ from .gibbs_util import MarkovChainManager, SamplerOptions
 
 
 class BayesBridge():
-    """ Generates posterior samples under a given model and prior. """
+    """ Implement Gibbs sampler for Bayesian bridge sparse regression. """
 
     def __init__(self, model, prior=RegressionCoefPrior()):
         """
@@ -103,7 +103,7 @@ class BayesBridge():
               init={}, params_to_save=('coef', 'global_scale', 'logp'),
               coef_sampler_type=None, n_init_optim=10, n_status_update=0,
               options=None, _add_iter_mode=False):
-        """ Gibbs sampler for Bayesian bridge posteriors.
+        """ Sample from the posterior under the specified model and prior.
 
         Parameters
         ----------
