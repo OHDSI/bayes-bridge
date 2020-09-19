@@ -59,3 +59,6 @@ html_static_path = ['_static']
 
 # -- Autodoc configuration ---------------------------------------------------
 autoclass_content = 'both'
+
+# Dependency on C-extension modules break ReadTheDocs without the mock import.
+autodoc_mock_imports = ["bayesbridge.random"]
