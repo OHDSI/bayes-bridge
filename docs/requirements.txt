@@ -1,2 +1,4 @@
 sphinx>=3.0
 nbsphinx
+numpy
+scipy
