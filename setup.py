@@ -31,7 +31,7 @@ setup(
         + 'et. al. (2018). The linear and logistic model are currently supported.',
     url='https://github.com/aki-nishimura/bayes-bridge',
     author='Akihiko (Aki) Nishimura',
-    author_email='akihiko4@g.ucla.edu',
+    author_email='anishimura@jhu.edu',
     license='MIT',
     packages=find_packages(exclude=['tests', 'tests.*']),
     cmdclass = {'build_ext': CustomBuildExtCommand},
