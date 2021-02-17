@@ -28,6 +28,7 @@ setup(
     license='MIT',
     packages=find_packages(exclude=['tests', 'tests.*']),
     ext_modules = ext_modules,
+    setup_requires=["numpy"],
     install_requires=[
         'numpy', 'scipy'
     ],
