@@ -1,6 +1,7 @@
 from setuptools import setup, find_packages
 from distutils.extension import Extension
 from distutils.command.build_ext import build_ext
+from Cython.Build import cythonize
 
 
 class CustomBuildExtCommand(build_ext):
@@ -14,11 +15,11 @@ class CustomBuildExtCommand(build_ext):
 ext_modules = [
     Extension(
         "bayesbridge.random.tilted_stable.tilted_stable",
-        sources=["bayesbridge/random/tilted_stable/tilted_stable.c"]
+        sources=["bayesbridge/random/tilted_stable/tilted_stable.pyx"]
     ),
     Extension(
         "bayesbridge.random.polya_gamma.polya_gamma",
-        sources=["bayesbridge/random/polya_gamma/polya_gamma.c"]
+        sources=["bayesbridge/random/polya_gamma/polya_gamma.pyx"]
     )
 ]
 
@@ -35,7 +36,7 @@ setup(
     license='MIT',
     packages=find_packages(exclude=['tests', 'tests.*']),
     cmdclass = {'build_ext': CustomBuildExtCommand},
-    ext_modules = ext_modules,
+    ext_modules = cythonize(ext_modules),
     setup_requires=['numpy'],
     install_requires=[
         'numpy', 'scipy'
