@@ -4,3 +4,11 @@
 **/.pytest_cache
 **/.ipynb_checkpoints
 bayesbridge/reg_coef_sampler/hamiltonian_monte_carlo/tests
+.eggs/
+.idea/
+env/
+bayesbridge.egg-info/
+bayesbridge/random/polya_gamma/polya_gamma.c
+bayesbridge/random/polya_gamma/polya_gamma.cpython-39-x86_64-linux-gnu.so
+bayesbridge/random/tilted_stable/tilted_stable.c
+bayesbridge/random/tilted_stable/tilted_stable.cpython-39-x86_64-linux-gnu.so
