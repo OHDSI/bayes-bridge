@@ -100,7 +100,7 @@ class MarkovChainManager():
                 ) for key in curr_output.keys()
             }
 
-        next_mcmc_output['n_post_burnin'] += mcmc_output['n_post_burnin']
+        next_mcmc_output['n_iter'] += mcmc_output['n_iter']
         next_mcmc_output['runtime'] += mcmc_output['runtime']
 
         for output_key in ['initial_optimization_info', 'seed']:

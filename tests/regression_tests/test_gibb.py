@@ -50,14 +50,14 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
         n_post_burnin = math.ceil(n_total_post_burnin / 2)
 
     mcmc_output = bridge.gibbs(
-        n_burnin, n_post_burnin, thin=thin, init=init,
+        n_burnin + n_post_burnin, n_burnin, thin=thin, init=init,
         coef_sampler_type=sampling_method, seed=0, params_to_save='all'
     )
 
     if restart_in_middle:
         reinit_bridge = BayesBridge(model, prior)
         mcmc_output = reinit_bridge.gibbs_additional_iter(
-            mcmc_output, n_total_post_burnin - n_post_burnin, merge=True
+            mcmc_output, n_post_burnin, merge=True
         )
 
     return mcmc_output['samples']

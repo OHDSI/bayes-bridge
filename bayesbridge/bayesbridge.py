@@ -41,7 +41,7 @@ class BayesBridge():
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
     def gibbs_additional_iter(
-            self, mcmc_output, n_iter, n_status_update=0,
+            self, mcmc_output, n_add_iter, n_status_update=0,
             merge=False, deallocate=False):
         """ Resume Gibbs sampler from the last state.
 
@@ -87,7 +87,7 @@ class BayesBridge():
             mcmc_output['samples'].clear()
 
         next_mcmc_output = self.gibbs(
-            0, n_iter, thin, init=init,
+            n_add_iter, 0, thin, init=init,
             params_to_save=params_to_save,
             n_status_update=n_status_update,
             options=mcmc_output['options'],
@@ -99,7 +99,7 @@ class BayesBridge():
 
         return next_mcmc_output
 
-    def gibbs(self, n_burnin, n_post_burnin, thin=1, seed=None,
+    def gibbs(self, n_iter, n_burnin=0, thin=1, seed=None,
               init={}, params_to_save=('coef', 'global_scale', 'logp'),
               coef_sampler_type=None, n_init_optim=10, n_status_update=0,
               options=None, _add_iter_mode=False):
@@ -107,10 +107,10 @@ class BayesBridge():
 
         Parameters
         ----------
+        n_iter : int
+            total number of MCMC iterations i.e. burn-ins + saved posterior draws
         n_burnin : int
             number of burn-in samples to be discarded
-        n_post_burnin : int
-            number of posterior draws to be saved
         coef_sampler_type : {None, 'cholesky', 'cg', 'hmc'}
             Specifies the sampling method used to update regression coefficients.
             If None, the method is chosen via a crude heuristic based on the
@@ -158,7 +158,6 @@ class BayesBridge():
             options = SamplerOptions.create(
                 coef_sampler_type, options, self.model.name, self.model.design
             )
-        n_iter = n_burnin + n_post_burnin
 
         if _add_iter_mode:
             n_init_optim = 0
@@ -192,7 +191,7 @@ class BayesBridge():
         samples = {}
         sampling_info = {}
         self.manager.pre_allocate(
-            samples, sampling_info, n_post_burnin, thin, params_to_save,
+            samples, sampling_info, n_iter - n_burnin, thin, params_to_save,
             options.coef_sampler_type
         )
 
@@ -247,8 +246,8 @@ class BayesBridge():
         mcmc_output = {
             'samples': samples,
             'init': init,
+            'n_iter': n_iter,
             'n_burnin': n_burnin,
-            'n_post_burnin': n_post_burnin,
             'thin': thin,
             'seed': seed,
             'n_coef_wo_shrinkage': self.n_unshrunk,
