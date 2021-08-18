@@ -3,36 +3,37 @@ from libc.math cimport exp, log, sqrt, fabs, M_PI
 import random
 import cython
 import numpy as np
+cimport numpy as np
+from numpy.random import PCG64
+from numpy.random.bit_generator cimport BitGenerator
 from scipy_ndtr cimport log_ndtr as normal_logcdf
+from bayesbridge.random.normal.normal cimport random_normal
+from bayesbridge.random.uniform.uniform cimport random_uniform
 
-
-ctypedef double (*rand_generator)()
-cdef double python_builtin_next_double():
-    return <double>random.random()
 
 
 cdef class PolyaGammaDist():
-    cdef rand_generator next_double
     # Threshold below (and above) which the target density is bounded by inverse
     # Gaussian (and exponential) and have different analytical series expressions.
     cdef double THRESHOLD
     # Number of terms in the infinite alternating series beyond which to truncate.
     cdef int MAX_SERIES_TERMS
+    cdef BitGenerator bitgen
 
     def __init__(self, seed=None):
         self.set_seed(seed)
-        self.next_double = python_builtin_next_double
         self.THRESHOLD = 2.0 / M_PI
         self.MAX_SERIES_TERMS = 100
+        self.bitgen = PCG64(seed)
 
     def set_seed(self, seed):
-        random.seed(seed)
+        self.bitgen = PCG64(seed)
 
     def get_state(self):
-        return random.getstate()
+        return self.bitgen.state
 
     def set_state(self, state):
-        random.setstate(state)
+        self.bitgen.state = state
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -105,7 +106,7 @@ cdef class PolyaGammaDist():
         # Main sampling loop page 130 of the Windle PhD thesis
         while not accepted:
             X, proposal_density = self.rand_proposal(tilt)
-            U = self.next_double() * proposal_density
+            U = random_uniform(self.bitgen) * proposal_density
             accepted = self.decide_acceptability(U, X, proposal_density)
 
         return X
@@ -115,7 +116,7 @@ cdef class PolyaGammaDist():
         # the acceptance rate is so high that it does not matter.
         cdef double exp_rate = .5 * tilt ** 2 + .125 * M_PI ** 2
         cdef double prob_to_right = self.calc_prob_to_right(tilt, exp_rate)
-        if self.next_double() < prob_to_right:
+        if random_uniform(self.bitgen) < prob_to_right:
             X = self.rand_left_truncated_exp(1. / exp_rate, self.THRESHOLD)
         else:
             X = self.rand_right_truncated_unit_shape_invgauss(tilt, self.THRESHOLD)
@@ -173,7 +174,7 @@ cdef class PolyaGammaDist():
         return accepted
 
     cdef double rand_left_truncated_exp(self, double scale, double trunc):
-        return trunc - scale * log(1.0 - self.next_double())
+        return trunc - scale * log(1.0 - random_uniform(self.bitgen))
 
     # Ref: "Simulation of truncated gamma variables" by Younshik Chung
     # Korean Journal of Computational & Applied Mathematics, 1998
@@ -183,7 +184,7 @@ cdef class PolyaGammaDist():
         while not accepted:
             X = self.rand_left_truncated_exp(2., trunc)
             density_ratio = sqrt(0.5 * M_PI / X)
-            accepted = (self.next_double() <= density_ratio)
+            accepted = (random_uniform(self.bitgen) <= density_ratio)
         return X
 
 
@@ -198,7 +199,7 @@ cdef class PolyaGammaDist():
             # Algorithm 3 in Windle's PhD thesis, page 128
             while not accepted:
                 X = 1.0 / self.rand_left_truncated_chisq(.5 * M_PI)
-                accepted = (log(self.next_double()) < - 0.5 * X * rate ** 2)
+                accepted = (log(random_uniform(self.bitgen)) < - 0.5 * X * rate ** 2)
         else:
             while not accepted:
                 X = self.rand_unit_shape_invgauss(mean)
@@ -206,20 +207,11 @@ cdef class PolyaGammaDist():
         return X
 
     cdef double rand_unit_shape_invgauss(self, double mean):
-        cdef double V = self.rand_standard_normal() ** 2
+        cdef double V = random_normal(self.bitgen) ** 2
         cdef double X = mean + 0.5 * mean * (
             mean * V - sqrt(4.0 * mean * V + mean ** 2 * V ** 2)
         )
-        if self.next_double() > mean / (mean + X):
+        if random_uniform(self.bitgen) > mean / (mean + X):
             X = mean ** 2 / X
         return X
 
-    cdef double rand_standard_normal(self):
-        # Sample via Polar method
-        cdef double X, Y, sq_norm
-        sq_norm = 1. # Placeholder value to pass through the first loop
-        while sq_norm >= 1. or sq_norm == 0.:
-          X = 2. * self.next_double() - 1.
-          Y = 2. * self.next_double() - 1.
-          sq_norm = X * X + Y * Y
-        return sqrt(-2. * log(sq_norm) / sq_norm) * Y

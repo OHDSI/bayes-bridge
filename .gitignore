@@ -7,8 +7,17 @@ bayesbridge/reg_coef_sampler/hamiltonian_monte_carlo/tests
 .eggs/
 .idea/
 env/
+dist/
 bayesbridge.egg-info/
 bayesbridge/random/polya_gamma/polya_gamma.c
 bayesbridge/random/polya_gamma/polya_gamma.*.so
+bayesbridge/random/polya_gamma/polya_gamma.html
 bayesbridge/random/tilted_stable/tilted_stable.c
 bayesbridge/random/tilted_stable/tilted_stable.*.so
+bayesbridge/random/tilted_stable/tilted_stable.html
+bayesbridge/random/normal/normal.c
+bayesbridge/random/normal/normal.*.so
+bayesbridge/random/normal/normal.html
+bayesbridge/random/uniform/uniform.c
+bayesbridge/random/uniform/uniform.*.so
+bayesbridge/random/uniform/uniform.html
