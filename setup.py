@@ -1,8 +1,20 @@
-from setuptools import setup, find_packages
-from distutils.extension import Extension
-from distutils.command.build_ext import build_ext
+import numpy as np
 from Cython.Build import cythonize
+from distutils.command.build_ext import build_ext
+from distutils.core import setup
+from distutils.extension import Extension
+from numpy.distutils.misc_util import get_info
+from os.path import dirname, join, abspath
+from setuptools import setup, find_packages
+from setuptools.extension import Extension
 
+path = dirname(__file__)
+src_dir = join(dirname(path), '..', 'src')
+defs = [('NPY_NO_DEPRECATED_API', 0)]
+inc_path = np.get_include()
+lib_path = [abspath(join(np.get_include(), '..', '..', 'random', 'lib'))]
+lib_path += get_info('npymath')['library_dirs']
+np_libs = ['npyrandom', 'npymath']
 
 class CustomBuildExtCommand(build_ext):
     """ build_ext command when numpy headers are needed. """
@@ -12,14 +24,29 @@ class CustomBuildExtCommand(build_ext):
         self.include_dirs.append(np.get_include())
         build_ext.run(self)
 
+
 ext_modules = [
     Extension(
-        "bayesbridge.random.tilted_stable.tilted_stable",
-        sources=["bayesbridge/random/tilted_stable/tilted_stable.pyx"]
+        'bayesbridge.random.tilted_stable.tilted_stable',
+        sources=['bayesbridge/random/tilted_stable/tilted_stable.pyx'],
     ),
     Extension(
-        "bayesbridge.random.polya_gamma.polya_gamma",
-        sources=["bayesbridge/random/polya_gamma/polya_gamma.pyx"]
+        'bayesbridge.random.polya_gamma.polya_gamma',
+        sources=['bayesbridge/random/polya_gamma/polya_gamma.pyx'],
+    ),
+    Extension(
+        'bayesbridge.random.normal.normal',
+        sources=['bayesbridge/random/normal/normal.pyx'],
+        library_dirs=lib_path,
+        libraries=np_libs,
+        define_macros=defs,
+    ),
+    Extension(
+        'bayesbridge.random.uniform.uniform',
+        sources=['bayesbridge/random/uniform/uniform.pyx'],
+        library_dirs=lib_path,
+        libraries=np_libs,
+        define_macros=defs,
     )
 ]
 

@@ -1,10 +1,15 @@
 cimport cython
 from libc.math cimport exp as exp_c
-from libc.math cimport fabs, pow, log, sqrt, sin, floor
-from libc.math cimport INFINITY, M_PI
+from libc.math cimport fabs, pow, log, sqrt, sin, floor, INFINITY, M_PI
 import random
 import numpy as np
 cimport numpy as np
+from numpy.random import PCG64
+from numpy.random.bit_generator cimport BitGenerator
+from bayesbridge.random.normal.normal cimport random_normal
+from bayesbridge.random.uniform.uniform cimport random_uniform
+
+
 cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
 ctypedef np.uint8_t np_uint8
 ctypedef double (*rand_generator)()
@@ -39,20 +44,21 @@ cdef double python_builtin_next_double():
 cdef class ExpTiltedStableDist():
     cdef rand_generator next_double
     cdef double TILT_POWER_THRESHOLD # For deciding the faster of two algorithms
+    cdef BitGenerator bitgen
 
     def __init__(self, seed=None):
         self.set_seed(seed)
-        self.next_double = python_builtin_next_double
+        self.bitgen = PCG64(seed)
         self.TILT_POWER_THRESHOLD = 2.
 
     def set_seed(self, seed):
-        random.seed(seed)
+        self.bitgen = PCG64(seed)
 
     def get_state(self):
-        return random.getstate()
+        return self.bitgen.state
 
     def set_state(self, state):
-        random.setstate(state)
+        self.bitgen.state = state
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -142,13 +148,13 @@ cdef class ExpTiltedStableDist():
         while not accepted:
             S = c * self.sample_non_tilted_rv(char_exp)
             accept_prob = exp(- tilt * S)
-            accepted = (self.next_double() < accept_prob)
+            accepted = (random_uniform(self.bitgen) < accept_prob)
         return S
 
     cdef double sample_non_tilted_rv(self, double char_exp):
         cdef double S = pow(
-            - self.zolotarev_function(M_PI * self.next_double(), char_exp)
-                / log(self.next_double()),
+            - self.zolotarev_function(M_PI * random_uniform(self.bitgen), char_exp)
+                / log(random_uniform(self.bitgen)),
             (1. - char_exp) / char_exp
         )
         return S
@@ -197,7 +203,7 @@ cdef class ExpTiltedStableDist():
                 U, xi, psi, zeta, z, tilt_power, gamma
             )
             if accept_prob > 0.:
-                V = self.next_double() / accept_prob
+                V = random_uniform(self.bitgen) / accept_prob
                 accepted = (U < M_PI and V <= 1.)
 
         return U, V, z
@@ -213,15 +219,15 @@ cdef class ExpTiltedStableDist():
         w1 = sqrt(.5 * M_PI / gamma) * xi
         w2 = 2. * sqrt(M_PI) * psi
         w3 = xi * M_PI
-        V = self.next_double()
+        V = random_uniform(self.bitgen)
         if gamma >= 1:
             if V < w1 / (w1 + w2):
-                U = fabs(self.rand_standard_normal()) / sqrt(gamma)
+                U = fabs(random_normal(self.bitgen)) / sqrt(gamma)
             else:
-                W = self.next_double()
+                W = random_uniform(self.bitgen)
                 U = M_PI * (1. - W * W)
         else:
-            W = self.next_double()
+            W = random_uniform(self.bitgen)
             if V < w3 / (w2 + w3):
                 U = M_PI * W
             else:
@@ -269,17 +275,17 @@ cdef class ExpTiltedStableDist():
         mass_mid = (right_thresh - left_thresh)
         mass_right = expo_scale
         mass_total = mass_left + mass_mid + mass_right
-        V = self.next_double()
+        V = random_uniform(self.bitgen)
         N = 0.
         E = 0.
         # Divided into three pieces at left_thresh and (left_thresh + mid_width)
         if V < mass_left / mass_total:
-            N = self.rand_standard_normal()
+            N = random_normal(self.bitgen)
             X = left_thresh - (right_thresh - left_thresh) * fabs(N)
         elif V < (mass_left + mass_mid) / mass_total:
-            X = left_thresh + (right_thresh - left_thresh) * self.next_double()
+            X = left_thresh + (right_thresh - left_thresh) * random_uniform(self.bitgen)
         else:
-            E = - log(self.next_double())
+            E = - log(random_uniform(self.bitgen))
             X = right_thresh + E * mass_right
 
         log_accept_prob = self.compute_log_accept_prob(
@@ -324,13 +330,3 @@ cdef class ExpTiltedStableDist():
             / sinc(x)
         , 1. / (1. - char_exp))
         return val
-
-    cdef double rand_standard_normal(self):
-        # Sample via Polar method
-        cdef double X, Y, sq_norm
-        sq_norm = 1. # Placeholder value to pass through the first loop
-        while sq_norm >= 1. or sq_norm == 0.:
-          X = 2. * self.next_double() - 1.
-          Y = 2. * self.next_double() - 1.
-          sq_norm = X * X + Y * Y
-        return sqrt(-2. * log(sq_norm) / sq_norm) * Y
