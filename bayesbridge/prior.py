@@ -21,20 +21,29 @@ class RegressionCoefPrior():
         Parameters
         ----------
         bridge_exponent : float < 2
-            Exponent of the bridge prior on regression coefficients.
+            Exponent of the bridge prior on regression coefficients. For example,
+            the value of 2 (albeit unsupported) would correspond to Gaussian prior
+            and of 1 double-exponential as in Bayesian Lasso.
         n_fixed_effect : int
             Number of predictors --- other than intercept and placed at the
             first columns of the design matrices --- whose coefficients are
             estimated with Gaussian priors of pre-specified standard
             deviation(s).
         sd_for_intercept : float
+            Standard deviation of Gaussian prior on the intercept. `Inf`
+            corresponds to an uninformative flat prior.
         sd_for_fixed_effect : float, numpy array
-            If an array, the length must be the same as n_fixed_effect.
+            Standard deviation(s) of Gaussian prior(s) on fixed effects.
+            If an array, the length must be the same as `n_fixed_effect`.
+            `Inf` corresponds to an uninformative flat prior.
         regularizing_slab_size : float
-            Half-width / standard deviation of the Gaussian tail-regularizer on
+            Standard deviation of the Gaussian tail-regularizer on
             the bridge prior. Used to impose soft prior constraints on a
             range of regression coefficients in case the data provides limited
-            information (e.g. because of complete separation).
+            information (e.g. when complete separation occurs). One may, for
+            example, set the slab size by first choosing a value which
+            regression coefficients are very unlikely to exceed in magnitude and
+            then dividing the value by 1.96.
         global_scale_prior_hyper_param : dict, None
             Should contain pair of keys 'log10_mean' and 'log10_sd',
             specifying the prior mean and standard deviation of
