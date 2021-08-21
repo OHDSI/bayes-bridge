@@ -293,7 +293,9 @@ double erf(double x)
     // }
 
     if (x < 0.0) {
-	return -erf(-x);
+    // original implementation used -x instead of fabs(), but led to breaking behavior on some platforms.
+    // see https://github.com/aki-nishimura/bayes-bridge/pull/7 for more info.
+	return -erf(fabs(x));
     }
 
     if (fabs(x) > 1.0)
