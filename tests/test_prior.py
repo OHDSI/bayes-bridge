@@ -144,7 +144,6 @@ def get_last_sample_from_gibbs(bridge, exponent, seed=0):
     mcmc_output = bridge.gibbs(
         n_iter=10, n_burnin=0,
         coef_sampler_type='cholesky',
-        init={'apriori_coef_scale': .1},
         seed=seed, n_status_update=0
     )
     return mcmc_output['samples']['coef'][:, -1]
