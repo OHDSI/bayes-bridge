@@ -76,7 +76,7 @@ def test_gscale_paramet_invariance():
         _global_scale_parametrization='raw'
     )
     bridge = BayesBridge(model, prior)
-    coef_sample_raw_scaling = get_last_sample_from_gibbs(bridge, bridge_exp)
+    coef_sample_raw_scaling = get_last_sample_from_gibbs(bridge)
 
     prior = RegressionCoefPrior(
         bridge_exponent=bridge_exp,
@@ -84,7 +84,7 @@ def test_gscale_paramet_invariance():
         _global_scale_parametrization='coef_magnitude'
     )
     bridge = BayesBridge(model, prior)
-    coef_sample_expected_mag_scaling = get_last_sample_from_gibbs(bridge, bridge_exp)
+    coef_sample_expected_mag_scaling = get_last_sample_from_gibbs(bridge)
 
     assert np.allclose(
         coef_sample_raw_scaling,
@@ -107,7 +107,7 @@ def test_gscale_paramet_invariance():
     )
     bridge = BayesBridge(model, prior)
     coef_sample_raw_scaling \
-        = get_last_sample_from_gibbs(bridge, bridge_exp)
+        = get_last_sample_from_gibbs(bridge)
 
     prior = RegressionCoefPrior(
         bridge_exponent=bridge_exp,
@@ -117,7 +117,7 @@ def test_gscale_paramet_invariance():
     )
     bridge = BayesBridge(model, prior)
     coef_sample_expected_mag_scaling \
-        = get_last_sample_from_gibbs(bridge, bridge_exp)
+        = get_last_sample_from_gibbs(bridge)
 
     assert not np.allclose(
         coef_sample_raw_scaling,
@@ -131,7 +131,7 @@ def test_gscale_paramet_invariance():
     prior = prior.clone(global_scale_prior_hyper_param=gscale_hyper_param)
     bridge = BayesBridge(model, prior)
     coef_sample_expected_mag_scaling \
-        = get_last_sample_from_gibbs(bridge, bridge_exp)
+        = get_last_sample_from_gibbs(bridge)
 
     assert np.allclose(
         coef_sample_raw_scaling,
@@ -140,7 +140,7 @@ def test_gscale_paramet_invariance():
     )
 
 
-def get_last_sample_from_gibbs(bridge, exponent, seed=0):
+def get_last_sample_from_gibbs(bridge, seed=0):
     mcmc_output = bridge.gibbs(
         n_iter=10, n_burnin=0,
         coef_sampler_type='cholesky',
