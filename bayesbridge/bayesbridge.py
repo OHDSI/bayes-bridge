@@ -265,9 +265,8 @@ class BayesBridge():
 
         return mcmc_output
 
-
     def initialize_chain(self, init, bridge_exp, n_optim):
-        # Choose the user-specified state if provided, the default ones otherwise.
+        """ Choose the user-specified state if provided, the default ones otherwise."""
 
         valid_param_name \
             = ('coef', 'local_scale', 'global_scale', 'obs_prec', 'logp')
@@ -276,30 +275,42 @@ class BayesBridge():
                 warn("'{:s}' is not a valid parameter name and "
                      "will be ignored.".format(key))
 
+        coef_only_specified = 'coef' in init and ('global_scale' not in init)
+
         if 'coef' in init:
             coef = init['coef']
             if not len(coef) == self.n_pred:
-                raise ValueError('An invalid initial state.')
+                raise ValueError('Invalid initial length of regression coefficient.')
         else:
             coef = np.zeros(self.n_pred)
-            if 'intercept' in init:
-                coef[0] = init['intercept']
 
-        if 'obs_prec' in init:
-            obs_prec = np.ascontiguousarray(init['obs_prec'])
-                # Cython requires a C-contiguous array.
-            if not len(obs_prec) == self.n_obs:
-                raise ValueError('An invalid initial state.')
-        elif self.model.name == 'linear':
-            obs_prec = np.mean((self.model.y - self.model.design.dot(coef)) ** 2) ** -1
-        elif self.model.name == 'logit':
-            obs_prec = LogisticModel.compute_polya_gamma_mean(
-                self.model.n_trial, self.model.design.dot(coef)
+        obs_prec = self.initialize_obs_precision(init, coef)
+        
+        if coef_only_specified:
+            gscale = self.update_global_scale(
+                None, coef[self.n_unshrunk:], bridge_exp,
+                method='optimize'
+            )
+            lscale = self.update_local_scale(
+                gscale, coef[self.n_unshrunk:], bridge_exp
             )
         else:
-            obs_prec = None
+            if 'global_scale' in init:
+                gscale = init['global_scale']
+            else:
+                gscale = self._get_default_global_scale(bridge_exp)
+            if 'local_scale' in init:
+                lscale = init['local_scale']
+                if not len(lscale) == (self.n_pred - self.n_unshrunk):
+                    raise ValueError('Invalid initial length of local scale parameter')
+            else:
+                lscale = np.ones(self.n_pred - self.n_unshrunk) / gscale
 
-        lscale, gscale = self.initialize_shrinkage_parameters(init, bridge_exp)
+        if self.prior._gscale_paramet == 'coef_magnitude':
+            # Gibbs sampler requires the raw parametrization, though
+            # technically only gscale * lscale matters due to the update order.
+            gscale, lscale \
+                = self.prior.adjust_scale(gscale, lscale, to='raw')
 
         info_keys = ['is_success', 'n_design_matvec', 'n_iter']
         optim_info = {
@@ -316,7 +327,7 @@ class BayesBridge():
             lscale = self.update_local_scale(
                 gscale, coef[self.n_unshrunk:], bridge_exp
             )
-            
+
         init = {
             'coef': coef,
             'obs_prec': obs_prec,
@@ -326,44 +337,29 @@ class BayesBridge():
 
         return coef, obs_prec, lscale, gscale, init, optim_info
 
-    def initialize_shrinkage_parameters(self, init, bridge_exp):
-        """
-        Current options allow specifying 1) both scale parameters directly,
-        2) regression coefficients only, and 3) global scale only.
-        """
+    def _get_default_global_scale(self, bridge_exp):
         gscale_default = .1
         if self.prior._gscale_paramet == 'raw':
             gscale_default \
                 /= self.prior.compute_power_exp_ave_magnitude(bridge_exp)
+        return gscale_default
 
-        if 'local_scale' in init and 'global_scale' in init:
-            lscale = init['local_scale']
-            gscale = init['global_scale']
-            if not len(lscale) == (self.n_pred - self.n_unshrunk):
+    def initialize_obs_precision(self, init, coef):
+        if 'obs_prec' in init:
+            obs_prec = np.ascontiguousarray(init['obs_prec'])
+            # Cython requires a C-contiguous array.
+            if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
-
-        elif 'coef' in init:
-            gscale = self.update_global_scale(
-                None, init['coef'][self.n_unshrunk:], bridge_exp,
-                method='optimize'
-            )
-            lscale = self.update_local_scale(
-                gscale, init['coef'][self.n_unshrunk:], bridge_exp
+        elif self.model.name == 'linear':
+            obs_prec = np.mean(
+                (self.model.y - self.model.design.dot(coef)) ** 2) ** -1
+        elif self.model.name == 'logit':
+            obs_prec = LogisticModel.compute_polya_gamma_mean(
+                self.model.n_trial, self.model.design.dot(coef)
             )
         else:
-            if 'global_scale' in init:
-                gscale = init['global_scale']
-            else:
-                gscale = gscale_default
-            lscale = np.ones(self.n_pred - self.n_unshrunk) / gscale
-
-        if self.prior._gscale_paramet == 'coef_magnitude':
-            # Gibbs sampler requires the raw parametrization. Technically only
-            # gscale * lscale matters within the sampler due to the update order.
-            gscale, lscale \
-                = self.prior.adjust_scale(gscale, lscale, to='raw')
-
-        return lscale, gscale
+            obs_prec = None
+        return obs_prec
 
     def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
 
