@@ -101,7 +101,7 @@ class BayesBridge():
 
     def gibbs(self, n_iter, n_burnin=0, thin=1, seed=None,
               init={}, params_to_save=('coef', 'global_scale', 'logp'),
-              coef_sampler_type=None, n_init_optim=10, n_status_update=0,
+              coef_sampler_type=None, n_init_optim=1, n_status_update=0,
               options=None, _add_iter_mode=False):
         """ Sample from the posterior under the specified model and prior.
 
