@@ -101,7 +101,7 @@ class BayesBridge():
 
     def gibbs(self, n_iter, n_burnin=0, thin=1, seed=None,
               init={}, params_to_save=('coef', 'global_scale', 'logp'),
-              coef_sampler_type=None, n_init_optim=1, n_status_update=0,
+              coef_sampler_type=None, n_status_update=0,
               options=None, _add_iter_mode=False):
         """ Sample from the posterior under the specified model and prior.
 
@@ -119,12 +119,6 @@ class BayesBridge():
             the conjugate gradient sampler ('cg') is preferred over the
             Cholesky decomposition based sampler ('cholesky'). For other
             models, only Hamiltonian Monte Carlo ('hmc') can be used.
-        n_init_optim : int
-            If > 0, the Markov chain will be run after the specified number of
-            optimization steps in which the regression coefficients are
-            optimized conditionally on the shrinkage parameters. During the
-            optimization, the global shrinkage parameter is fixed while the
-            local ones are sampled.
         params_to_save : {'all', tuple or list of str}
             Specifies which parameters to save during MCMC iterations. If None,
             the most relevant parameters --- regression coefficients,
@@ -159,9 +153,7 @@ class BayesBridge():
                 coef_sampler_type, options, self.model.name, self.model.design
             )
 
-        if _add_iter_mode:
-            n_init_optim = 0
-        else:
+        if not _add_iter_mode:
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
                 self.n_pred, self.prior_sd_for_unshrunk,
@@ -182,10 +174,7 @@ class BayesBridge():
 
         # Initial state of the Markov chain
         coef, obs_prec, lscale, gscale, init, initial_optim_info = \
-            self.initialize_chain(init, self.prior.bridge_exp, n_init_optim)
-        if n_init_optim > 0:
-            self.manager.print_status(
-                n_status_update, 0, n_iter, msg_type='optim', time_format='second')
+            self.initialize_chain(init, self.prior.bridge_exp)
 
         # Pre-allocate
         samples = {}
@@ -256,7 +245,7 @@ class BayesBridge():
             'coef_sampler_type': options.coef_sampler_type,
             'runtime': runtime,
             'options': options.get_info(),
-            'initial_optimization_info': initial_optim_info,
+            '_init_optim_info': initial_optim_info,
             '_reg_coef_sampling_info': sampling_info,
             '_markov_chain_state': _markov_chain_state,
             '_random_gen_state': self.rg.get_state(),
@@ -265,7 +254,7 @@ class BayesBridge():
 
         return mcmc_output
 
-    def initialize_chain(self, init, bridge_exp, n_optim):
+    def initialize_chain(self, init, bridge_exp):
         """ Choose the user-specified state if provided, the default ones otherwise."""
 
         valid_param_name \
@@ -285,7 +274,7 @@ class BayesBridge():
             coef = np.zeros(self.n_pred)
 
         obs_prec = self.initialize_obs_precision(init, coef)
-        
+
         if coef_only_specified:
             gscale = self.update_global_scale(
                 None, coef[self.n_unshrunk:], bridge_exp,
@@ -312,21 +301,20 @@ class BayesBridge():
             gscale, lscale \
                 = self.prior.adjust_scale(gscale, lscale, to='raw')
 
-        info_keys = ['is_success', 'n_design_matvec', 'n_iter']
-        optim_info = {
-            key: np.zeros(n_optim, dtype=np.int) for key in info_keys
-        }
-        optim_info['n_optim'] = n_optim
-        for i in range(n_optim):
+        if 'coef' not in init:
+            # Optimize coefficients and then update other parameters
             coef, info = self.reg_coef_sampler.search_mode(
                 coef, lscale, gscale, obs_prec, self.model
             )
-            for key in info_keys:
-                optim_info[key][i] = info[key]
             obs_prec = self.update_obs_precision(coef)
             lscale = self.update_local_scale(
                 gscale, coef[self.n_unshrunk:], bridge_exp
             )
+            optim_info = {
+                key: info[key] for key in ['is_success', 'n_design_matvec', 'n_iter']
+            }
+        else:
+            optim_info = None
 
         init = {
             'coef': coef,

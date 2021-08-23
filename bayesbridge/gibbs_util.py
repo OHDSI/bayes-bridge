@@ -103,7 +103,7 @@ class MarkovChainManager():
         next_mcmc_output['n_iter'] += mcmc_output['n_iter']
         next_mcmc_output['runtime'] += mcmc_output['runtime']
 
-        for output_key in ['initial_optimization_info', 'seed']:
+        for output_key in ['_init_optim_info', 'seed']:
             next_mcmc_output[output_key] = mcmc_output[output_key]
 
         return next_mcmc_output
@@ -201,7 +201,7 @@ class MarkovChainManager():
         self._prev_timestamp = curr_time
 
     def print_status(self, n_status_update, mcmc_iter, n_iter,
-                     msg_type='sampling', time_format='minute'):
+                     time_format='minute'):
 
         if n_status_update == 0:
             return
@@ -219,12 +219,9 @@ class MarkovChainManager():
         else:
             raise ValueError()
 
-        if msg_type == 'optim':
-            msg = "Initial optimization took " + time_str + "."
-        else:
-            msg = " ".join((
-                "{:d} Gibbs iterations complete:".format(mcmc_iter),
-                time_str, "has elasped since the last update."
-            ))
+        msg = " ".join((
+            "{:d} Gibbs iterations complete:".format(mcmc_iter),
+            time_str, "has elasped since the last update."
+        ))
         print(msg)
         self._prev_timestamp = self._curr_timestamp
