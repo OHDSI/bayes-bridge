@@ -27,6 +27,7 @@ jobs:
       run: |
         pip install wheel
         pip install Cython
+        pip install numpy
         python setup.py build_ext --inplace
     - name: Install dependencies
       run: |
