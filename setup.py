@@ -62,11 +62,11 @@ setup(
     author_email='anishimura@jhu.edu',
     license='MIT',
     packages=find_packages(exclude=['tests', 'tests.*']),
-    cmdclass = {'build_ext': CustomBuildExtCommand},
-    ext_modules = cythonize(ext_modules),
-    setup_requires=['numpy'],
+    cmdclass={'build_ext': CustomBuildExtCommand},
+    ext_modules=cythonize(ext_modules),
+    setup_requires=['numpy>=1.19'],
     install_requires=[
-        'numpy', 'scipy'
+        'numpy>=1.19', 'scipy'
     ],
     zip_safe=False
 )
