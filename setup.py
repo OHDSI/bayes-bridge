@@ -52,14 +52,14 @@ ext_modules = [
 
 setup(
     name='bayesbridge',
-    version='0.2.1',
+    version='0.2.2',
     description=\
         'Generates posterior samples under Bayesian sparse regression based on '
         + 'the bridge prior using the CG-accelerated Gibbs sampler of Nishimura '
         + 'et. al. (2018). The linear and logistic model are currently supported.',
     url='https://github.com/aki-nishimura/bayes-bridge',
     author='Akihiko (Aki) Nishimura',
-    author_email='anishimura@jhu.edu',
+    author_email='aki.nishimura@jhu.edu',
     license='MIT',
     packages=find_packages(exclude=['tests', 'tests.*']),
     cmdclass={'build_ext': CustomBuildExtCommand},
