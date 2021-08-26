@@ -1,1 +1,3 @@
 include bayesbridge/random/polya_gamma/scipy_ndtr.c
+global-include *.pyx
+global-include *.pxd
