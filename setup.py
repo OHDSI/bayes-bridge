@@ -1,8 +1,6 @@
 import numpy as np
 from Cython.Build import cythonize
 from distutils.command.build_ext import build_ext
-from distutils.core import setup
-from distutils.extension import Extension
 from numpy.distutils.misc_util import get_info
 from os.path import dirname, join, abspath
 from setuptools import setup, find_packages
