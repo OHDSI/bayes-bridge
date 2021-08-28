@@ -75,11 +75,13 @@ class BayesBridge():
             mcmc_output[key]
             for key in ['thin', 'bridge_exponent', 'coef_sampler_type']
         )
+        curvature_est_stabilized = mcmc_output['options']['hmc_curvature_est_stabilized']
         params_to_save = mcmc_output['samples'].keys()
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-            self.n_pred, self.prior_sd_for_unshrunk, coef_sampler_type
+            self.n_pred, self.prior_sd_for_unshrunk, coef_sampler_type,
+            curvature_est_stabilized, self.prior.slab_size
         )
         self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
 
