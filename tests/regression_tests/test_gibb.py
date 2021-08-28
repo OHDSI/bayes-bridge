@@ -61,8 +61,8 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
 def simulate_data(model, matrix_format):
 
     np.random.seed(1)
-    n = 500
-    p = 500
+    n = 100
+    p = 50
 
     # True parameters
     sigma_true = 2
@@ -101,11 +101,11 @@ def get_filename(sampling_method, model):
 
 def save_data(samples, sampling_method, model):
     filepath = data_folder + '/' + get_filename(sampling_method, model)
-    np.save(filepath, samples['coef'])
+    np.save(filepath, samples['coef'][:, -1])
 
 def is_same_as_prev_output(samples, sampling_method, model, test_dirname):
     prev_sample = load_data(sampling_method, model, test_dirname)
-    return np.allclose(samples['coef'], prev_sample, rtol=.001, atol=10e-6)
+    return np.allclose(samples['coef'][:, -1], prev_sample, rtol=.001, atol=10e-6)
 
 
 if __name__ == '__main__':
