@@ -31,6 +31,7 @@ class AbstractModel():
     def get_hessian_matvec_operator(self, beta):
         pass
 
-    @abc.abstractstaticmethod
+    @staticmethod
+    @abc.abstractmethod
     def simulate_outcome():
         pass
