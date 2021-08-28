@@ -7,7 +7,7 @@ sys.path.append("..") # needed if pytest called from the parent directory
 sys.path.insert(0, '../..') # needed if pytest called from this directory.
 
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
-from bayesbridge.model import CoxModel
+from bayesbridge.model import LinearModel, LogisticModel, CoxModel
 
 data_folder = 'saved_outputs'
 test_combo = [
@@ -30,20 +30,16 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
     n_burnin = 0
     n_post_burnin = 10
     thin = 1
-    bridge_exponent = 0.5
+    bridge_exponent = 0.25
 
     outcome, X = simulate_data(model_type, matrix_format)
-    n_unshrunk = 1 if model_type == 'cox' else 0
     prior = RegressionCoefPrior(
-        n_fixed_effect=n_unshrunk, sd_for_fixed_effect=2.,
-        bridge_exponent=bridge_exponent, _global_scale_parametrization='raw'
+        sd_for_intercept=2., regularizing_slab_size=1.,
+        bridge_exponent=bridge_exponent
     )
-    model = RegressionModel(outcome, X, model_type, center_predictor=False)
+    model = RegressionModel(outcome, X, model_type)
     bridge = BayesBridge(model, prior)
-    init = {
-        'global_scale': .01,
-        'local_scale': np.ones(X.shape[1] - n_unshrunk)
-    }
+    init = {'global_scale': .01}
 
     if restart_in_middle:
         n_total_post_burnin = n_post_burnin
@@ -71,15 +67,17 @@ def simulate_data(model, matrix_format):
     # True parameters
     sigma_true = 2
     beta_true = np.zeros(p)
-    beta_true[:5] = 4
-    beta_true[5:15] = 2 ** - np.linspace(0.0, 4.5, 10)
+    beta_true[:4] = 1
+    beta_true[4:15] = 2 ** - np.linspace(0.0, 5, 11)
 
     X = np.random.randn(n, p)
+
     if model == 'linear':
-        outcome = np.dot(X, beta_true) + sigma_true * np.random.randn(n)
+        outcome = LinearModel.simulate_outcome(X, beta_true, sigma_true)
     elif model == 'logit':
-        mu = (1 + np.exp(- np.dot(X, beta_true))) ** -1
-        outcome = (np.random.binomial(1, mu), None)
+        n_trial = np.ones(n, dtype=np.int32)
+        n_success = LogisticModel.simulate_outcome(n_trial, X, beta_true)
+        outcome = (n_success, n_trial)
     elif model == 'cox':
         outcome = CoxModel.simulate_outcome(X, beta_true)
     else:
