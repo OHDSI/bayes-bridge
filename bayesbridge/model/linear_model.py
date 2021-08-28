@@ -40,6 +40,7 @@ class LinearModel(AbstractModel):
         X : DesignMatrix, numpy/scipy matrix
             Only needs to support the `dot()` operation
         """
-        np.random.seed(seed)
+        if seed is not None:
+            np.random.seed(seed)
         y = X.dot(beta) + noise_sd * np.random.randn(X.shape[0])
         return y

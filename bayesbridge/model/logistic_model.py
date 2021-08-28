@@ -111,6 +111,7 @@ class LogisticModel(AbstractModel):
             Only needs to support the `dot()` operation
         """
         prob = LogisticModel.compute_predicted_prob(X, beta)
-        np.random.seed(seed)
+        if seed is not None:
+            np.random.seed(seed)
         y = np.random.binomial(n_trial, prob)
         return y
