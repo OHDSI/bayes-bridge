@@ -71,6 +71,11 @@ class LogisticModel(AbstractModel):
             - self.design.Tdot(self.n_trial * weight * self.design.dot(v))
         return hessian_op
 
+    def calc_intercept_mle(self):
+        binom_prob_mle = self.n_success.mean() / self.n_trial.mean()
+        intercept = np.log(binom_prob_mle / (1 - binom_prob_mle))
+        return intercept
+
     @staticmethod
     def compute_polya_gamma_mean(shape, tilt):
         min_magnitude = 1e-5

@@ -31,6 +31,11 @@ class AbstractModel():
     def get_hessian_matvec_operator(self, beta):
         pass
 
+    @abc.abstractmethod
+    def calc_intercept_mle(self):
+        """ Calculate MLE for intercept assuming other coefficients are zero. """
+        pass
+
     @staticmethod
     @abc.abstractmethod
     def simulate_outcome():

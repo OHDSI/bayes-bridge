@@ -29,6 +29,9 @@ class LinearModel(AbstractModel):
         hessian_op = lambda v: - obs_prec * self.design.Tdot(self.design.dot(v))
         return hessian_op
 
+    def calc_intercept_mle(self):
+        return self.y.mean()
+
     @staticmethod
     def simulate_outcome(X, beta, noise_sd, seed=None):
         np.random.seed(seed)

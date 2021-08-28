@@ -272,6 +272,8 @@ class BayesBridge():
                 raise ValueError('Invalid initial length of regression coefficient.')
         else:
             coef = np.zeros(self.n_pred)
+            if self.model.name in ('linear', 'logit'):
+                coef[0] = self.model.calc_intercept_mle()
 
         obs_prec = self.initialize_obs_precision(init, coef)
 
