@@ -104,6 +104,12 @@ class LogisticModel(AbstractModel):
 
     @staticmethod
     def simulate_outcome(n_trial, X, beta, seed=None):
+        """
+        Parameters
+        ----------
+        X : DesignMatrix, numpy/scipy matrix
+            Only needs to support the `dot()` operation
+        """
         prob = LogisticModel.compute_predicted_prob(X, beta)
         np.random.seed(seed)
         y = np.random.binomial(n_trial, prob)
