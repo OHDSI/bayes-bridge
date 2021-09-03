@@ -11,7 +11,7 @@ class LogisticModel(AbstractModel):
 
         self.check_input_validity(n_success, n_trial, design)
         if n_trial is None:
-            n_trial = np.ones(len(n_success))
+            n_trial = np.ones(n_success.shape[0])
             warn(
                 "The numbers of trials were not specified. The binary "
                 "outcome is assumed."
@@ -28,13 +28,13 @@ class LogisticModel(AbstractModel):
             if np.max(n_success) > 1:
                 raise ValueError(
                     "If not binary, the number of trials must be specified.")
-            if not len(n_success) == design.shape[0]:
+            if not n_success.shape[0] == design.shape[0]:
                 raise ValueError(
                     "Incompatible sizes of the outcome and design matrix."
                 )
             return # No need to check the rest for the default initialization.
 
-        if not len(n_trial) == len(n_success) == design.shape[0]:
+        if not n_trial.shape[0] == n_success.shape[0] == design.shape[0]:
             raise ValueError(
                 "Incompatible sizes of the outcome vectors and design matrix."
             )
