@@ -50,7 +50,7 @@ ext_modules = [
 
 setup(
     name='bayesbridge',
-    version='0.2.2',
+    version='0.2.3',
     description=\
         'Generates posterior samples under Bayesian sparse regression based on '
         + 'the bridge prior using the CG-accelerated Gibbs sampler of Nishimura '
