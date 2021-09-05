@@ -102,7 +102,7 @@ class BayesBridge():
         return next_mcmc_output
 
     def gibbs(self, n_iter, n_burnin=0, thin=1, seed=None,
-              init={}, params_to_save=('coef', 'global_scale', 'logp'),
+              init={'global_scale': 0.1}, params_to_save=('coef', 'global_scale', 'logp'),
               coef_sampler_type=None, n_status_update=0,
               options=None, _add_iter_mode=False):
         """ Sample from the posterior under the specified model and prior.
@@ -288,10 +288,13 @@ class BayesBridge():
                 gscale, coef[self.n_unshrunk:], bridge_exp
             )
         else:
-            if 'global_scale' in init:
-                gscale = init['global_scale']
-            else:
-                gscale = self._get_default_global_scale(bridge_exp)
+            if 'global_scale' not in init:
+                raise ValueError("Initial global scale must be specified when "
+                                 "coefficients aren't specified.")
+            if self.prior._gscale_paramet == 'raw':
+                warn("Using the raw global scale parametrization; make sure that "
+                     "the specified initial value is scaled accordingly.")
+            gscale = init['global_scale']
             if 'local_scale' in init:
                 lscale = init['local_scale']
                 if not len(lscale) == (self.n_pred - self.n_unshrunk):
@@ -328,13 +331,6 @@ class BayesBridge():
         }
 
         return coef, obs_prec, lscale, gscale, init, optim_info
-
-    def _get_default_global_scale(self, bridge_exp):
-        gscale_default = .1
-        if self.prior._gscale_paramet == 'raw':
-            gscale_default \
-                /= self.prior.compute_power_exp_ave_magnitude(bridge_exp)
-        return gscale_default
 
     def initialize_obs_precision(self, init, coef):
         if 'obs_prec' in init:
