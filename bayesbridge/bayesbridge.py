@@ -105,14 +105,29 @@ class BayesBridge():
               init={'global_scale': 0.1}, params_to_save=('coef', 'global_scale', 'logp'),
               coef_sampler_type=None, n_status_update=0,
               options=None, _add_iter_mode=False):
-        """ Sample from the posterior under the specified model and prior.
+        """ Generate posterior samples under the specified model and prior.
 
         Parameters
         ----------
         n_iter : int
-            total number of MCMC iterations i.e. burn-ins + saved posterior draws
+            Total number of MCMC iterations i.e. burn-ins + saved posterior draws
         n_burnin : int
-            number of burn-in samples to be discarded
+            Number of burn-in samples to be discarded
+        thin : int
+            Number of iterations per saved samples for "thinning" MCMC to reduce
+            the output size. In other words, the function saves an MCMC sample
+            every `thin` iterations, returning floor(n_iter / thin) samples.
+        seed : int
+            Seed for random number generator.
+        init : dict of numpy arrays
+            Specifies, partially or completely, the initial state of Markov chain.
+            The partial option allows either specifying the global scale or
+            regression coefficients. The former is the recommended default option
+            since the global scale parameter is easier to choose, representing
+            the prior expected magnitude of regression coefficients and . (But
+            the latter might make sense if some preliminary estimate of coefficients
+            are available.) Other parameters are then initialized through a
+            combination of heuristics and conditional optimization.
         coef_sampler_type : {None, 'cholesky', 'cg', 'hmc'}
             Specifies the sampling method used to update regression coefficients.
             If None, the method is chosen via a crude heuristic based on the
@@ -122,7 +137,7 @@ class BayesBridge():
             Cholesky decomposition based sampler ('cholesky'). For other
             models, only Hamiltonian Monte Carlo ('hmc') can be used.
         params_to_save : {'all', tuple or list of str}
-            Specifies which parameters to save during MCMC iterations. If None,
+            Specifies which parameters to save during MCMC iterations. By default,
             the most relevant parameters --- regression coefficients,
             global scale, posterior log-density --- are saved. Use all to save
             all the parameters (but beaware of the extra memory requirement),
