@@ -41,65 +41,64 @@ class BayesBridge():
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
     def gibbs_additional_iter(
-            self, mcmc_output, n_add_iter, n_status_update=0,
-            merge=False, deallocate=False):
+            self, prev_mcmc_info, n_add_iter, n_status_update=0,
+            merge=False, prev_samples=None):
         """ Resume Gibbs sampler from the last state.
 
         Parameter
         ---------
-        mcmc_output : dict
-            Output of a previous call to the 'gibbs' method.
+        prev_mcmc_info : dict
+            MCMC info returned by a previous call to the `gibbs` method.
         n_iter : int
         n_status_update : int
         merge : bool
             If True, merge the Gibbs sampler outputs from the previous and
-            current runs and then return.
-        deallocate : bool
-            If True, clear the samples from the previous Gibbs run to save
-            memory.
+            new runs and then return.
+        prev_samples : dict
+            MCMC samples returned by a previous call to the 'gibbs' method.
 
         Returns
         -------
-        next_mcmc_output : dict
+        new_samples : dict
+        new_mcmc_info : dict
         """
 
-        if merge and deallocate:
-            warn(
-                "To merge the outputs, the previous one cannot be deallocated.")
-            deallocate = False
+        if merge and prev_samples is None:
+            raise ValueError(
+                "To merge the outputs from previous and new MCMC runs, you "
+                "have to supply the optional argument `prev_samples`."
+            )
 
-        self.rg.set_state(mcmc_output['_random_gen_state'])
+        self.rg.set_state(prev_mcmc_info['_random_gen_state'])
 
-        init = mcmc_output['_markov_chain_state']
+        init = prev_mcmc_info['_markov_chain_state']
         thin, bridge_exp, coef_sampler_type = (
-            mcmc_output[key]
+            prev_mcmc_info[key]
             for key in ['thin', 'bridge_exponent', 'coef_sampler_type']
         )
-        curvature_est_stabilized = mcmc_output['options']['hmc_curvature_est_stabilized']
-        params_to_save = mcmc_output['samples'].keys()
+        curvature_est_stabilized = prev_mcmc_info['options']['hmc_curvature_est_stabilized']
+        params_to_save = prev_mcmc_info['saved_params']
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
             self.n_pred, self.prior_sd_for_unshrunk, coef_sampler_type,
             curvature_est_stabilized, self.prior.slab_size
         )
-        self.reg_coef_sampler.set_internal_state(mcmc_output['_reg_coef_sampler_state'])
+        self.reg_coef_sampler.set_internal_state(prev_mcmc_info['_reg_coef_sampler_state'])
 
-        if deallocate:
-            mcmc_output['samples'].clear()
-
-        next_mcmc_output = self.gibbs(
+        new_samples, new_mcmc_info = self.gibbs(
             n_add_iter, 0, thin, init=init,
             params_to_save=params_to_save,
             n_status_update=n_status_update,
-            options=mcmc_output['options'],
+            options=prev_mcmc_info['options'],
             _add_iter_mode=True
         )
         if merge:
-            next_mcmc_output \
-                = self.manager.merge_outputs(mcmc_output, next_mcmc_output)
+            new_samples, new_mcmc_info = self.manager.merge_outputs(
+                prev_samples, prev_mcmc_info, new_samples, new_mcmc_info
+            )
 
-        return next_mcmc_output
+        return new_samples, new_mcmc_info
 
     def gibbs(self, n_iter, n_burnin=0, thin=1, seed=None,
               init={'global_scale': 0.1}, params_to_save=('coef', 'global_scale', 'logp'),
@@ -154,15 +153,15 @@ class BayesBridge():
 
         Returns
         -------
-        mcmc_output : dict
-            Contains posterior samples under the key 'samples,' along with the
-            sampler settings to reproduce and resume the sampling process.
-        samples = mcmc_output['samples'] : dict of numpy arrays
+        samples : dict
             Contains MCMC samples of the parameters as specified by
             **params_to_save**. The last dimension of the arrays correspond
             to MCMC iterations; for example,
             :code:`samples['coef'][:, 0]`
             is the first MCMC sample of regression coefficients.
+        mcmc_info : dict
+            Contains information on the MCMC run and sampler settings, enough in
+            particular to reproduce and resume the sampling process.
         """
 
         if not isinstance(options, SamplerOptions):
@@ -249,8 +248,7 @@ class BayesBridge():
             self.manager.pack_parameters(coef, obs_prec, lscale, gscale)
 
         _reg_coef_sampling_info = None
-        mcmc_output = {
-            'samples': samples,
+        mcmc_info = {
             'init': init,
             'n_iter': n_iter,
             'n_burnin': n_burnin,
@@ -260,6 +258,7 @@ class BayesBridge():
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
             'bridge_exponent': self.prior.bridge_exp,
             'coef_sampler_type': options.coef_sampler_type,
+            'saved_params': params_to_save,
             'runtime': runtime,
             'options': options.get_info(),
             '_init_optim_info': initial_optim_info,
@@ -269,7 +268,7 @@ class BayesBridge():
             '_reg_coef_sampler_state': self.reg_coef_sampler.get_internal_state()
         }
 
-        return mcmc_output
+        return samples, mcmc_info
 
     def initialize_chain(self, init, bridge_exp):
         """ Choose the user-specified state if provided, the default ones otherwise."""
