@@ -30,7 +30,7 @@ class SamplerOptions():
         }
 
     @staticmethod
-    def create(coef_sampler_type, options, model_name, design):
+    def pick_default_and_create(coef_sampler_type, options, model_name, design):
         """ Initialize class with, if unspecified, an appropriate default
         sampling method based on the type and size of model.
         """

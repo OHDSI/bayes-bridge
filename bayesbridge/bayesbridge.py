@@ -166,7 +166,7 @@ class BayesBridge():
         """
 
         if not isinstance(options, SamplerOptions):
-            options = SamplerOptions.create(
+            options = SamplerOptions.pick_default_and_create(
                 coef_sampler_type, options, self.model.name, self.model.design
             )
 
