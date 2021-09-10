@@ -39,24 +39,23 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
     )
     model = RegressionModel(outcome, X, model_type)
     bridge = BayesBridge(model, prior)
-    init = {'global_scale': .01}
 
     if restart_in_middle:
         n_total_post_burnin = n_post_burnin
         n_post_burnin = math.ceil(n_total_post_burnin / 2)
 
-    mcmc_output = bridge.gibbs(
-        n_burnin + n_post_burnin, n_burnin, thin=thin, init=init,
+    samples, mcmc_info = bridge.gibbs(
+        n_burnin + n_post_burnin, n_burnin, thin=thin,
         coef_sampler_type=sampling_method, seed=0, params_to_save='all'
     )
 
     if restart_in_middle:
         reinit_bridge = BayesBridge(model, prior)
-        mcmc_output = reinit_bridge.gibbs_additional_iter(
-            mcmc_output, n_post_burnin, merge=True
+        samples, mcmc_info = reinit_bridge.gibbs_additional_iter(
+            mcmc_info, n_post_burnin, merge=True, prev_samples=samples
         )
 
-    return mcmc_output['samples']
+    return samples
 
 def simulate_data(model, matrix_format):
 

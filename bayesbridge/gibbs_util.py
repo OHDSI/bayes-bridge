@@ -31,7 +31,7 @@ class SamplerOptions():
         }
 
     @staticmethod
-    def create(coef_sampler_type, options, model_name, design):
+    def pick_default_and_create(coef_sampler_type, options, model_name, design):
         """ Initialize class with, if unspecified, an appropriate default
         sampling method based on the type and size of model.
         """
@@ -90,24 +90,30 @@ class MarkovChainManager():
         self._prev_timestamp = None # For status update during Gibbs
         self._curr_timestamp = None
 
-    def merge_outputs(self, mcmc_output, next_mcmc_output):
+    def merge_outputs(self, prev_samples, prev_mcmc_info, new_samples, new_mcmc_info):
 
-        for output_key in ['samples', '_reg_coef_sampling_info']:
-            curr_output = mcmc_output[output_key]
-            next_output = next_mcmc_output[output_key]
-            next_mcmc_output[output_key] = {
+        new_samples = {
+            key: np.concatenate(
+                (prev_samples[key], new_samples[key]), axis=-1
+            ) for key in new_samples.keys()
+        }
+
+        for output_key in ['_reg_coef_sampling_info']:
+            prev_output = prev_mcmc_info[output_key]
+            next_output = new_mcmc_info[output_key]
+            new_mcmc_info[output_key] = {
                 key : np.concatenate(
-                    (curr_output[key], next_output[key]), axis=-1
-                ) for key in curr_output.keys()
+                    (prev_output[key], next_output[key]), axis=-1
+                ) for key in prev_output.keys()
             }
 
-        next_mcmc_output['n_iter'] += mcmc_output['n_iter']
-        next_mcmc_output['runtime'] += mcmc_output['runtime']
+        new_mcmc_info['n_iter'] += prev_mcmc_info['n_iter']
+        new_mcmc_info['runtime'] += prev_mcmc_info['runtime']
 
         for output_key in ['_init_optim_info', 'seed']:
-            next_mcmc_output[output_key] = mcmc_output[output_key]
+            new_mcmc_info[output_key] = prev_mcmc_info[output_key]
 
-        return next_mcmc_output
+        return new_samples, new_mcmc_info
 
     def pre_allocate(self, samples, sampling_info, n_post_burnin, thin, params_to_save, sampling_method):
 
