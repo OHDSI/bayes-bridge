@@ -1,7 +1,7 @@
+from cupyx.scipy.sparse.linalg import LinearOperator, cg
+import cupy as cp
 import numpy as np
 import scipy as sp
-import scipy.sparse
-import scipy.linalg
 from warnings import warn
 
 class ConjugateGradientSampler():
@@ -41,8 +41,8 @@ class ConjugateGradientSampler():
             )
 
         # Draw a target vector.
-        v = X.Tdot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
-            + prior_prec_sqrt * np.random.randn(X.shape[1])
+        v = X.Tdot(omega ** (1 / 2) * cp.random.randn(X.shape[0]), use_cupy=True) \
+            + prior_prec_sqrt * cp.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
         # Callback function to count the number of PCG iterations.
@@ -52,7 +52,7 @@ class ConjugateGradientSampler():
         # Run PCG.
         rtol = atol / np.linalg.norm(b)
         beta_scaled_init = beta_init / precond_scale
-        beta_scaled, info = sp.sparse.linalg.cg(
+        beta_scaled, info = cg(
             Phi_precond_op, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
             callback=cg_callback
         )
@@ -80,11 +80,13 @@ class ConjugateGradientSampler():
 
         # Define a preconditioned linear operator.
         precond_prior_prec = (precond_scale * prior_prec_sqrt) ** 2
+        precond_prior_prec = cp.asarray(precond_prior_prec)
+        precond_scale = cp.asarray(precond_scale)
         def Phi_precond(x):
             Phi_x = precond_prior_prec * x \
-                    + precond_scale * X.Tdot(omega * X.dot(precond_scale * x))
+                    + precond_scale * X.Tdot(omega * X.dot(precond_scale * x, use_cupy=True), use_cupy=True)
             return Phi_x
-        Phi_precond_op = sp.sparse.linalg.LinearOperator(
+        Phi_precond_op = LinearOperator(
             (X.shape[1], X.shape[1]), matvec=Phi_precond
         )
         return Phi_precond_op, precond_scale
@@ -104,7 +106,7 @@ class ConjugateGradientSampler():
 
         if precond_by == 'prior':
 
-            precond_scale = np.ones(len(prior_prec_sqrt))
+            precond_scale = cp.ones(len(prior_prec_sqrt))
             precond_scale[self.n_coef_wo_shrinkage:] = \
                 prior_prec_sqrt[self.n_coef_wo_shrinkage:] ** -1
             if self.n_coef_wo_shrinkage > 0:

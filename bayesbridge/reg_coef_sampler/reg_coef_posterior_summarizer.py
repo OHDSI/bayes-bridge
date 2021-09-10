@@ -1,4 +1,5 @@
 import numpy as np
+import cupy as cp
 
 class RegressionCoeffficientPosteriorSummarizer():
 
@@ -23,7 +24,7 @@ class RegressionCoeffficientPosteriorSummarizer():
         self.pc_summarizer.update(pc)
 
     def extrapolate_beta_condmean(self, gscale, lscale):
-        beta_condmean_guess = self.beta_scaled_summarizer.stats['mean'].copy()
+        beta_condmean_guess = cp.asarray(self.beta_scaled_summarizer.stats['mean'].copy())
         beta_condmean_guess[self.n_unshrunk:] \
             *= self.compute_prior_scale(gscale, lscale)
         return beta_condmean_guess
@@ -83,11 +84,11 @@ class OntheflySummarizer():
             'prior_samplesize' previous values.
         """
         self.sd_prior_samplesize = sd_prior_samplesize
-        self.sd_prior_guess = np.ones(n_param)
+        self.sd_prior_guess = cp.ones(n_param)
         self.n_averaged = 0
         self.stats = {
-            'mean': np.zeros(n_param),
-            'square': np.ones(n_param)
+            'mean': cp.zeros(n_param),
+            'square': cp.ones(n_param)
         }
 
     def update_stats(self, theta):

@@ -1,5 +1,6 @@
 from .abstract_model import AbstractModel
 import numpy as np
+import cupy as cp
 import numpy.random
 from warnings import warn
 
@@ -19,6 +20,8 @@ class LogisticModel(AbstractModel):
 
         self.n_trial = n_trial.astype('float64')
         self.n_success = n_success.astype('float64')
+        self.n_trial_cp = cp.asarray(n_trial.astype('float64'))
+        self.n_success_cp = cp.asarray(n_success.astype('float64'))
         self.design = design
         self.name = 'logit'
 
@@ -47,11 +50,11 @@ class LogisticModel(AbstractModel):
                 "Number of successes cannot be larger than that of trials.")
 
     def compute_loglik_and_gradient(self, beta, loglik_only=False):
-        logit_prob = self.design.dot(beta)
+        logit_prob = self.design.dot(beta, use_cupy=True)
         predicted_prob = LogisticModel.convert_to_probability_scale(logit_prob)
-        loglik = np.sum(
-            self.n_success * logit_prob \
-            - self.n_trial * np.log(1 + np.exp(logit_prob))
+        loglik = cp.sum(
+            self.n_success_cp * logit_prob \
+            - self.n_trial_cp * cp.log(1 + cp.exp(logit_prob))
         )
         if loglik_only:
             grad = None

@@ -1,4 +1,5 @@
 import math
+import cupy as cp
 import numpy as np
 import scipy as sp
 import scipy.sparse
@@ -19,7 +20,7 @@ class SparseRegressionCoefficientSampler():
                  stability_estimate_stabilized=False,
                  regularizing_slab_size=float('inf')):
 
-        self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
+        self.prior_sd_for_unshrunk = cp.asarray(prior_sd_for_unshrunk)
         self.n_unshrunk = len(prior_sd_for_unshrunk)
         self.regularizing_slab_size = regularizing_slab_size
 
@@ -67,13 +68,14 @@ class SparseRegressionCoefficientSampler():
             sampler is used.
         """
         # TODO: Comment on the form of the posterior.
-
-        v = design.Tdot(obs_prec * y)
+        obs_prec = cp.asarray(obs_prec)
+        v = design.Tdot(obs_prec * y, use_cupy=True)
         prior_shrunk_scale = self.compute_prior_shrunk_scale(gscale, lscale)
-        prior_sd = np.concatenate((
+        prior_sd = cp.concatenate((
             self.prior_sd_for_unshrunk, prior_shrunk_scale
         ))
         prior_prec_sqrt = 1 / prior_sd
+        prior_prec_sqrt = cp.asarray(prior_prec_sqrt)
 
         info = {}
         if method == 'cholesky':
@@ -86,9 +88,9 @@ class SparseRegressionCoefficientSampler():
             beta_precond_scale_sd = self.regcoef_summarizer.estimate_beta_precond_scale_sd()
             beta, cg_info = self.cg_sampler.sample(
                 design, obs_prec, prior_prec_sqrt, v,
-                beta_init=beta_condmean_guess,
+                beta_init=cp.asarray(beta_condmean_guess),
                 precond_by='prior',
-                beta_scaled_sd=beta_precond_scale_sd,
+                beta_scaled_sd=cp.asarray(beta_precond_scale_sd),
                 maxiter=500, atol=10e-6 * np.sqrt(design.shape[1])
             )
             self.regcoef_summarizer.update(beta, gscale, lscale)
@@ -105,6 +107,7 @@ class SparseRegressionCoefficientSampler():
 
         beta_precond_post_sd = \
             self.regcoef_summarizer.estimate_beta_precond_scale_sd()
+        beta_precond_post_sd = cp.asarray(beta_precond_post_sd)
         precond_scale, precond_prior_prec = \
             self.compute_preconditioning_scale(
                 gscale, lscale, beta_precond_post_sd, self.prior_sd_for_unshrunk
@@ -174,16 +177,16 @@ class SparseRegressionCoefficientSampler():
         n_coef = len(regcoef_precond_post_sd)
         n_unshrunk = n_coef - len(lscale)
 
-        precond_scale = np.ones(n_coef)
+        precond_scale = cp.ones(n_coef)
         precond_scale[n_unshrunk:] \
             = self.compute_prior_shrunk_scale(gscale, lscale)
         if n_unshrunk > 0:
             precond_scale[:n_unshrunk] = \
                 unshrunk_target_sd_scale * regcoef_precond_post_sd[:n_unshrunk]
 
-        precond_prior_prec = np.concatenate((
+        precond_prior_prec = cp.concatenate((
             (prior_sd_for_unshrunk / precond_scale[:n_unshrunk]) ** -2,
-            np.ones(len(lscale))
+            cp.ones(len(lscale))
         ))
 
         return precond_scale, precond_prior_prec
@@ -281,7 +284,7 @@ class SparseRegressionCoefficientSampler():
 
         if (not use_newton_method) and require_trust_region:
             warn("Trust regions are used only for Newton methods.")
-
+        lscale = cp.asarray(lscale)
         precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec \
             = self.define_function_for_optim(beta, lscale, gscale, obs_prec, model)
         if not use_newton_method:
@@ -325,7 +328,7 @@ class SparseRegressionCoefficientSampler():
 
     def define_function_for_optim(self, beta, lscale, gscale, obs_prec, model):
 
-        beta_precond_post_sd = np.ones(beta.size)
+        beta_precond_post_sd = cp.ones(beta.size)
         # No Monte Carlo estimate yet, so make some reasonable guess. It
         # probably should depend on the outcome and design matrix.
         precond_scale, precond_prior_prec = \

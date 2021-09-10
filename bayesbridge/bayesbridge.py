@@ -1,4 +1,6 @@
 import numpy as np
+import cupy as cp
+import pickle
 import math
 import time
 from .util import simplify_warnings # Monkey patch the warning format
@@ -37,6 +39,7 @@ class BayesBridge():
         self.manager = MarkovChainManager(
             self.n_obs, self.n_pred, self.n_unshrunk, model.name
         )
+        self.prior_sd_for_unshrunk = cp.asarray(self.prior_sd_for_unshrunk)
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
@@ -175,9 +178,12 @@ class BayesBridge():
         self.manager.stamp_time(start_time)
 
         # Initial state of the Markov chain
-        coef, obs_prec, lscale, gscale, init, initial_optim_info = \
-            self.initialize_chain(init, self.prior.bridge_exp)
+        with open("initial_state_10e4.pickle", "rb") as f:
+            coef, obs_prec, lscale, gscale, init, initial_optim_info = pickle.load(f)
 
+        coef = cp.asarray(coef)
+        obs_prec = cp.asarray(obs_prec)
+        lscale = cp.asarray(lscale)
         # Pre-allocate
         samples = {}
         sampling_info = {}
@@ -193,7 +199,7 @@ class BayesBridge():
                 coef, obs_prec, gscale, lscale, options.coef_sampler_type
             )
 
-            obs_prec = self.update_obs_precision(coef)
+            obs_prec = cp.asarray(self.update_obs_precision(coef))
 
             # Draw from gscale | coef and then lscale | gscale, coef.
             # (The order matters.)
@@ -278,7 +284,7 @@ class BayesBridge():
                 coef[0] = self.model.calc_intercept_mle()
 
         obs_prec = self.initialize_obs_precision(init, coef)
-
+        coef = cp.asarray(coef)
         if coef_only_specified:
             gscale = self.update_global_scale(
                 None, coef[self.n_unshrunk:], bridge_exp,
@@ -359,10 +365,12 @@ class BayesBridge():
 
             if self.model.name == 'linear':
                 y_gaussian = self.model.y
-                obs_prec = obs_prec * np.ones(self.n_obs)
+                obs_prec = obs_prec * cp.ones(self.n_obs)
             elif self.model.name == 'logit':
-                y_gaussian = (self.model.n_success - self.model.n_trial / 2) / obs_prec
+                y_gaussian = (self.model.n_success_cp - self.model.n_trial_cp / 2) / obs_prec
 
+            y_gaussian = cp.asarray(y_gaussian)
+            lscale = cp.asarray(lscale)
             coef, info = self.reg_coef_sampler.sample_gaussian_posterior(
                 y_gaussian, self.model.design, obs_prec, gscale, lscale,
                 sampling_method
@@ -388,7 +396,7 @@ class BayesBridge():
             obs_prec = 1 / obs_var
         elif self.model.name == 'logit':
             obs_prec = self.rg.polya_gamma(
-                self.model.n_trial.astype(np.intc), self.model.design.dot(coef)
+                self.model.n_trial.astype(np.intc), self.model.design.dot(coef, use_cupy=True).get()
             )
 
         return obs_prec
@@ -419,7 +427,7 @@ class BayesBridge():
                 shape, rate = prior_param['shape'], prior_param['rate']
                 shape += beta_with_shrinkage.size / bridge_exp
                 rate += np.sum(np.abs(beta_with_shrinkage) ** bridge_exp)
-                phi = self.rg.np_random.gamma(shape, scale=1 / rate)
+                phi = self.rg.np_random.gamma(shape, scale=1 / rate.get())
                 gscale = 1 / phi ** (1 / bridge_exp)
 
         if (method is not None) and gscale < lower_bd:
@@ -442,7 +450,7 @@ class BayesBridge():
     def update_local_scale(self, gscale, beta_with_shrinkage, bridge_exp):
 
         lscale_sq = .5 / self.rg.tilted_stable(
-            bridge_exp / 2, (beta_with_shrinkage / gscale) ** 2
+            bridge_exp / 2, (beta_with_shrinkage.get() / gscale) ** 2
         )
         lscale = np.sqrt(lscale_sq)
 
@@ -477,10 +485,10 @@ class BayesBridge():
             - np.sum(np.abs(coef[self.n_unshrunk:] / gscale) ** bridge_exp)
 
         # for coefficients without shrinkage.
-        prior_logp += - 1 / 2 * np.sum(
+        prior_logp += - 1 / 2 * cp.sum(
             (coef[:self.n_unshrunk] / self.prior_sd_for_unshrunk) ** 2
         )
-        prior_logp += - np.sum(np.log(
+        prior_logp += - cp.sum(cp.log(
             self.prior_sd_for_unshrunk[self.prior_sd_for_unshrunk < float('inf')]
         ))
         prior_param = self.prior.param['gscale_neg_power']

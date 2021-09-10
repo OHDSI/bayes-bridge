@@ -2,6 +2,7 @@ import math
 import time
 from warnings import warn
 import numpy as np
+import cupy as cp
 
 
 class SamplerOptions():
@@ -113,7 +114,7 @@ class MarkovChainManager():
         n_sample = math.floor(n_post_burnin / thin)  # Number of samples to keep
 
         if 'coef' in params_to_save:
-            samples['coef'] = np.zeros((self.n_pred, n_sample))
+            samples['coef'] = cp.zeros((self.n_pred, n_sample))
 
         if 'local_scale' in params_to_save:
             samples['local_scale'] = np.zeros((self.n_pred - self.n_unshrunk, n_sample))
