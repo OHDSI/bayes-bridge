@@ -192,6 +192,7 @@ class BayesBridge():
         self.manager.stamp_time(start_time)
 
         # Initial state of the Markov chain
+        import pickle
         with open("initial_state_10e4.pickle", "rb") as f:
             coef, obs_prec, lscale, gscale, init, initial_optim_info = pickle.load(f)
 

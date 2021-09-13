@@ -42,6 +42,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         self.intercept_added = add_intercept
         #self.X_main = X.tocsr()
         self.X_main_cp = cp.sparse.csr_matrix(X)
+        self.XT_main_cp = cp.sparse.csr_matrix(cp.sparse.csr_matrix(X).T)
         self.column_offset_cp = cp.asarray(self.column_offset)
 
 
@@ -107,8 +108,8 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def main_Tdot(self, v, use_cupy):
         if use_cupy:
-            X = self.X_main_cp
-            result = X.T.dot(v)
+            XT = self.XT_main_cp
+            result = XT.dot(v)
             result -= cp.sum(v) * self.column_offset_cp
         else:
             X = self.X_main
