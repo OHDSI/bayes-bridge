@@ -41,7 +41,7 @@ class ConjugateGradientSampler():
             )
 
         # Draw a target vector.
-        v = X.Tdot(omega ** (1 / 2) * cp.asarray(np.random.randn(X.shape[0]), use_cupy=True)) \
+        v = X.Tdot(omega ** (1 / 2) * cp.asarray(np.random.randn(X.shape[0])), use_cupy=True) \
             + prior_prec_sqrt * cp.asarray(np.random.randn(X.shape[1]))
         b = precond_scale * (z + v)
 
