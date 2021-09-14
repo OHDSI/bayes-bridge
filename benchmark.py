@@ -3,17 +3,28 @@ import cupy as cp
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 from simulate_data import simulate_design, simulate_outcome
 from util import mcmc_summarizer
+import util.data_manager as data_manager
 
-n_obs, n_pred = 10 ** 4, 10 ** 3
 
-X = simulate_design(
-    n_obs, n_pred, 
-    binary_frac=.9,
-    binary_pred_freq=.2,
-    shuffle_columns=True,
-    format_='sparse',
-    seed=111
+dm = data_manager.DataManager(
+    path_to_data='../gi_bleed/',
+    regress_on='treatment'
 )
+
+
+#n_obs, n_pred = 10 ** 4, 10 ** 3
+
+# X = simulate_design(
+#     n_obs, n_pred,
+#     binary_frac=.9,
+#     binary_pred_freq=.2,
+#     shuffle_columns=True,
+#     format_='sparse',
+#     seed=111
+# )
+
+y, X = dm.read_ohdsi_data()
+y = np.squeeze(y.toarray())
 
 beta_true = np.zeros(n_pred)
 beta_true[:5] = 1.5
@@ -44,9 +55,8 @@ prior = RegressionCoefPrior(
 
 bridge = BayesBridge(model, prior)
 
-
 mcmc_output = bridge.gibbs(
-    n_iter=50, n_burnin=0, thin=1, 
+    n_iter=30, n_burnin=0, thin=1,
     init={'global_scale': .01},
     coef_sampler_type='cg',
     seed=111
