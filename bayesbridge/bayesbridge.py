@@ -8,6 +8,7 @@ from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .model import LogisticModel
 from .prior import RegressionCoefPrior
 from .gibbs_util import MarkovChainManager, SamplerOptions
+from .design_matrix import SparseDesignMatrix
 
 
 class BayesBridge():
@@ -103,7 +104,7 @@ class BayesBridge():
     def gibbs(self, n_iter, n_burnin=0, thin=1, seed=None,
               init={'global_scale': 0.1}, params_to_save=('coef', 'global_scale', 'logp'),
               coef_sampler_type=None, n_status_update=0,
-              options=None, _add_iter_mode=False):
+              options=None, use_cupy=False, _add_iter_mode=False):
         """ Generate posterior samples under the specified model and prior.
 
         Parameters
@@ -183,6 +184,9 @@ class BayesBridge():
             )
             if self.model.name != 'cox':
                 params_to_save += ('obs_prec', )
+
+        if use_cupy and isinstance(self.model.design, SparseDesignMatrix):
+            self.model.design._allocate_cupy_matrix
 
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
