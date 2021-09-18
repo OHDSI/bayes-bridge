@@ -19,11 +19,11 @@ class AbstractDesignMatrix():
         pass
 
     @abc.abstractmethod
-    def dot(self, v):
+    def dot(self, v, **kwargs):
         pass
 
     @abc.abstractmethod
-    def Tdot(self, v):
+    def Tdot(self, v,  **kwargs):
         """ Multiply by the transpose of the matrix. """
         pass
 
