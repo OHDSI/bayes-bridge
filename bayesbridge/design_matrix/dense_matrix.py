@@ -31,8 +31,9 @@ class DenseDesignMatrix(AbstractDesignMatrix):
     def is_sparse(self):
         return False
 
-    def dot(self, v):
-
+    def dot(self, v, use_cupy=False):
+        if use_cupy:
+            raise NotImplementedError
         if self.memoized and np.all(self.v_prev == v):
             return self.X_dot_v
 
@@ -44,7 +45,9 @@ class DenseDesignMatrix(AbstractDesignMatrix):
 
         return result
 
-    def Tdot(self, v):
+    def Tdot(self, v, use_cupy=False):
+        if use_cupy:
+            raise NotImplementedError
         self.Tdot_count += 1
         return self.X.T.dot(v)
 
