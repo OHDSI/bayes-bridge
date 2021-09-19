@@ -91,7 +91,7 @@ class ConjugateGradientSampler():
         cg_info['valid_input'] = (info >= 0)
         cg_info['converged'] = (info == 0)
         if self.use_cupy:
-            beta = beta.get()
+            beta = cp.asnumpy(beta)
         return beta, cg_info
 
     def precondition_linear_system(
