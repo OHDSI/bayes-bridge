@@ -208,7 +208,7 @@ class BayesBridge():
         for mcmc_iter in range(1, n_iter + 1):
 
             coef, info = self.update_regress_coef(
-                coef, obs_prec, gscale, lscale, options.coef_sampler_type, use_cupy
+                coef, obs_prec, gscale, lscale, options.coef_sampler_type
             )
 
             obs_prec = self.update_obs_precision(coef)
@@ -367,7 +367,7 @@ class BayesBridge():
             obs_prec = None
         return obs_prec
 
-    def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method, use_cupy):
+    def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
 
         if sampling_method in ('cholesky', 'cg'):
 

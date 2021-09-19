@@ -101,9 +101,8 @@ class SparseRegressionCoefficientSampler():
                 beta_init=beta_condmean_guess,
                 precond_by='prior',
                 beta_scaled_sd=beta_precond_scale_sd,
-                maxiter=500, atol=10e-6 * np.sqrt(design.shape[1]),
+                maxiter=500, atol=10e-6 * np.sqrt(design.shape[1])
             )
-
             self.regcoef_summarizer.update(beta, gscale, lscale)
             info['n_cg_iter'] = cg_info['n_iter']
 
