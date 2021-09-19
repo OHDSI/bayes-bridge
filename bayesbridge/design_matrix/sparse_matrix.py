@@ -9,7 +9,7 @@ except:
 try:
     import cupy as cp
 except (ImportError, ModuleNotFoundError) as e:
-    cupy = None
+    cp = None
     cupy_exception = e
 
 
@@ -85,8 +85,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
     def main_dot(self, v, use_cupy):
         """ Multiply by the main effect part of the design matrix. """
         if use_cupy:
-            X = self.X_main_cp
-            result = X.dot(v)
+            result = self.X_main_cp.dot(v)
             result -= cp.inner(self.column_offset_cp, v)
         else:
             X = self.X_main
@@ -107,8 +106,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def main_Tdot(self, v, use_cupy):
         if use_cupy:
-            X = self.X_main_cp
-            result = X.T.dot(v)
+            result = self.X_main_cp.T.dot(v)
             result -= cp.sum(v) * self.column_offset_cp
         else:
             X = self.X_main
@@ -178,7 +176,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         pass
 
     def _allocate_cupy_matrix(self):
-        if not cupy:
+        if cp is None:
             raise cupy_exception
         self.X_main_cp = cp.sparse.csr_matrix(self.X_main)
         self.column_offset_cp = cp.asarray(self.column_offset)

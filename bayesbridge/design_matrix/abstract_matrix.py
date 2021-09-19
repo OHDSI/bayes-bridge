@@ -63,6 +63,10 @@ class AbstractDesignMatrix():
         """ Returns a 2-dimensional numpy array. """
         pass
 
+    @abc.abstractmethod
+    def _allocate_cupy_matrix(self):
+        pass
+
     @staticmethod
     def remove_intercept_indicator(X):
         if sp.sparse.issparse(X):

@@ -4,10 +4,21 @@ import scipy.sparse
 import scipy.linalg
 from warnings import warn
 
+try:
+    import cupyx.scipy.sparse.linalg
+    import cupyx as cpx
+    import cupy as cp
+except (ImportError, ModuleNotFoundError) as e:
+    cp = None
+    cupy_exception = e
+
 class ConjugateGradientSampler():
 
-    def __init__(self, n_coef_wo_shrinkage):
+    def __init__(self, n_coef_wo_shrinkage, use_cupy):
         self.n_coef_wo_shrinkage = n_coef_wo_shrinkage
+        self.use_cupy = use_cupy
+        if self.use_cupy and not cp:
+            raise cupy_exception
 
     def sample(
             self, X, omega, prior_prec_sqrt, z,
@@ -30,19 +41,31 @@ class ConjugateGradientSampler():
             without shrinkage. Used only if precond_by == 'prior'.
         precond_by : {'prior', 'diag'}
         """
-
+        if self.use_cupy:
+            beta_init = cp.asarray(beta_init)
+            beta_scaled_sd = cp.asarray(beta_scaled_sd)
+            prior_prec_sqrt = cp.asarray(prior_prec_sqrt)
+            cg = cpx.scipy.sparse.linalg.cg
+            linear_operator = cpx.scipy.sparse.linalg.LinearOperator
+        else:
+            cg = sp.sparse.linalg.cg
+            linear_operator = sp.sparse.linalg.LinearOperator
         if seed is not None:
             np.random.seed(seed)
 
         # Define a preconditioned linear operator.
         Phi_precond_op, precond_scale = \
             self.precondition_linear_system(
-                prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd
+                prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, linear_operator
             )
 
         # Draw a target vector.
-        v = X.Tdot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
-            + prior_prec_sqrt * np.random.randn(X.shape[1])
+        if self.use_cupy:
+            v = X.Tdot(omega ** (1 / 2) * cp.asarray(np.random.randn(X.shape[0])), use_cupy=self.use_cupy) \
+                + prior_prec_sqrt * cp.asarray(np.random.randn(X.shape[1]))
+        else:
+            v = X.Tdot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
+                + prior_prec_sqrt * np.random.randn(X.shape[1])
         b = precond_scale * (z + v)
 
         # Callback function to count the number of PCG iterations.
@@ -52,7 +75,7 @@ class ConjugateGradientSampler():
         # Run PCG.
         rtol = atol / np.linalg.norm(b)
         beta_scaled_init = beta_init / precond_scale
-        beta_scaled, info = sp.sparse.linalg.cg(
+        beta_scaled, info = cg(
             Phi_precond_op, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
             callback=cg_callback
         )
@@ -67,11 +90,12 @@ class ConjugateGradientSampler():
         beta = precond_scale * beta_scaled
         cg_info['valid_input'] = (info >= 0)
         cg_info['converged'] = (info == 0)
-
+        if self.use_cupy:
+            beta = beta.get()
         return beta, cg_info
 
     def precondition_linear_system(
-            self, prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd):
+            self, prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, linear_operator):
 
         # Compute the preconditioners.
         precond_scale = self.choose_preconditioner(
@@ -82,9 +106,11 @@ class ConjugateGradientSampler():
         precond_prior_prec = (precond_scale * prior_prec_sqrt) ** 2
         def Phi_precond(x):
             Phi_x = precond_prior_prec * x \
-                    + precond_scale * X.Tdot(omega * X.dot(precond_scale * x))
+                    + precond_scale * X.Tdot(omega * X.dot(precond_scale * x,
+                                                           use_cupy=self.use_cupy),
+                                             use_cupy=self.use_cupy)
             return Phi_x
-        Phi_precond_op = sp.sparse.linalg.LinearOperator(
+        Phi_precond_op = linear_operator(
             (X.shape[1], X.shape[1]), matvec=Phi_precond
         )
         return Phi_precond_op, precond_scale
@@ -103,8 +129,7 @@ class ConjugateGradientSampler():
         # Compute the diagonal (sqrt) preconditioner.
 
         if precond_by == 'prior':
-
-            precond_scale = np.ones(len(prior_prec_sqrt))
+            precond_scale = cp.ones(len(prior_prec_sqrt)) if self.use_cupy else np.ones(len(prior_prec_sqrt))
             precond_scale[self.n_coef_wo_shrinkage:] = \
                 prior_prec_sqrt[self.n_coef_wo_shrinkage:] ** -1
             if self.n_coef_wo_shrinkage > 0:

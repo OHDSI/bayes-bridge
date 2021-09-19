@@ -11,17 +11,23 @@ from .hamiltonian_monte_carlo import hmc
 from .hamiltonian_monte_carlo.nuts import NoUTurnSampler
 from .hamiltonian_monte_carlo.stepsize_adapter \
     import HamiltonianBasedStepsizeAdapter
-
+try:
+    import cupy as cp
+except (ImportError, ModuleNotFoundError) as e:
+    cp = None
+    cupy_exception = e
 
 class SparseRegressionCoefficientSampler():
 
     def __init__(self, n_coef, prior_sd_for_unshrunk, sampling_method,
                  stability_estimate_stabilized=False,
-                 regularizing_slab_size=float('inf')):
+                 regularizing_slab_size=float('inf'),
+                 use_cupy=False):
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
         self.n_unshrunk = len(prior_sd_for_unshrunk)
         self.regularizing_slab_size = regularizing_slab_size
+        self.use_cupy = use_cupy
 
         # Object for keeping track of running average.
         self.regcoef_summarizer = RegressionCoeffficientPosteriorSummarizer(
@@ -29,8 +35,9 @@ class SparseRegressionCoefficientSampler():
             pc_summary_method='average'
         )
         if sampling_method == 'cg':
-            self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk)
+            self.cg_sampler = ConjugateGradientSampler(self.n_unshrunk, self.use_cupy)
         elif sampling_method in ['hmc', 'nuts']:
+            # TODO add message saying cupy only implemented for cg
             self.stability_adjustment_adapter = \
                 HamiltonianBasedStepsizeAdapter(init_stepsize=.3, target_accept_prob=.95)
             self.stability_est_stabilizer = StabilityEstimateStabilizer()
@@ -67,8 +74,13 @@ class SparseRegressionCoefficientSampler():
             sampler is used.
         """
         # TODO: Comment on the form of the posterior.
+        if self.use_cupy:
+            if cp is None:
+                raise cupy_exception
+            obs_prec = cp.asarray(obs_prec)
+            y = cp.asarray(y)
 
-        v = design.Tdot(obs_prec * y)
+        v = design.Tdot(obs_prec * y, use_cupy=self.use_cupy)
         prior_shrunk_scale = self.compute_prior_shrunk_scale(gscale, lscale)
         prior_sd = np.concatenate((
             self.prior_sd_for_unshrunk, prior_shrunk_scale
@@ -89,8 +101,9 @@ class SparseRegressionCoefficientSampler():
                 beta_init=beta_condmean_guess,
                 precond_by='prior',
                 beta_scaled_sd=beta_precond_scale_sd,
-                maxiter=500, atol=10e-6 * np.sqrt(design.shape[1])
+                maxiter=500, atol=10e-6 * np.sqrt(design.shape[1]),
             )
+
             self.regcoef_summarizer.update(beta, gscale, lscale)
             info['n_cg_iter'] = cg_info['n_iter']
 

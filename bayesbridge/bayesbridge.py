@@ -8,7 +8,6 @@ from .reg_coef_sampler import SparseRegressionCoefficientSampler
 from .model import LogisticModel
 from .prior import RegressionCoefPrior
 from .gibbs_util import MarkovChainManager, SamplerOptions
-from .design_matrix import SparseDesignMatrix
 
 
 class BayesBridge():
@@ -175,7 +174,8 @@ class BayesBridge():
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
                 self.n_pred, self.prior_sd_for_unshrunk,
                 options.coef_sampler_type, options.curvature_est_stabilized,
-                self.prior.slab_size
+                self.prior.slab_size,
+                use_cupy
             )
 
         if params_to_save == 'all':
@@ -185,8 +185,8 @@ class BayesBridge():
             if self.model.name != 'cox':
                 params_to_save += ('obs_prec', )
 
-        if use_cupy and isinstance(self.model.design, SparseDesignMatrix):
-            self.model.design._allocate_cupy_matrix
+        if use_cupy:
+            self.model.design._allocate_cupy_matrix()
 
         n_status_update = min(n_iter, n_status_update)
         start_time = time.time()
@@ -208,7 +208,7 @@ class BayesBridge():
         for mcmc_iter in range(1, n_iter + 1):
 
             coef, info = self.update_regress_coef(
-                coef, obs_prec, gscale, lscale, options.coef_sampler_type
+                coef, obs_prec, gscale, lscale, options.coef_sampler_type, use_cupy
             )
 
             obs_prec = self.update_obs_precision(coef)
@@ -367,7 +367,7 @@ class BayesBridge():
             obs_prec = None
         return obs_prec
 
-    def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
+    def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method, use_cupy):
 
         if sampling_method in ('cholesky', 'cg'):
 
