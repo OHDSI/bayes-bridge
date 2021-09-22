@@ -42,7 +42,6 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         else:
             self.column_offset = np.zeros(X.shape[1])
         self.intercept_added = add_intercept
-
         if self.use_cupy and (cp is None):
             raise cupy_exception
         elif self.use_cupy:
@@ -69,8 +68,6 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return self.X_main.nnz
 
     def dot(self, v):
-        input_is_cupy = isinstance(v, cp._core.core.ndarray)
-
         if self.memoized:
             if np.all(self.v_prev == v):
                 return self.X_dot_v
@@ -80,14 +77,13 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         if self.intercept_added:
             intercept_effect += v[0]
             v = v[1:]
-
         if self.use_cupy:
+            input_is_cupy = isinstance(v, cp._core.core.ndarray)
             result = intercept_effect + self.main_dot(cp.asarray(v))
             if not input_is_cupy:
                 result = cp.asnumpy(result)
         else:
             result = intercept_effect + self.main_dot(v)
-
         if self.memoized:
             self.X_dot_v = result
         self.dot_count += 1
@@ -111,8 +107,8 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return result
 
     def Tdot(self, v):
-        input_is_cupy = isinstance(v, cp._core.core.ndarray)
         if self.use_cupy:
+            input_is_cupy = isinstance(v, cp._core.core.ndarray)
             v = cp.asarray(v)
             result = self.main_Tdot(cp.asarray(v))
             if self.intercept_added:

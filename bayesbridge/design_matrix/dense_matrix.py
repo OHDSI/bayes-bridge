@@ -15,7 +15,7 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         """
         if use_cupy:
             warn("cupy not supported for dense matrices, will continue with scipy.")
-        self.use_cupy=False
+        self.use_cupy = False
         if copy_array:
             X = X.copy()
         super().__init__()
