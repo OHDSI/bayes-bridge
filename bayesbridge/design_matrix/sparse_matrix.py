@@ -6,12 +6,16 @@ try:
     from .mkl_matvec import mkl_csr_matvec
 except:
     mkl_csr_matvec = None
-
+try:
+    import cupy as cp
+except (ImportError, ModuleNotFoundError) as e:
+    cp = None
+    cupy_exception = e
 
 class SparseDesignMatrix(AbstractDesignMatrix):
 
     def __init__(self, X, use_mkl=True, center_predictor=False, add_intercept=True,
-                 copy_array=False, dot_format='csr', Tdot_format='csr'):
+                 copy_array=False, dot_format='csr', Tdot_format='csr', use_cupy=False):
         """
         Params:
         ------
@@ -31,15 +35,21 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             warn("Could not load MKL Library. Will use Scipy's 'dot'.")
             use_mkl = False
         self.use_mkl = use_mkl
-
+        self.use_cupy = use_cupy
         self.centered = center_predictor
         if center_predictor:
             self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
         else:
             self.column_offset = np.zeros(X.shape[1])
-
         self.intercept_added = add_intercept
-        self.X_main = X.tocsr()
+
+        if self.use_cupy and (cp is None):
+            raise cupy_exception
+        elif self.use_cupy:
+            self.X_main = cp.sparse.csr_matrix(X)
+            self.column_offset = cp.asarray(self.column_offset)
+        else:
+            self.X_main = X.tocsr()
 
     @property
     def shape(self):
@@ -59,6 +69,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return self.X_main.nnz
 
     def dot(self, v):
+        input_is_cupy = isinstance(v, cp._core.core.ndarray)
 
         if self.memoized:
             if np.all(self.v_prev == v):
@@ -69,8 +80,14 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         if self.intercept_added:
             intercept_effect += v[0]
             v = v[1:]
-        result = intercept_effect + self.main_dot(v)
-        
+
+        if self.use_cupy:
+            result = intercept_effect + self.main_dot(cp.asarray(v))
+            if not input_is_cupy:
+                result = cp.asnumpy(result)
+        else:
+            result = intercept_effect + self.main_dot(v)
+
         if self.memoized:
             self.X_dot_v = result
         self.dot_count += 1
@@ -79,25 +96,52 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def main_dot(self, v):
         """ Multiply by the main effect part of the design matrix. """
+        type_v = type(v)
         X = self.X_main
-        result = mkl_csr_matvec(X, v) if self.use_mkl else X.dot(v)
-        result -= np.inner(self.column_offset, v)
+        if self.use_cupy:
+            result = X.dot(v)
+            result -= cp.inner(self.column_offset, v)
+        elif self.use_mkl:
+            result = mkl_csr_matvec(X, v)
+            result -= np.inner(self.column_offset, v)
+        else:
+            result = X.dot(v)
+            result -= np.inner(self.column_offset, v)
         if self.memoized:
             self.X_dot_v = result
+        assert type_v == type(result)
         return result
 
     def Tdot(self, v):
-        result = self.main_Tdot(v)
-        if self.intercept_added:
-            result = np.concatenate(([np.sum(v)], result))
+        type_v = type(v)
+        input_is_cupy = isinstance(v, cp._core.core.ndarray)
+        if self.use_cupy:
+            v = cp.asarray(v)
+            result = self.main_Tdot(cp.asarray(v))
+            if self.intercept_added:
+                result = cp.concatenate((cp.asarray([cp.sum(v)]), result))
+        else:
+            result = self.main_Tdot(v)
+            if self.intercept_added:
+                result = np.concatenate(([np.sum(v)], result))
         self.Tdot_count += 1
+
+        if self.use_cupy and not input_is_cupy:
+            result = cp.asnumpy(result)
+        assert type_v == type(result)
         return result
 
     def main_Tdot(self, v):
         X = self.X_main
-        result = mkl_csr_matvec(X, v, transpose=True) \
-            if self.use_mkl else X.T.dot(v)
-        result -= np.sum(v) * self.column_offset
+        if self.use_cupy:
+            result = X.T.dot(v)
+            result -= cp.sum(v) * self.column_offset
+        elif self.use_mkl:
+            result = mkl_csr_matvec(X, v, transpose=True)
+            result -= np.sum(v) * self.column_offset
+        else:
+            result = X.T.dot(v)
+            result -= np.sum(v) * self.column_offset
         return result
 
     def compute_fisher_info(self, weight, diag_only=False):

@@ -11,7 +11,11 @@ from .hamiltonian_monte_carlo import hmc
 from .hamiltonian_monte_carlo.nuts import NoUTurnSampler
 from .hamiltonian_monte_carlo.stepsize_adapter \
     import HamiltonianBasedStepsizeAdapter
-
+try:
+    import cupy as cp
+except (ImportError, ModuleNotFoundError) as e:
+    cp = None
+    cupy_exception = e
 
 class SparseRegressionCoefficientSampler():
 
@@ -67,8 +71,12 @@ class SparseRegressionCoefficientSampler():
             sampler is used.
         """
         # TODO: Comment on the form of the posterior.
-
-        v = design.Tdot(obs_prec * y)
+        if design.use_cupy:
+            obs_prec = cp.asarray(obs_prec)
+            y = cp.asarray(y)
+            v = design.Tdot(obs_prec * y).get()
+        else:
+            v = design.Tdot(obs_prec * y)
         prior_shrunk_scale = self.compute_prior_shrunk_scale(gscale, lscale)
         prior_sd = np.concatenate((
             self.prior_sd_for_unshrunk, prior_shrunk_scale
