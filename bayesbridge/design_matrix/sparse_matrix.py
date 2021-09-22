@@ -96,7 +96,6 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def main_dot(self, v):
         """ Multiply by the main effect part of the design matrix. """
-        type_v = type(v)
         X = self.X_main
         if self.use_cupy:
             result = X.dot(v)
@@ -109,11 +108,9 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             result -= np.inner(self.column_offset, v)
         if self.memoized:
             self.X_dot_v = result
-        assert type_v == type(result)
         return result
 
     def Tdot(self, v):
-        type_v = type(v)
         input_is_cupy = isinstance(v, cp._core.core.ndarray)
         if self.use_cupy:
             v = cp.asarray(v)
@@ -128,7 +125,6 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
         if self.use_cupy and not input_is_cupy:
             result = cp.asnumpy(result)
-        assert type_v == type(result)
         return result
 
     def main_Tdot(self, v):
