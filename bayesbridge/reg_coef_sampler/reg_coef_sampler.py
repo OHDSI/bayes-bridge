@@ -74,9 +74,7 @@ class SparseRegressionCoefficientSampler():
         if design.use_cupy:
             obs_prec = cp.asarray(obs_prec)
             y = cp.asarray(y)
-            v = design.Tdot(obs_prec * y).get()
-        else:
-            v = design.Tdot(obs_prec * y)
+        v = design.Tdot(obs_prec * y)
         prior_shrunk_scale = self.compute_prior_shrunk_scale(gscale, lscale)
         prior_sd = np.concatenate((
             self.prior_sd_for_unshrunk, prior_shrunk_scale

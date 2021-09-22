@@ -41,7 +41,6 @@ class ConjugateGradientSampler():
             beta_init = cp.asarray(beta_init)
             beta_scaled_sd = cp.asarray(beta_scaled_sd)
             prior_prec_sqrt = cp.asarray(prior_prec_sqrt)
-            z = cp.asarray(z)
             cg = cpx.scipy.sparse.linalg.cg
             linear_operator = cpx.scipy.sparse.linalg.LinearOperator
         else:
