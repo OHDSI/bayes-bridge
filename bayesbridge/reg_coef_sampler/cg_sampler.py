@@ -56,12 +56,13 @@ class ConjugateGradientSampler():
             )
 
         # Draw a target vector.
+        randn_vec_1 = np.random.randn(X.shape[0])
+        randn_vec_2 = np.random.randn(X.shape[1])
         if X.use_cupy:
-            v = X.Tdot(omega ** (1 / 2) * cp.asarray(np.random.randn(X.shape[0]))) \
-                + prior_prec_sqrt * cp.asarray(np.random.randn(X.shape[1]))
-        else:
-            v = X.Tdot(omega ** (1 / 2) * np.random.randn(X.shape[0])) \
-                + prior_prec_sqrt * np.random.randn(X.shape[1])
+            randn_vec_1 = cp.asarray(randn_vec_1)
+            randn_vec_2 = cp.asarray(randn_vec_2)
+        v = X.Tdot(omega ** (1 / 2) * randn_vec_1) \
+            + prior_prec_sqrt * randn_vec_2
         b = precond_scale * (z + v)
 
         # Callback function to count the number of PCG iterations.
