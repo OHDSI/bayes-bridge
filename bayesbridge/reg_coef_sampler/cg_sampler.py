@@ -42,17 +42,17 @@ class ConjugateGradientSampler():
             beta_scaled_sd = cp.asarray(beta_scaled_sd)
             prior_prec_sqrt = cp.asarray(prior_prec_sqrt)
             cg = cpx.scipy.sparse.linalg.cg
-            linear_operator = cpx.scipy.sparse.linalg.LinearOperator
+            LinearOperator = cpx.scipy.sparse.linalg.LinearOperator
         else:
             cg = sp.sparse.linalg.cg
-            linear_operator = sp.sparse.linalg.LinearOperator
+            LinearOperator = sp.sparse.linalg.LinearOperator
         if seed is not None:
             np.random.seed(seed)
 
         # Define a preconditioned linear operator.
         Phi_precond_op, precond_scale = \
             self.precondition_linear_system(
-                prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, linear_operator
+                prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, LinearOperator
             )
 
         # Draw a target vector.
@@ -91,7 +91,7 @@ class ConjugateGradientSampler():
         return beta, cg_info
 
     def precondition_linear_system(
-            self, prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, linear_operator):
+            self, prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, LinearOperator):
 
         # Compute the preconditioners.
         precond_scale = self.choose_preconditioner(
@@ -104,7 +104,7 @@ class ConjugateGradientSampler():
             Phi_x = precond_prior_prec * x \
                     + precond_scale * X.Tdot(omega * X.dot(precond_scale * x))
             return Phi_x
-        Phi_precond_op = linear_operator(
+        Phi_precond_op = LinearOperator(
             (X.shape[1], X.shape[1]), matvec=Phi_precond
         )
         return Phi_precond_op, precond_scale
