@@ -73,7 +73,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
                 return self.X_dot_v
             self.v_prev = v.copy()
 
-        input_is_cupy = isinstance(v, cp._core.core.ndarray)
+        input_is_cupy = (cp is not None) and isinstance(v, cp._core.core.ndarray)
         if self.use_cupy and not input_is_cupy:
             v = cp.asarray(v)
         intercept_effect = 0.
@@ -103,7 +103,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return result
 
     def Tdot(self, v):
-        input_is_cupy = isinstance(v, cp._core.core.ndarray)
+        input_is_cupy = (cp is not None) and isinstance(v, cp._core.core.ndarray)
         if self.use_cupy and not input_is_cupy:
             v = cp.asarray(v)
 
