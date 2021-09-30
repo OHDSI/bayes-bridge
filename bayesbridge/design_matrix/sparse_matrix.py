@@ -73,17 +73,16 @@ class SparseDesignMatrix(AbstractDesignMatrix):
                 return self.X_dot_v
             self.v_prev = v.copy()
 
+        input_is_cupy = isinstance(v, cp._core.core.ndarray)
+        if self.use_cupy and not input_is_cupy:
+            v = cp.asarray(v)
         intercept_effect = 0.
         if self.intercept_added:
             intercept_effect += v[0]
             v = v[1:]
-        if self.use_cupy:
-            input_is_cupy = isinstance(v, cp._core.core.ndarray)
-            result = intercept_effect + self.main_dot(cp.asarray(v))
-            if not input_is_cupy:
-                result = cp.asnumpy(result)
-        else:
-            result = intercept_effect + self.main_dot(v)
+        result = intercept_effect + self.main_dot(v)
+        if self.use_cupy and not input_is_cupy:
+            result = cp.asnumpy(result)
         if self.memoized:
             self.X_dot_v = result
         self.dot_count += 1
@@ -93,29 +92,27 @@ class SparseDesignMatrix(AbstractDesignMatrix):
     def main_dot(self, v):
         """ Multiply by the main effect part of the design matrix. """
         X = self.X_main
-        if self.use_cupy:
-            result = X.dot(v)
-            result -= cp.inner(self.column_offset, v)
-        elif self.use_mkl:
+        if self.use_mkl:
             result = mkl_csr_matvec(X, v)
-            result -= np.inner(self.column_offset, v)
         else:
             result = X.dot(v)
-            result -= np.inner(self.column_offset, v)
+        inner = cp.inner if self.use_cupy else np.inner
+        result -= inner(self.column_offset, v)
         if self.memoized:
             self.X_dot_v = result
         return result
 
     def Tdot(self, v):
-        if self.use_cupy:
-            input_is_cupy = isinstance(v, cp._core.core.ndarray)
+        input_is_cupy = isinstance(v, cp._core.core.ndarray)
+        if self.use_cupy and not input_is_cupy:
             v = cp.asarray(v)
-            result = self.main_Tdot(cp.asarray(v))
-            if self.intercept_added:
+
+        result = self.main_Tdot(v)
+
+        if self.intercept_added:
+            if self.use_cupy:
                 result = cp.concatenate((cp.asarray([cp.sum(v)]), result))
-        else:
-            result = self.main_Tdot(v)
-            if self.intercept_added:
+            else:
                 result = np.concatenate(([np.sum(v)], result))
         self.Tdot_count += 1
 
@@ -125,15 +122,12 @@ class SparseDesignMatrix(AbstractDesignMatrix):
 
     def main_Tdot(self, v):
         X = self.X_main
-        if self.use_cupy:
-            result = X.T.dot(v)
-            result -= cp.sum(v) * self.column_offset
-        elif self.use_mkl:
+        if self.use_mkl:
             result = mkl_csr_matvec(X, v, transpose=True)
-            result -= np.sum(v) * self.column_offset
         else:
             result = X.T.dot(v)
-            result -= np.sum(v) * self.column_offset
+        sum = cp.sum if self.use_cupy else np.sum
+        result -= sum(v) * self.column_offset
         return result
 
     def compute_fisher_info(self, weight, diag_only=False):
