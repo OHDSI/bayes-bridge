@@ -37,16 +37,14 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         self.intercept_added = add_intercept
         self.use_mkl = use_mkl
         self.use_cupy = self.is_cupy_sparse(X)
+        squeeze, array, zeros = (cp.squeeze, cp.array, cp.zeros) if self.use_cupy \
+            else (np.squeeze, np.array, np.zeros)
         if center_predictor:
-            self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
+            self.column_offset = squeeze(array(X.mean(axis=0)))
         else:
-            self.column_offset = np.zeros(X.shape[1])
+            self.column_offset = zeros(X.shape[1])
         X = self.remove_intercept_indicator(X)
-        if self.use_cupy:
-            self.X_main = cp.sparse.csr_matrix(X)
-            self.column_offset = cp.asarray(self.column_offset)
-        else:
-            self.X_main = X.tocsr()
+        self.X_main = cp.sparse.csr_matrix(X) if self.use_cupy else X.tocsr()
 
     @property
     def shape(self):
