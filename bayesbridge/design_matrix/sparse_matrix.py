@@ -12,10 +12,11 @@ except (ImportError, ModuleNotFoundError) as e:
     cp = None
     cupy_exception = e
 
+
 class SparseDesignMatrix(AbstractDesignMatrix):
 
     def __init__(self, X, use_mkl=True, center_predictor=False, add_intercept=True,
-                 copy_array=False, dot_format='csr', Tdot_format='csr', use_cupy=False):
+                 copy_array=False, dot_format='csr', Tdot_format='csr'):
         """
         Params:
         ------
@@ -28,27 +29,21 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             raise NotImplementedError(
                 "Current dot operations are only implemented for the CSR format."
             )
-        X = X.tocsr()
-        X = self.remove_intercept_indicator(X)
-
-        if use_mkl and (mkl_csr_matvec is None):
+        self.use_cupy = self.is_cupy_sparse(X)
+        if use_mkl and (mkl_csr_matvec is None) and (not self.use_cupy):
             warn("Could not load MKL Library. Will use Scipy's 'dot'.")
             use_mkl = False
-        self.use_mkl = use_mkl
-        self.use_cupy = use_cupy
         self.centered = center_predictor
-        if center_predictor:
-            self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
-        else:
-            self.column_offset = np.zeros(X.shape[1])
         self.intercept_added = add_intercept
-        if self.use_cupy and (cp is None):
-            raise cupy_exception
-        elif self.use_cupy:
-            self.X_main = cp.sparse.csr_matrix(X)
-            self.column_offset = cp.asarray(self.column_offset)
+        self.use_mkl = (not self.use_cupy) and use_mkl
+        X = self.remove_intercept_indicator(X)
+        squeeze, array, zeros = (cp.squeeze, cp.array, cp.zeros) if self.use_cupy \
+            else (np.squeeze, np.array, np.zeros)
+        if center_predictor:
+            self.column_offset = squeeze(array(X.mean(axis=0)))
         else:
-            self.X_main = X.tocsr()
+            self.column_offset = zeros(X.shape[1])
+        self.X_main = cp.sparse.csr_matrix(X) if self.use_cupy else X.tocsr()
 
     @property
     def shape(self):
@@ -73,7 +68,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
                 return self.X_dot_v
             self.v_prev = v.copy()
 
-        input_is_cupy = (cp is not None) and isinstance(v, cp._core.core.ndarray)
+        input_is_cupy = (cp is not None) and isinstance(v, cp.ndarray)
         if self.use_cupy and not input_is_cupy:
             v = cp.asarray(v)
         intercept_effect = 0.
@@ -103,7 +98,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return result
 
     def Tdot(self, v):
-        input_is_cupy = (cp is not None) and isinstance(v, cp._core.core.ndarray)
+        input_is_cupy = (cp is not None) and isinstance(v, cp.ndarray)
         if self.use_cupy and not input_is_cupy:
             v = cp.asarray(v)
 

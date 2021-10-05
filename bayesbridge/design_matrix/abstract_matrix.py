@@ -3,6 +3,13 @@ import numpy as np
 import scipy as sp
 import scipy.sparse
 import warnings
+try:
+    import cupy as cp
+    import cupyx as cpx
+except (ImportError, ModuleNotFoundError) as e:
+    cp = None
+    cupy_exception = e
+
 
 class AbstractDesignMatrix():
 
@@ -64,11 +71,15 @@ class AbstractDesignMatrix():
         pass
 
     @staticmethod
+    def is_cupy_sparse(X):
+        return isinstance(X, cpx.scipy.sparse.spmatrix) if cp and cpx else False
+
+    @staticmethod
     def remove_intercept_indicator(X):
-        if sp.sparse.issparse(X):
-            col_variance = np.squeeze(np.array(
-                X.power(2).mean(axis=0) - np.power(X.mean(axis=0), 2)
-            ))
+        squeeze, array, power = (cp.squeeze, cp.array, cp.power) if \
+            AbstractDesignMatrix.is_cupy_sparse(X) else (np.squeeze, np.array, np.power)
+        if sp.sparse.issparse(X) or AbstractDesignMatrix.is_cupy_sparse(X):
+            col_variance = squeeze(array(X.power(2).mean(axis=0) - power(X.mean(axis=0), 2)))
         else:
             col_variance = np.var(X, axis=0)
         has_zero_variance = (col_variance < X.shape[0] * 2 ** -52)

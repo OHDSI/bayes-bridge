@@ -8,7 +8,7 @@ from ..design_matrix import DenseDesignMatrix, SparseDesignMatrix
 
 def RegressionModel(
         outcome, X, family='linear',
-        add_intercept=None, center_predictor=True, use_cupy=False
+        add_intercept=None, center_predictor=True
     ):
     """ Prepare input data to BayesBridge, with pre-processings as needed.
 
@@ -40,10 +40,10 @@ def RegressionModel(
             event_time, censoring_time, X
         )
 
-    is_sparse = sp.sparse.issparse(X)
+    is_sparse = sp.sparse.issparse(X) or SparseDesignMatrix.is_cupy_sparse(X)
     DesignMatrix = SparseDesignMatrix if is_sparse else DenseDesignMatrix
     design = DesignMatrix(
-        X, add_intercept=add_intercept, center_predictor=center_predictor, use_cupy=use_cupy
+        X, add_intercept=add_intercept, center_predictor=center_predictor
     )
 
     if family == 'linear':
