@@ -76,14 +76,10 @@ class AbstractDesignMatrix():
 
     @staticmethod
     def remove_intercept_indicator(X):
-        if AbstractDesignMatrix.is_cupy_sparse(X):
-            col_variance = cp.squeeze(cp.array(
-                X.power(2).mean(axis=0) - cp.power(X.mean(axis=0), 2)
-            ))
-        elif sp.sparse.issparse(X):
-            col_variance = np.squeeze(np.array(
-                X.power(2).mean(axis=0) - np.power(X.mean(axis=0), 2)
-            ))
+        squeeze, array, power = (cp.squeeze, cp.array, cp.power) if \
+            AbstractDesignMatrix.is_cupy_sparse(X) else (np.squeeze, np.array, np.power)
+        if sp.sparse.issparse(X) or AbstractDesignMatrix.is_cupy_sparse(X):
+            col_variance = squeeze(array(X.power(2).mean(axis=0) - power(X.mean(axis=0), 2)))
         else:
             col_variance = np.var(X, axis=0)
         has_zero_variance = (col_variance < X.shape[0] * 2 ** -52)
