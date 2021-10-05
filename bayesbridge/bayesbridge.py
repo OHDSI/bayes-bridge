@@ -283,7 +283,7 @@ class BayesBridge():
         coef_only_specified = 'coef' in init and ('global_scale' not in init)
 
         if 'coef' in init:
-            coef = init['coef']
+            coef = init['coef'].copy()
             if not len(coef) == self.n_pred:
                 raise ValueError('Invalid initial length of regression coefficient.')
         else:
@@ -310,7 +310,7 @@ class BayesBridge():
                      "the specified initial value is scaled accordingly.")
             gscale = init['global_scale']
             if 'local_scale' in init:
-                lscale = init['local_scale']
+                lscale = init['local_scale'].copy()
                 if not len(lscale) == (self.n_pred - self.n_unshrunk):
                     raise ValueError('Invalid initial length of local scale parameter')
             else:
@@ -348,7 +348,7 @@ class BayesBridge():
 
     def initialize_obs_precision(self, init, coef):
         if 'obs_prec' in init:
-            obs_prec = np.ascontiguousarray(init['obs_prec'])
+            obs_prec = init['obs_prec'].copy(order='C')
             # Cython requires a C-contiguous array.
             if not len(obs_prec) == self.n_obs:
                 raise ValueError('An invalid initial state.')
