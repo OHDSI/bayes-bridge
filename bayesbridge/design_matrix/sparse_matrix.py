@@ -30,23 +30,23 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             raise NotImplementedError(
                 "Current dot operations are only implemented for the CSR format."
             )
-        X = X.tocsr()
-        X = self.remove_intercept_indicator(X)
-
         if use_mkl and (mkl_csr_matvec is None):
             warn("Could not load MKL Library. Will use Scipy's 'dot'.")
             use_mkl = False
-        self.use_mkl = use_mkl
-        self.use_cupy = isinstance(cpx.scipy.sparse.csr.csr_matrix)
         self.centered = center_predictor
+        self.intercept_added = add_intercept
+        self.use_mkl = use_mkl
+        if cp and cpx:
+            self.use_cupy = isinstance(X, cpx.scipy.sparse.spmatrix) or isinstance(X, cp.ndarray)
+        else:
+            self.use_cupy = False
+
         if center_predictor:
             self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
         else:
             self.column_offset = np.zeros(X.shape[1])
-        self.intercept_added = add_intercept
-        if self.use_cupy and (cp is None):
-            raise cupy_exception
-        elif self.use_cupy:
+        X = self.remove_intercept_indicator(X)
+        if self.use_cupy:
             self.X_main = cp.sparse.csr_matrix(X)
             self.column_offset = cp.asarray(self.column_offset)
         else:

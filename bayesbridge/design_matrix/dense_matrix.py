@@ -7,14 +7,12 @@ from .abstract_matrix import AbstractDesignMatrix
 class DenseDesignMatrix(AbstractDesignMatrix):
     
     def __init__(self, X, center_predictor=False, add_intercept=True,
-                 copy_array=False, use_cupy=False):
+                 copy_array=False):
         """
         Params:
         ------
         X : numpy array
         """
-        if use_cupy:
-            warn("cupy not supported for dense matrices, will continue with scipy.")
         self.use_cupy = False
         if copy_array:
             X = X.copy()
