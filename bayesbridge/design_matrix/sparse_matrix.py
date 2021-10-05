@@ -35,7 +35,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             use_mkl = False
         self.centered = center_predictor
         self.intercept_added = add_intercept
-        self.use_mkl = use_mkl
+        self.use_mkl = use_mkl if not self.use_cupy else False
         X = self.remove_intercept_indicator(X)
         squeeze, array, zeros = (cp.squeeze, cp.array, cp.zeros) if self.use_cupy \
             else (np.squeeze, np.array, np.zeros)
