@@ -40,7 +40,7 @@ def RegressionModel(
             event_time, censoring_time, X
         )
 
-    is_sparse = sp.sparse.issparse(X)
+    is_sparse = sp.sparse.issparse(X) or SparseDesignMatrix.is_cupy_sparse(X)
     DesignMatrix = SparseDesignMatrix if is_sparse else DenseDesignMatrix
     design = DesignMatrix(
         X, add_intercept=add_intercept, center_predictor=center_predictor

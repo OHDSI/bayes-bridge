@@ -36,11 +36,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         self.centered = center_predictor
         self.intercept_added = add_intercept
         self.use_mkl = use_mkl
-        if cp and cpx:
-            self.use_cupy = isinstance(X, cpx.scipy.sparse.spmatrix) or isinstance(X, cp.ndarray)
-        else:
-            self.use_cupy = False
-
+        self.use_cupy = self.is_cupy_sparse(X)
         if center_predictor:
             self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
         else:

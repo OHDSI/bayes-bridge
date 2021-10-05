@@ -71,13 +71,15 @@ class AbstractDesignMatrix():
         pass
 
     @staticmethod
+    def is_cupy_sparse(X):
+        return isinstance(X, cpx.scipy.sparse.spmatrix) if cp and cpx else False
+
+    @staticmethod
     def remove_intercept_indicator(X):
-        if cp and cpx and isinstance(X, cpx.scipy.sparse.spmatrix):
+        if AbstractDesignMatrix.is_cupy_sparse(X):
             col_variance = cp.squeeze(cp.array(
                 X.power(2).mean(axis=0) - cp.power(X.mean(axis=0), 2)
             ))
-        elif cp and cpx and isinstance(X, cp.ndarray):
-            col_variance = cp.var(X, axis=0)
         elif sp.sparse.issparse(X):
             col_variance = np.squeeze(np.array(
                 X.power(2).mean(axis=0) - np.power(X.mean(axis=0), 2)
