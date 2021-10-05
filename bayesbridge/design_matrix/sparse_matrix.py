@@ -8,14 +8,16 @@ except:
     mkl_csr_matvec = None
 try:
     import cupy as cp
+    import cupyx as cpx
 except (ImportError, ModuleNotFoundError) as e:
     cp = None
     cupy_exception = e
 
+
 class SparseDesignMatrix(AbstractDesignMatrix):
 
     def __init__(self, X, use_mkl=True, center_predictor=False, add_intercept=True,
-                 copy_array=False, dot_format='csr', Tdot_format='csr', use_cupy=False):
+                 copy_array=False, dot_format='csr', Tdot_format='csr'):
         """
         Params:
         ------
@@ -35,7 +37,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
             warn("Could not load MKL Library. Will use Scipy's 'dot'.")
             use_mkl = False
         self.use_mkl = use_mkl
-        self.use_cupy = use_cupy
+        self.use_cupy = isinstance(cpx.scipy.sparse.csr.csr_matrix)
         self.centered = center_predictor
         if center_predictor:
             self.column_offset = np.squeeze(np.array(X.mean(axis=0)))
