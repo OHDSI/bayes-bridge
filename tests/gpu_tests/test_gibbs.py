@@ -1,3 +1,4 @@
+"""Tests for GPU functionality. Depends on cupy being installed, so not run on CI."""
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 import cupy as cp
 import numpy as np
