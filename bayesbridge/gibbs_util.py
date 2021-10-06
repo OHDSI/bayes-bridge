@@ -51,6 +51,8 @@ class SamplerOptions():
             n_obs, n_pred = design.shape
             if not design.is_sparse:
                 preferred_method = 'cholesky'
+            elif design.use_cupy:
+                preferred_method = 'cg'
             else:
                 # TODO: Make more informed choice between Cholesky and CG.
                 frac = design.nnz / (n_obs * n_pred)
