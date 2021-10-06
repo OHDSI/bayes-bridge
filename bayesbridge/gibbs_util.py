@@ -46,6 +46,9 @@ class SamplerOptions():
         if coef_sampler_type not in (None, 'cholesky', 'cg', 'hmc'):
             raise ValueError("Unsupported sampler type.")
 
+        if coef_sampler_type not in (None, 'cg') and design.use_cupy:
+            raise ValueError("Only 'cg' sampler supported with cupy matrices.")
+
         if model_name in ('linear', 'logit'):
 
             n_obs, n_pred = design.shape
