@@ -51,7 +51,7 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
 
     if restart_in_middle:
         reinit_bridge = BayesBridge(model, prior)
-        samples, mcmc_info = reinit_bridge.gibbs_additional_iter(
+        samples, mcmc_info = reinit_bridge.gibbs_resume(
             mcmc_info, n_post_burnin, merge=True, prev_samples=samples
         )
 

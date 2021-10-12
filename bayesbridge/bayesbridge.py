@@ -40,7 +40,7 @@ class BayesBridge():
 
     # TODO: write a test to ensure that the output when resuming the Gibbs
     # sampler coincide with that without interruption.
-    def gibbs_additional_iter(
+    def gibbs_resume(
             self, prev_mcmc_info, n_add_iter, n_status_update=0,
             merge=False, prev_samples=None):
         """ Resume Gibbs sampler from the last state.
