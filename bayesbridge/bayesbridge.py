@@ -49,18 +49,24 @@ class BayesBridge():
         ---------
         prev_mcmc_info : dict
             MCMC info returned by a previous call to the `gibbs` method.
-        n_iter : int
+        n_add_iter : int
+            Number of additional iterations.
         n_status_update : int
+            Number of updates to print on stdout during the sampler run.
         merge : bool
             If True, merge the Gibbs sampler outputs from the previous and
-            new runs and then return.
+            new runs, so that the return values coincide with one combined run
+            of `gibbs` with the `n_burnin` burn-in and `n_iter + n_add_iter`
+            post-burnin iterations.
         prev_samples : dict
             MCMC samples returned by a previous call to the 'gibbs' method.
 
         Returns
         -------
         new_samples : dict
+          See the documentation for `gibbs()`.
         new_mcmc_info : dict
+          See the documentation for `gibbs()`.
         """
 
         if merge and prev_samples is None:
