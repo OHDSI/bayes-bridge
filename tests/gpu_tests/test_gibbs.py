@@ -1,12 +1,10 @@
 """Tests for GPU functionality. Depends on cupy being installed, so not run on CI."""
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
-try:
-    import cupy as cp
-except (ImportError, ModuleNotFoundError) as e:
-    cp = None
-    cupy_exception = e
 import numpy as np
 import pytest
+pytest.importorskip("cupy")
+import cupy as cp
+
 
 from ..helper import simulate_data
 
