@@ -2,14 +2,11 @@
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 import numpy as np
 import pytest
-pytest.importorskip("cupy")
+pytest.importorskip("cupy") # Skip all the test in the module if cupy not found
 import cupy as cp
-
 
 from ..helper import simulate_data
 
-
-pytestmark = pytest.mark.skipif(cp is None, reason="cupy unavailable")
 
 @pytest.fixture
 def bridge_gpu():
