@@ -43,6 +43,8 @@ def RegressionModel(
             event_time, censoring_time, X
         )
 
+    if AbstractDesignMatrix.is_cupy_dense(X):
+        raise ValueError("cupy not yet supported for a dense design matrix.")
     is_sparse = sp.sparse.issparse(X) or SparseDesignMatrix.is_cupy_sparse(X)
     DesignMatrix = SparseDesignMatrix if is_sparse else DenseDesignMatrix
     design = DesignMatrix(
