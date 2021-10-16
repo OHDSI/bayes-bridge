@@ -13,6 +13,7 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         ------
         X : numpy array
         """
+        self.use_cupy = False
         if copy_array:
             X = X.copy()
         super().__init__()
