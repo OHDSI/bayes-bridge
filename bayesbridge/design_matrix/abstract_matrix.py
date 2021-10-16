@@ -72,7 +72,7 @@ class AbstractDesignMatrix():
 
     @staticmethod
     def is_cupy_sparse(X):
-        return isinstance(X, cpx.scipy.sparse.spmatrix) if cp and cpx else False
+        return (cp is not None) and isinstance(X, cpx.scipy.sparse.spmatrix)
 
     @staticmethod
     def remove_intercept_indicator(X):
