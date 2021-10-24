@@ -5,6 +5,7 @@ from .linear_model import LinearModel
 from .logistic_model import LogisticModel
 from .cox_model import CoxModel
 from ..design_matrix import DenseDesignMatrix, SparseDesignMatrix
+from ..design_matrix import AbstractDesignMatrix
 
 def RegressionModel(
         outcome, X, family='linear',
@@ -35,11 +36,15 @@ def RegressionModel(
         if add_intercept:
             add_intercept = False
             warn("Intercept is not identifiable in Cox model and won't be added.")
+        if AbstractDesignMatrix.is_cupy_matrix(X):
+            raise ValueError("cupy matrix not yet supported for the Cox model.")
         event_time, censoring_time = outcome
         event_time, censoring_time, X = CoxModel.preprocess_data(
             event_time, censoring_time, X
         )
 
+    if AbstractDesignMatrix.is_cupy_dense(X):
+        raise ValueError("cupy not yet supported for a dense design matrix.")
     is_sparse = sp.sparse.issparse(X) or SparseDesignMatrix.is_cupy_sparse(X)
     DesignMatrix = SparseDesignMatrix if is_sparse else DenseDesignMatrix
     design = DesignMatrix(

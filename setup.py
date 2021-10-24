@@ -63,6 +63,9 @@ setup(
     cmdclass={'build_ext': CustomBuildExtCommand},
     ext_modules=cythonize(ext_modules),
     setup_requires=['numpy>=1.19'],
+    extras_require={
+        'gpu': 'cupy>=9.4.0'
+    },
     install_requires=[
         'numpy>=1.19', 'scipy'
     ],
