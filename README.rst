@@ -33,11 +33,11 @@ Usage
     model = RegressionModel(y, X, family='logit')
     prior = RegressionCoefPrior(bridge_exponent=.5)
     bridge = BayesBridge(model, prior)
-    mcmc_output = bridge.gibbs(
+    samples, mcmc_info = bridge.gibbs(
         n_burnin=100, n_post_burnin=1000, thin=1,
         coef_sampler_type='cholesky' # Try 'cg' for large and sparse X
     )
-    coef_samples = mcmc_output['samples']['coef']
+    coef_samples = samples['coef']
 
 where `y` is a 1-D numpy array and `X` is a 2-D numpy array or scipy sparse matrix.
 
