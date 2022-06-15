@@ -45,10 +45,10 @@ Currently the linear and logistic model (binomial outcomes) are supported. See `
 
 Citation
 --------
-If you find this package useful, please cite
+If you find this package useful, please consider citing:
 
-    Akihiko Nishimura and Marc A. Suchard (2018).
-    Prior-preconditioned conjugate gradient for accelerated Gibbs sampling in "large n & large p" sparse Bayesian logistic regression models. arXiv:1810.12437.
-    
-    Akihiko Nishimura and Marc A. Suchard (2019).
-    Shrinkage with shrunken shoulders: inference via geometrically/uniformly ergodic Gibbs sampler. arXiv:1911.02160.
+    Akihiko Nishimura and Marc A. Suchard (2022).
+    Prior-preconditioned conjugate gradient method for accelerated Gibbs sampling in "large *n*, large *p*" Bayesian sparse regression. *Journal of the American Statistical Association*.
+
+    Akihiko Nishimura and Marc A. Suchard (2022).
+    Shrinkage with shrunken shoulders: Gibbs sampling shrinkage model posteriors with guaranteed convergence rates. *Bayesian Analysis*.
