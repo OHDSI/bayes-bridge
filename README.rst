@@ -49,6 +49,6 @@ If you find this package useful, please cite
 
     Akihiko Nishimura and Marc A. Suchard (2018).
     Prior-preconditioned conjugate gradient for accelerated Gibbs sampling in "large n & large p" sparse Bayesian logistic regression models. arXiv:1810.12437.
-|
+    
     Akihiko Nishimura and Marc A. Suchard (2019).
     Shrinkage with shrunken shoulders: inference via geometrically/uniformly ergodic Gibbs sampler. arXiv:1911.02160.
