@@ -1,7 +1,7 @@
 BayesBridge
 ===========
 
-Python package for Bayesian sparse regression, implementing the standard (Polya-Gamma augmented) Gibbs sampler as well as the CG-accelerated sampler of Nishimura and Suchard (2018). The latter algorithm can be orders of magnitudes faster for a large and sparse design matrix.
+Python package for Bayesian sparse regression, implementing the standard (Polya-Gamma augmented) Gibbs sampler as well as the CG-accelerated sampler of Nishimura and Suchard (2022). The latter algorithm can be orders of magnitudes faster for a large and sparse design matrix.
 
 Installation
 ------------
@@ -19,7 +19,7 @@ The Bayesian bridge is based on the following prior on the regression coefficien
 
 .. raw:: html
 
-    <img src="https://latex.codecogs.com/gif.latex?\pi(\beta_j&space;\,&space;|&space;\,&space;\tau)&space;\propto&space;\tau^{-1}&space;\exp&space;\big(-|\beta_j&space;/&space;\tau|^\alpha&space;\big)&space;\&space;\text{&space;for&space;}&space;\&space;0&space;<&space;\alpha&space;\leq&space;1" title="\pi(\beta_j \, | \, \tau) \propto \tau^{-1} \exp \big(-|\beta_j / \tau|^\alpha \big) \ \text{ for } \ 0 < \alpha \leq 1" />
+    <img src="https://latex.codecogs.com/gif.latex?\pi(\beta_j&space;\,&space;|&space;\,&space;\tau)&space;\propto&space;\tau^{-1}&space;\exp&space;\big(-|\beta_j&space;/&space;\tau|^\alpha&space;\big)&space;\&space;\text{&space;for&space;}&space;\&space;0&space;<&space;\alpha&space;\leq&space;1." title="\pi(\beta_j \, | \, \tau) \propto \tau^{-1} \exp \big(-|\beta_j / \tau|^\alpha \big) \ \text{ for } \ 0 < \alpha \leq 1." />
 
 The Bayesian bridge recovers the the Bayesian lasso when :math:`\alpha = 1` but can provide an improved separation of the significant coefficients from the rest when :math:`\alpha < 1`.
 
