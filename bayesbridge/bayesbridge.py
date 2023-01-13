@@ -108,7 +108,7 @@ class BayesBridge():
 
     def gibbs(self, n_iter, n_burnin=0, thin=1, seed=None,
               init={'global_scale': 0.1}, params_to_save=('coef', 'global_scale', 'logp'),
-              coef_sampler_type=None, n_status_update=0,
+              coef_sampler_type=None, n_status_update=0, params_to_fix = (),
               options=None, _add_iter_mode=False):
         """ Generate posterior samples under the specified model and prior.
 
@@ -148,6 +148,9 @@ class BayesBridge():
             all the parameters (but beaware of the extra memory requirement),
             including local scale and, depending on the model, precision (
             inverse variance) of observations.
+        params_to_fix : {(), list of str}
+            Specifies which parameters to fix during MCMC iterations to values specified
+            by 'init' option. Only currently supports 'global_scale'. 
         n_status_update : int
             Number of updates to print on stdout during the sampler run.
 
@@ -217,10 +220,13 @@ class BayesBridge():
 
             # Draw from gscale | coef and then lscale | gscale, coef.
             # (The order matters.)
-            gscale = self.update_global_scale(
-                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
-                method=options.gscale_update
-            )
+            if 'global_scale' in params_to_fix:
+                gscale = gscale
+            else:
+                gscale = self.update_global_scale(
+                    gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
+                    method=options.gscale_update
+                )
 
             lscale = self.update_local_scale(
                 gscale, coef[self.n_unshrunk:], self.prior.bridge_exp)
@@ -412,7 +418,7 @@ class BayesBridge():
     def update_global_scale(
             self, gscale, beta_with_shrinkage, bridge_exp,
             coef_expected_magnitude_lower_bd=.001, method='sample'):
-        # :param method: {"sample", "optimize", None}
+        # :param method: {"sample", "optimize", "fixed", None}
 
         if beta_with_shrinkage.size == 0:
             return 1. # arbitrary float value as a placeholder
