@@ -71,9 +71,17 @@ def test_gscale_paramet_invariance():
     bridge_magnitude \
         = RegressionCoefPrior.compute_power_exp_ave_magnitude(bridge_exp)
     init_gscale = 0.1
+    init_lscale = np.ones(X.shape[1])
     init_raw_gscale = init_gscale / bridge_magnitude
-    init = {'global_scale': init_gscale}
-    raw_init = {'global_scale': init_raw_gscale}
+    init_raw_lscale = bridge_magnitude * init_lscale
+    init = {
+        'global_scale': init_gscale,
+        'local_scale': init_lscale
+    }
+    raw_init = {
+        'global_scale': init_raw_gscale,
+        'local_scale': init_raw_lscale
+    }
 
     # Two samples should agree since the default prior is scale invariant.
     prior = RegressionCoefPrior(
