@@ -63,6 +63,8 @@ class RegressionCoefPrior():
                 "Prior sd for fixed effects must be specified either by a "
                 "scalar or array of the same length as n_fixed_effect."
             )
+        if bridge_exponent > 2:
+            raise ValueError("Exponent larger than 2 is unsupported.")
 
         if np.isscalar(sd_for_fixed_effect):
             sd_for_fixed_effect = sd_for_fixed_effect * np.ones(n_fixed_effect)
