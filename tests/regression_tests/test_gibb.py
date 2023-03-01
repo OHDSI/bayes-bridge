@@ -44,8 +44,12 @@ def run_gibbs(model_type, sampling_method, matrix_format, restart_in_middle=Fals
         n_total_post_burnin = n_post_burnin
         n_post_burnin = math.ceil(n_total_post_burnin / 2)
 
+    init = {
+        'global_scale': 0.1,
+        'local_scale': 10. * np.ones(X.shape[1]),
+    }
     samples, mcmc_info = bridge.gibbs(
-        n_burnin + n_post_burnin, n_burnin, thin=thin,
+        n_burnin + n_post_burnin, n_burnin, init=init, thin=thin,
         coef_sampler_type=sampling_method, seed=0, params_to_save='all'
     )
 
