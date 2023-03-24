@@ -19,7 +19,8 @@ class ConjugateGradientSampler():
 
     def sample(
             self, X, omega, prior_prec_sqrt, z,
-            beta_init=None, precond_by='prior', beta_scaled_sd=None,
+            beta_init=None, precond_by='prior', 
+            prior_mean_for_unshrunk = None, beta_scaled_sd=None,
             maxiter=None, atol=10e-6, seed=None):
         """
         Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
@@ -58,12 +59,18 @@ class ConjugateGradientSampler():
         # Draw a target vector.
         randn_vec_1 = np.random.randn(X.shape[0])
         randn_vec_2 = np.random.randn(X.shape[1])
-        if X.use_cupy:
+        if X.use_cupy: 
             randn_vec_1 = cp.asarray(randn_vec_1)
             randn_vec_2 = cp.asarray(randn_vec_2)
-        v = X.Tdot(omega ** (1 / 2) * randn_vec_1) \
-            + prior_prec_sqrt * randn_vec_2
-        b = precond_scale * (z + v)
+        if not prior_mean_for_unshrunk is None:
+            v = X.Tdot(omega ** (1 / 2) * randn_vec_1) \
+                + prior_prec_sqrt * randn_vec_2 \
+                + prior_prec_sqrt**2 * prior_mean_for_unshrunk
+            b = precond_scale * (z + v)
+        else:
+            v = X.Tdot(omega ** (1 / 2) * randn_vec_1) \
+                + prior_prec_sqrt * randn_vec_2 
+            b = precond_scale * (z + v)
 
         # Callback function to count the number of PCG iterations.
         cg_info = {'n_iter': 0}

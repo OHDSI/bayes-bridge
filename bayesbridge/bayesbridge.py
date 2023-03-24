@@ -25,6 +25,7 @@ class BayesBridge():
         self.n_pred = model.n_pred
         self.n_unshrunk = prior.n_fixed
         self.prior_sd_for_unshrunk = prior.sd_for_fixed.copy()
+        self.prior_mean_for_unshrunk = prior.mean_for_fixed.copy()
         if model.intercept_added:
             self.n_unshrunk += 1
             self.prior_sd_for_unshrunk = np.concatenate((
@@ -87,7 +88,8 @@ class BayesBridge():
 
         # Initalize the regression coefficient sampler with the previous state.
         self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-            self.n_pred, self.prior_sd_for_unshrunk, coef_sampler_type,
+            self.n_pred, self.prior_sd_for_unshrunk, self.prior_mean_for_unshrunk,
+            coef_sampler_type,
             curvature_est_stabilized, self.prior.slab_size
         )
         self.reg_coef_sampler.set_internal_state(prev_mcmc_info['_reg_coef_sampler_state'])
@@ -181,7 +183,7 @@ class BayesBridge():
         if not _add_iter_mode:
             self.rg.set_seed(seed)
             self.reg_coef_sampler = SparseRegressionCoefficientSampler(
-                self.n_pred, self.prior_sd_for_unshrunk,
+                self.n_pred, self.prior_sd_for_unshrunk, self.prior_mean_for_unshrunk,
                 options.coef_sampler_type, options.curvature_est_stabilized,
                 self.prior.slab_size
             )
@@ -268,6 +270,7 @@ class BayesBridge():
             'seed': seed,
             'n_coef_wo_shrinkage': self.n_unshrunk,
             'prior_sd_for_unshrunk': self.prior_sd_for_unshrunk,
+            'prior_mean__for_unshrunk': self.prior_mean_for_unshrunk,
             'bridge_exponent': self.prior.bridge_exp,
             'coef_sampler_type': options.coef_sampler_type,
             'saved_params': params_to_save,

@@ -19,11 +19,12 @@ except (ImportError, ModuleNotFoundError) as e:
 
 class SparseRegressionCoefficientSampler():
 
-    def __init__(self, n_coef, prior_sd_for_unshrunk, sampling_method,
+    def __init__(self, n_coef, prior_sd_for_unshrunk, prior_mean_for_unshrunk, sampling_method,
                  stability_estimate_stabilized=False,
                  regularizing_slab_size=float('inf')):
 
         self.prior_sd_for_unshrunk = prior_sd_for_unshrunk
+        self.prior_mean_for_unshrunk = prior_mean_for_unshrunk
         self.n_unshrunk = len(prior_sd_for_unshrunk)
         self.regularizing_slab_size = regularizing_slab_size
 
@@ -81,6 +82,12 @@ class SparseRegressionCoefficientSampler():
         ))
         prior_prec_sqrt = 1 / prior_sd
 
+        if not self.prior_mean_for_unshrunk == None:
+            prior_mean = np.repeat(0., len(prior_sd))
+            prior_mean[1:1+len(self.prior_mean_for_unshrunk)] = self.prior_mean_for_unshrunk
+        else:
+            prior_mean = None
+
         info = {}
         if method == 'cholesky':
             beta = generate_gaussian_with_weight(
@@ -95,6 +102,7 @@ class SparseRegressionCoefficientSampler():
                 beta_init=beta_condmean_guess,
                 precond_by='prior',
                 beta_scaled_sd=beta_precond_scale_sd,
+                prior_mean_for_unshrunk = prior_mean,
                 maxiter=500, atol=10e-6 * np.sqrt(design.shape[1])
             )
             self.regcoef_summarizer.update(beta, gscale, lscale)

@@ -12,6 +12,7 @@ class RegressionCoefPrior():
             n_fixed_effect=0,
             sd_for_intercept=float('inf'),
             sd_for_fixed_effect=float('inf'),
+            mean_for_fixed_effect=float('inf'),
             regularizing_slab_size=float('inf'),
             global_scale_prior_hyper_param=None,
             _global_scale_parametrization='coef_magnitude'
@@ -63,10 +64,24 @@ class RegressionCoefPrior():
                 "Prior sd for fixed effects must be specified either by a "
                 "scalar or array of the same length as n_fixed_effect."
             )
+        if not (np.isscalar(mean_for_fixed_effect)
+                or n_fixed_effect == len(mean_for_fixed_effect)):
+            raise ValueError(
+                "Prior mean for fixed effects must be specified either by a "
+                "scalar or array of the same length as n_fixed_effect."
+            )
+        if not (np.isscalar(mean_for_fixed_effect)
+                or len(sd_for_fixed_effect) == len(mean_for_fixed_effect)):
+            raise ValueError(
+                "Unequal lengths for prior means and sd of fixed effect"
+            )   
 
         if np.isscalar(sd_for_fixed_effect):
             sd_for_fixed_effect = sd_for_fixed_effect * np.ones(n_fixed_effect)
         self.sd_for_intercept = sd_for_intercept
+        if np.isscalar(mean_for_fixed_effect):
+            mean_for_fixed_effect = mean_for_fixed_effect * np.ones(n_fixed_effect)
+        self.mean_for_fixed = mean_for_fixed_effect
         self.sd_for_fixed = sd_for_fixed_effect
         self.slab_size = regularizing_slab_size
         self.n_fixed = n_fixed_effect
@@ -78,7 +93,6 @@ class RegressionCoefPrior():
                     # Reference prior for a scale family.
                 'gscale': None
             }
-
         else:
             keys = global_scale_prior_hyper_param.keys()
             if not ({'log10_mean', 'log10_sd'} <= keys):

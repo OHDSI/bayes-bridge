@@ -36,17 +36,27 @@ model = RegressionModel(
 
 prior = RegressionCoefPrior(
     bridge_exponent=.5,
+<<<<<<< Updated upstream
     n_fixed_effect=0, 
         # Number of coefficients with Gaussian priors of pre-specified sd.
     sd_for_intercept=float('inf'),
         # Set it to float('inf') for a flat prior.
     sd_for_fixed_effect=1.,
+=======
+    n_fixed_effect=1, 
+        # Number of coefficients with Gaussian priors of pre-specified sd.
+    sd_for_intercept=float('inf'),
+        # Set it to float('inf') for a flat prior.
+    sd_for_fixed_effect=0.001,
+    mean_for_fixed_effect= 50., 
+>>>>>>> Stashed changes
     regularizing_slab_size=2.,
         # Weakly constrain the magnitude of coefficients under bridge prior.
 )
 
 bridge = BayesBridge(model, prior)
 
+<<<<<<< Updated upstream
 samples, mcmc_info = bridge.gibbs(
     n_iter=250, n_burnin=0, thin=1, 
     init={'global_scale': .01},
@@ -61,4 +71,43 @@ plt.rcParams['font.size'] = 20
 plt.plot(samples['logp'])
 plt.xlabel('MCMC iteration')
 plt.ylabel('Posterior log density')
+=======
+coef = np.zeros(n_pred)
+
+samples, mcmc_info = bridge.gibbs(
+    n_iter=250, n_burnin=0, thin=1, 
+    init={'global_scale': .01,
+    'coef' : np.zeros(n_pred + 1)},
+    coef_sampler_type='cg',
+    seed=111
+)
+coef_samples = samples['coef'][1:, :]
+
+plt.figure(figsize=(12, 5))
+plt.rcParams['font.size'] = 20
+
+plt.plot(coef_samples[[1], :].T)
+plt.xlabel('MCMC iteration')
+plt.ylabel(r'$\beta_j$', rotation=0, labelpad=10)
+plt.show()
+
+plt.figure(figsize=(14, 5))
+plt.rcParams['font.size'] = 20
+
+n_coef_to_plot = 25
+
+mcmc_summarizer.plot_conf_interval(
+    coef_samples, conf_level=.95, 
+    n_coef_to_plot=n_coef_to_plot, marker_scale=1.4
+)
+plt.plot(
+    beta_true[:n_coef_to_plot], '--', color='tab:orange',
+    label='True value'
+)
+plt.xlabel(r'Coefficient index $j$')
+plt.ylabel(r'$\beta_j$', rotation=0, labelpad=10)
+plt.xticks([0, 5, 10, 15, 20])
+plt.legend(frameon=False)
+
+>>>>>>> Stashed changes
 plt.show()
