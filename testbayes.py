@@ -50,7 +50,7 @@ bridge = BayesBridge(model, prior)
 samples, mcmc_info = bridge.gibbs(
     n_iter=250, n_burnin=0, thin=1, 
     init={'global_scale': .01},
-    params_to_fix = ('global_scale'),
+    options = { 'global_scale_update' : None },
     coef_sampler_type='cg',
     seed=111
 )
