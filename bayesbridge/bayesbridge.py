@@ -213,8 +213,6 @@ class BayesBridge():
                 coef, obs_prec, gscale, lscale, options.coef_sampler_type
             )
 
-            obs_prec = self.update_obs_precision(coef)
-
             # Draw from gscale | coef and then lscale | gscale, coef.
             # (The order matters.)
             gscale = self.update_global_scale(
@@ -224,6 +222,8 @@ class BayesBridge():
 
             lscale = self.update_local_scale(
                 gscale, coef[self.n_unshrunk:], self.prior.bridge_exp)
+
+            obs_prec = self.update_obs_precision(coef)
 
             logp = self.compute_posterior_logprob(
                 coef, gscale, obs_prec, self.prior.bridge_exp
