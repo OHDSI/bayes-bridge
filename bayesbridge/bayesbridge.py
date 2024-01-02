@@ -209,21 +209,8 @@ class BayesBridge():
         # Start Gibbs sampling
         for mcmc_iter in range(1, n_iter + 1):
 
-            coef, info = self.update_regress_coef(
-                coef, obs_prec, gscale, lscale, options.coef_sampler_type
-            )
-
-            # Draw from gscale | coef and then lscale | gscale, coef.
-            # (The order matters.)
-            gscale = self.update_global_scale(
-                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
-                method=options.gscale_update
-            )
-
-            lscale = self.update_local_scale(
-                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp)
-
-            obs_prec = self.update_obs_precision(coef)
+            coef, obs_prec, gscale, lscale, info \
+                = self.gibbs_cycle(coef, obs_prec, gscale, lscale, options)
 
             logp = self.compute_posterior_logprob(
                 coef, gscale, obs_prec, self.prior.bridge_exp
@@ -369,16 +356,30 @@ class BayesBridge():
             obs_prec = None
         return obs_prec
 
+    def gibbs_cycle(self, coef, obs_prec, gscale, lscale, options):
+
+        coef, info = self.update_regress_coef(
+            coef, obs_prec, gscale, lscale, options.coef_sampler_type
+        )
+
+        # Draw from gscale | coef and then lscale | gscale, coef.
+        # (The order matters.)
+        gscale = self.update_global_scale(
+            gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
+            method=options.gscale_update
+        )
+        lscale = self.update_local_scale(
+            gscale, coef[self.n_unshrunk:], self.prior.bridge_exp
+        )
+
+        obs_prec = self.update_obs_precision(coef)
+        return coef, obs_prec, gscale, lscale, info
+
     def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
 
         if sampling_method in ('cholesky', 'woodbury', 'cg'):
 
-            if self.model.name == 'linear':
-                y_gaussian = self.model.y
-                obs_prec = obs_prec * np.ones(self.n_obs)
-            elif self.model.name == 'logit':
-                y_gaussian = (self.model.n_success - self.model.n_trial / 2) / obs_prec
-
+            y_gaussian, obs_prec = self.get_gaussianized_outcome(self.model, obs_prec)
             coef, info = self.reg_coef_sampler.sample_gaussian_posterior(
                 y_gaussian, self.model.design, obs_prec, gscale, lscale,
                 sampling_method
@@ -393,6 +394,14 @@ class BayesBridge():
             raise NotImplementedError()
 
         return coef, info
+
+    def get_gaussianized_outcome(self, model, obs_prec):
+        if model.name == 'linear':
+            y_gaussian = model.y
+            obs_prec = obs_prec * np.ones(self.n_obs)
+        elif model.name == 'logit':
+            y_gaussian = (model.n_success - model.n_trial / 2) / obs_prec
+        return y_gaussian, obs_prec
 
     def update_obs_precision(self, coef):
 
