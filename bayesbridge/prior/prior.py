@@ -72,17 +72,31 @@ class RegressionCoefPrior():
         self.sd_for_fixed = sd_for_fixed_effect
         self.slab_size = regularizing_slab_size
         self.n_fixed = n_fixed_effect
-        # TODO: Properly delegate the use of these attributes within the package to the BridgePrior class.
         self.bridge_exp = bridge_exponent
         self._gscale_paramet = _global_scale_parametrization
-        self.adjust_scale = lambda gscale, lscale, to: \
-            BridgePrior.adjust_scale(bridge_exponent, gscale, lscale, to)
-        self.compute_power_exp_ave_magnitude = BridgePrior.compute_power_exp_ave_magnitude
-        bridge_prior = BridgePrior(
-            bridge_exponent, global_scale_prior_hyper_param,
-            _global_scale_parametrization
-        )
-        self.param = bridge_prior.param
+        if global_scale_prior_hyper_param is None:
+            self.param = {
+                'gscale_neg_power': {'shape': 0., 'rate': 0.},
+                    # Reference prior for a scale family.
+                'gscale': None
+            }
+
+        else:
+            keys = global_scale_prior_hyper_param.keys()
+            if not ({'log10_mean', 'log10_sd'} <= keys):
+                raise ValueError(
+                    "Dictionary should contain keys 'log10_mean' and 'log10_sd.'"
+                )
+            log10_mean = global_scale_prior_hyper_param['log10_mean']
+            log10_sd = global_scale_prior_hyper_param['log10_sd']
+            shape, rate = self.solve_for_gscale_prior_hyperparam(
+                log10_mean, log10_sd, bridge_exponent, self._gscale_paramet
+            )
+            self.param = {
+                'gscale_neg_power': {'shape': shape, 'rate': rate},
+                'gscale': {'log10_mean': log10_mean, 'log10_sd': log10_sd}
+            }   # Hyper-parameters on the negative power are specified in
+                # terms of the 'raw' parametrization.
 
     def get_info(self):
         sd_for_fixed = self.sd_for_fixed
@@ -111,42 +125,9 @@ class RegressionCoefPrior():
                 warn("'{:s} is not a valid keyward argument.".format(key))
         return RegressionCoefPrior(**info)
 
-
-class BridgePrior():
-
-    def __init__(
-            self, bridge_exponent, global_scale_prior_hyper_param,
-            _global_scale_parametrization
-        ):
-        self.bridge_exp = bridge_exponent
-        self._gscale_paramet = _global_scale_parametrization
-        if global_scale_prior_hyper_param is None:
-            self.param = {
-                'gscale_neg_power': {'shape': 0., 'rate': 0.},
-                    # Reference prior for a scale family.
-                'gscale': None
-            }
-        else:
-            keys = global_scale_prior_hyper_param.keys()
-            if not ({'log10_mean', 'log10_sd'} <= keys):
-                raise ValueError(
-                    "Dictionary should contain keys 'log10_mean' and 'log10_sd.'"
-                )
-            log10_mean = global_scale_prior_hyper_param['log10_mean']
-            log10_sd = global_scale_prior_hyper_param['log10_sd']
-            shape, rate = self.solve_for_gscale_prior_hyperparam(
-                log10_mean, log10_sd, bridge_exponent, self._gscale_paramet
-            )
-            self.param = {
-                'gscale_neg_power': {'shape': shape, 'rate': rate},
-                'gscale': {'log10_mean': log10_mean, 'log10_sd': log10_sd}
-            }   # Hyper-parameters on the negative power are specified in
-                # terms of the 'raw' parametrization.
-
-    @staticmethod
-    def adjust_scale(bridge_exp, gscale, lscale, to):
+    def adjust_scale(self, gscale, lscale, to):
         unit_bridge_magnitude \
-            = BridgePrior.compute_power_exp_ave_magnitude(bridge_exp, 1.)
+            = self.compute_power_exp_ave_magnitude(self.bridge_exp, 1.)
         if to == 'raw':
             gscale /= unit_bridge_magnitude
             lscale *= unit_bridge_magnitude
