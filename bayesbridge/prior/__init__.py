@@ -1,0 +1,1 @@
+from .prior import RegressionCoefPrior
