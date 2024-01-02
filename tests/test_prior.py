@@ -1,6 +1,5 @@
 import numpy as np
 from .helper import simulate_data
-from bayesbridge.prior import BridgePrior
 from bayesbridge.model import LinearModel, LogisticModel, CoxModel
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 
@@ -31,8 +30,7 @@ def test_clone():
         cloned.__dict__.pop('sd_for_fixed')
         == changed_prior.__dict__.pop('sd_for_fixed')
     )
-    # TODO: Make the line below work for a more proper test of cloning
-    # assert cloned.__dict__ == changed_prior.__dict__
+    assert cloned.__dict__ == changed_prior.__dict__
 
 
 def test_gscale_parametrization():
@@ -48,7 +46,7 @@ def test_gscale_parametrization():
     )
 
     unit_bridge_magnitude \
-        = BridgePrior.compute_power_exp_ave_magnitude(bridge_exp)
+        = RegressionCoefPrior.compute_power_exp_ave_magnitude(bridge_exp)
     gscale_hyper_param['log10_mean'] -= np.log10(unit_bridge_magnitude)
     prior_raw_scale = RegressionCoefPrior(
         bridge_exponent=bridge_exp,
@@ -67,7 +65,7 @@ def test_gscale_paramet_invariance():
     model = RegressionModel(y, X, family='logit')
     bridge_exp = .25
     bridge_magnitude \
-        = BridgePrior.compute_power_exp_ave_magnitude(bridge_exp)
+        = RegressionCoefPrior.compute_power_exp_ave_magnitude(bridge_exp)
     init_gscale = 0.1
     init_lscale = np.ones(X.shape[1])
     init_raw_gscale = init_gscale / bridge_magnitude
