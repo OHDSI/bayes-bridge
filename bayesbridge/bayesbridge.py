@@ -458,7 +458,7 @@ class BayesBridge():
     def update_local_scale(self, gscale, beta_with_shrinkage, bridge_exp):
 
         if bridge_exp == 2:
-            return np.ones(beta_with_shrinkage.size)
+            return .5 * np.ones(beta_with_shrinkage.size)
 
         lscale_sq = .5 / self.rg.tilted_stable(
             bridge_exp / 2, (beta_with_shrinkage / gscale) ** 2
