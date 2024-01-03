@@ -59,6 +59,6 @@ class HorseshoePrior():
         self.gscale_prior = global_scale_prior
         self.name = "horseshoe"
 
-    def update_local_scale(self, gscale, coef):
+    def update_local_scale(self, gscale, coef, rg):
         # TODO: Implemement, probably starting with the unskewed version.
         pass

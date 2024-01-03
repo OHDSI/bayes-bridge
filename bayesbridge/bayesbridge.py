@@ -384,7 +384,7 @@ class BayesBridge():
             # Collapsed update of global scale.
             y_gaussian, obs_prec = self.get_gaussianized_outcome(self.model, obs_prec)
             gscale = coef_collapsed_sampler(
-                y_gaussian, self.model.design, lscale, self.prior.gscale_prior
+                y_gaussian, self.model.design, lscale, self.prior.gscale_prior, self.rg
             )
             obs_prec = self.update_obs_precision(coef)
                 # Under the conjugate normal-gamma prior (currently unsupported), the collapsed sampler
@@ -392,7 +392,9 @@ class BayesBridge():
             coef, info = self.update_regress_coef(
                 coef, obs_prec, gscale, lscale, options.coef_sampler_type
             )
-            lscale = self.prior.update_local_scale(gscale, coef[self.n_unshrunk:])
+            lscale = self.prior.update_local_scale(
+                gscale, coef[self.n_unshrunk:], self.rg
+            )
 
         else:
             raise ValueError("Unsupported prior type.")
