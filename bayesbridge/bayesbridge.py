@@ -288,6 +288,8 @@ class BayesBridge():
         obs_prec = self.initialize_obs_precision(init, coef)
 
         if coef_only_specified:
+            if self.prior.name == "horseshoe":
+                raise NotImplementedError("Unsupported chain initialization under horseshoe.")
             gscale = self.update_global_scale(
                 None, coef[self.n_unshrunk:], bridge_exp,
                 method='optimize'
