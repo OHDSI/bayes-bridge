@@ -299,7 +299,7 @@ class BayesBridge():
             if 'global_scale' not in init:
                 raise ValueError("Initial global scale must be specified when "
                                  "coefficients aren't specified.")
-            if self.prior._gscale_paramet == 'raw':
+            if self.prior.name == "bridge" and self.prior._gscale_paramet == 'raw':
                 warn("Using the raw global scale parametrization; make sure that "
                      "the specified initial value is scaled accordingly.")
             gscale = init['global_scale']
@@ -310,7 +310,7 @@ class BayesBridge():
             else:
                 lscale = np.ones(self.n_pred - self.n_unshrunk)
 
-        if self.prior._gscale_paramet == 'coef_magnitude':
+        if self.prior.name == "bridge" and self.prior._gscale_paramet == 'coef_magnitude':
             # Gibbs sampler requires the raw parametrization, though
             # technically only gscale * lscale matters due to the update order.
             gscale, lscale \
