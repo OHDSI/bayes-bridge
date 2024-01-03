@@ -1,0 +1,64 @@
+import math
+from warnings import warn
+import numpy as np
+import scipy as sp
+
+class HorseshoePrior():
+
+    def __init__(
+            self,
+            n_fixed_effect=0,
+            sd_for_intercept=float('inf'),
+            sd_for_fixed_effect=float('inf'),
+            regularizing_slab_size=float('inf'),
+            skew_mean=0.,
+            skew_sd=1.,
+            global_scale_prior=None
+        ):
+        """ Encapisulate horseshoe prior information for BayesBridge.
+
+        Parameters
+        ----------
+        n_fixed_effect : int
+            Number of predictors --- other than intercept and placed at the
+            first columns of the design matrices --- whose coefficients are
+            estimated with Gaussian priors of pre-specified standard
+            deviation(s).
+        sd_for_intercept : float
+            Standard deviation of Gaussian prior on the intercept. `Inf`
+            corresponds to an uninformative flat prior.
+        sd_for_fixed_effect : float, numpy array
+            Standard deviation(s) of Gaussian prior(s) on fixed effects.
+            If an array, the length must be the same as `n_fixed_effect`.
+            `Inf` corresponds to an uninformative flat prior.
+        regularizing_slab_size : float
+            Standard deviation of the Gaussian tail-regularizer on
+            the bridge prior. Used to impose soft prior constraints on a
+            range of regression coefficients in case the data provides limited
+            information (e.g. when complete separation occurs). One may, for
+            example, set the slab size by first choosing a value which
+            regression coefficients are very unlikely to exceed in magnitude and
+            then dividing the value by 1.96.
+        skew_mean : float, numpy array
+        skew_sd : float, numpy array
+        global_scale_prior : callable, None
+        """
+        if not (np.isscalar(sd_for_fixed_effect)
+                or n_fixed_effect == len(sd_for_fixed_effect)):
+            raise ValueError(
+                "Prior sd for fixed effects must be specified either by a "
+                "scalar or array of the same length as n_fixed_effect."
+            )
+
+        if np.isscalar(sd_for_fixed_effect):
+            sd_for_fixed_effect = sd_for_fixed_effect * np.ones(n_fixed_effect)
+        self.sd_for_intercept = sd_for_intercept
+        self.sd_for_fixed = sd_for_fixed_effect
+        self.slab_size = regularizing_slab_size
+        self.n_fixed = n_fixed_effect
+        self.gscale_prior = global_scale_prior
+        self.name = "horseshoe"
+
+    def update_local_scale(self, gscale, coef):
+        # TODO: Implemement, probably starting with the unskewed version.
+        pass

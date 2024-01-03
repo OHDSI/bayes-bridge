@@ -5,6 +5,7 @@ from .util import simplify_warnings # Monkey patch the warning format
 from warnings import warn
 from .random import BasicRandom
 from .reg_coef_sampler import SparseRegressionCoefficientSampler
+from .global_scale_sampler import coef_collapsed_sampler
 from .model import LogisticModel
 from .prior import RegressionCoefPrior
 from .gibbs_util import MarkovChainManager, SamplerOptions
@@ -358,19 +359,37 @@ class BayesBridge():
 
     def gibbs_cycle(self, coef, obs_prec, gscale, lscale, options):
 
-        coef, info = self.update_regress_coef(
-            coef, obs_prec, gscale, lscale, options.coef_sampler_type
-        )
+        if self.prior.name == "bridge":
+            coef, info = self.update_regress_coef(
+                coef, obs_prec, gscale, lscale, options.coef_sampler_type
+            )
+            # Draw from gscale | coef and then lscale | gscale, coef. (The order matters.)
+            # TODO: Delegate the global and local scale updates to the (yet-to-be-defined) BridgePrior class as these operations are specific to the bridge prior.
+            gscale = self.update_global_scale(
+                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
+                method=options.gscale_update
+            )
+            lscale = self.update_local_scale(
+                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp
+            )
 
-        # Draw from gscale | coef and then lscale | gscale, coef.
-        # (The order matters.)
-        gscale = self.update_global_scale(
-            gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
-            method=options.gscale_update
-        )
-        lscale = self.update_local_scale(
-            gscale, coef[self.n_unshrunk:], self.prior.bridge_exp
-        )
+        elif self.prior.name == "horseshoe":
+            if self.model.name not in ('linear', 'logit'):
+                raise ValueError(
+                    "Horseshoe prior is supported only for linear and logistic models."
+                )
+            # Collapsed update of global scale.
+            y_gaussian, obs_prec = self.get_gaussianized_outcome(self.model, obs_prec)
+            gscale = coef_collapsed_sampler(
+                y_gaussian, self.model.design, lscale, self.prior.gscale_prior
+            )
+            coef, info = self.update_regress_coef(
+                coef, obs_prec, gscale, lscale, options.coef_sampler_type
+            )
+            lscale = self.prior.update_local_scale(gscale, coef[self.n_unshrunk:])
+
+        else:
+            raise ValueError("Unsupported prior type.")
 
         obs_prec = self.update_obs_precision(coef)
         return coef, obs_prec, gscale, lscale, info

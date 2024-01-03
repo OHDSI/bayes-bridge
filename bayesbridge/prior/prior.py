@@ -4,6 +4,7 @@ import numpy as np
 import scipy as sp
 from scipy.special import polygamma as scipy_polygamma
 
+# TODO: (After properly refactoring the rest of codebase) rename this class as `BridgePrior`.
 class RegressionCoefPrior():
 
     def __init__(
@@ -72,6 +73,7 @@ class RegressionCoefPrior():
         self.sd_for_fixed = sd_for_fixed_effect
         self.slab_size = regularizing_slab_size
         self.n_fixed = n_fixed_effect
+        self.name = "bridge"
         self.bridge_exp = bridge_exponent
         self._gscale_paramet = _global_scale_parametrization
         if global_scale_prior_hyper_param is None:
