@@ -410,11 +410,11 @@ class BayesBridge():
         return obs_prec
 
     def update_global_scale(
-            self, gscale, beta_with_shrinkage, bridge_exp,
+            self, gscale, coef_under_shrinkage, bridge_exp,
             coef_expected_magnitude_lower_bd=.001, method='sample'):
         # :param method: {"sample", "optimize", None}
 
-        if beta_with_shrinkage.size == 0:
+        if coef_under_shrinkage.size == 0:
             return 1. # arbitrary float value as a placeholder
 
         lower_bd = coef_expected_magnitude_lower_bd \
@@ -424,17 +424,17 @@ class BayesBridge():
 
         if method == 'optimize':
             gscale = self.monte_carlo_em_global_scale(
-                beta_with_shrinkage, bridge_exp)
+                coef_under_shrinkage, bridge_exp)
 
         elif method == 'sample':
             # Conjugate update for phi = 1 / gscale ** bridge_exp
-            if np.count_nonzero(beta_with_shrinkage) == 0:
+            if np.count_nonzero(coef_under_shrinkage) == 0:
                 gscale = 0
             else:
                 prior_param = self.prior.param['gscale_neg_power']
                 shape, rate = prior_param['shape'], prior_param['rate']
-                shape += beta_with_shrinkage.size / bridge_exp
-                rate += np.sum(np.abs(beta_with_shrinkage) ** bridge_exp)
+                shape += coef_under_shrinkage.size / bridge_exp
+                rate += np.sum(np.abs(coef_under_shrinkage) ** bridge_exp)
                 phi = self.rg.np_random.gamma(shape, scale=1 / rate)
                 gscale = 1 / phi ** (1 / bridge_exp)
 
@@ -448,20 +448,20 @@ class BayesBridge():
         return gscale
 
     def monte_carlo_em_global_scale(
-            self, beta_with_shrinkage, bridge_exp):
+            self, coef_under_shrinkage, bridge_exp):
         """ Maximize the likelihood (not posterior conditional) 'coef | gscale'. """
-        phi = len(beta_with_shrinkage) / bridge_exp \
-              / np.sum(np.abs(beta_with_shrinkage) ** bridge_exp)
+        phi = len(coef_under_shrinkage) / bridge_exp \
+              / np.sum(np.abs(coef_under_shrinkage) ** bridge_exp)
         gscale = phi ** - (1 / bridge_exp)
         return gscale
 
-    def update_local_scale(self, gscale, beta_with_shrinkage, bridge_exp):
+    def update_local_scale(self, gscale, coef_under_shrinkage, bridge_exp):
 
         if bridge_exp == 2:
-            return .5 * np.ones(beta_with_shrinkage.size)
+            return .5 * np.ones(coef_under_shrinkage.size)
 
         lscale_sq = .5 / self.rg.tilted_stable(
-            bridge_exp / 2, (beta_with_shrinkage / gscale) ** 2
+            bridge_exp / 2, (coef_under_shrinkage / gscale) ** 2
         )
         lscale = np.sqrt(lscale_sq)
 
