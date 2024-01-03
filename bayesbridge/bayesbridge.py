@@ -294,8 +294,8 @@ class BayesBridge():
                 None, coef[self.n_unshrunk:], bridge_exp,
                 method='optimize'
             )
-            lscale = self.update_local_scale(
-                gscale, coef[self.n_unshrunk:], bridge_exp
+            lscale = self.prior.update_local_scale(
+                gscale, coef[self.n_unshrunk:], self.rg
             )
         else:
             if 'global_scale' not in init:
@@ -324,8 +324,8 @@ class BayesBridge():
                 coef, lscale, gscale, obs_prec, self.model
             )
             obs_prec = self.update_obs_precision(coef)
-            lscale = self.update_local_scale(
-                gscale, coef[self.n_unshrunk:], bridge_exp
+            lscale = self.prior.update_local_scale(
+                gscale, coef[self.n_unshrunk:], self.rg
             )
             optim_info = {
                 key: info[key] for key in ['is_success', 'n_design_matvec', 'n_iter']
@@ -367,13 +367,13 @@ class BayesBridge():
             )
             obs_prec = self.update_obs_precision(coef)
             # Draw from gscale | coef and then lscale | gscale, coef. (The order matters.)
-            # TODO: Delegate the global and local scale updates to the (yet-to-be-defined) BridgePrior class as these operations are specific to the bridge prior.
+            # TODO: Delegate the global scale update to the (yet-to-be-defined) BridgePrior class as the operation is specific to the bridge prior.
             gscale = self.update_global_scale(
                 gscale, coef[self.n_unshrunk:], self.prior.bridge_exp,
                 method=options.gscale_update
             )
-            lscale = self.update_local_scale(
-                gscale, coef[self.n_unshrunk:], self.prior.bridge_exp
+            lscale = self.prior.update_local_scale(
+                gscale, coef[self.n_unshrunk:], self.rg
             )
 
         elif self.prior.name == "horseshoe":
@@ -489,28 +489,6 @@ class BayesBridge():
               / np.sum(np.abs(coef_under_shrinkage) ** bridge_exp)
         gscale = phi ** - (1 / bridge_exp)
         return gscale
-
-    def update_local_scale(self, gscale, coef_under_shrinkage, bridge_exp):
-
-        if bridge_exp == 2:
-            return .5 * np.ones(coef_under_shrinkage.size)
-
-        lscale_sq = .5 / self.rg.tilted_stable(
-            bridge_exp / 2, (coef_under_shrinkage / gscale) ** 2
-        )
-        lscale = np.sqrt(lscale_sq)
-
-        # TODO: Pick the lower and upper bound more carefully.
-        if np.any(lscale == 0):
-            warn(
-                "Local scale parameter under-flowed. Replacing with a small number.")
-            lscale[lscale == 0] = 10e-16
-        elif np.any(np.isinf(lscale)):
-            warn(
-                "Local scale parameter over-flowed. Replacing with a large number.")
-            lscale[np.isinf(lscale)] = 2.0 / gscale
-
-        return lscale
 
     def compute_posterior_logprob(self, coef, gscale, obs_prec, bridge_exp):
 

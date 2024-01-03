@@ -217,3 +217,25 @@ class RegressionCoefPrior():
             raise Exception()  # Replace with a warning.
         upper_lim = lower_lim + increment
         return (lower_lim, upper_lim)
+
+    def update_local_scale(self, gscale, coef, rg):
+
+        if self.bridge_exp == 2:
+            return .5 * np.ones(coef.size)
+
+        lscale_sq = .5 / rg.tilted_stable(
+            self.bridge_exp / 2, (coef / gscale) ** 2
+        )
+        lscale = np.sqrt(lscale_sq)
+
+        # TODO: Pick the lower and upper bound more carefully.
+        if np.any(lscale == 0):
+            warn(
+                "Local scale parameter under-flowed. Replacing with a small number.")
+            lscale[lscale == 0] = 10e-16
+        elif np.any(np.isinf(lscale)):
+            warn(
+                "Local scale parameter over-flowed. Replacing with a large number.")
+            lscale[np.isinf(lscale)] = 2.0 / gscale
+
+        return lscale
