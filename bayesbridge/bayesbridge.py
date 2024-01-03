@@ -363,6 +363,7 @@ class BayesBridge():
             coef, info = self.update_regress_coef(
                 coef, obs_prec, gscale, lscale, options.coef_sampler_type
             )
+            obs_prec = self.update_obs_precision(coef)
             # Draw from gscale | coef and then lscale | gscale, coef. (The order matters.)
             # TODO: Delegate the global and local scale updates to the (yet-to-be-defined) BridgePrior class as these operations are specific to the bridge prior.
             gscale = self.update_global_scale(
@@ -383,6 +384,9 @@ class BayesBridge():
             gscale = coef_collapsed_sampler(
                 y_gaussian, self.model.design, lscale, self.prior.gscale_prior
             )
+            obs_prec = self.update_obs_precision(coef)
+                # Under the conjugate normal-gamma prior (currently unsupported), the collapsed sampler
+                # would update `obs_prec` conditional on `gscale` and `lscale` with `coef` integrated out.
             coef, info = self.update_regress_coef(
                 coef, obs_prec, gscale, lscale, options.coef_sampler_type
             )
@@ -391,7 +395,6 @@ class BayesBridge():
         else:
             raise ValueError("Unsupported prior type.")
 
-        obs_prec = self.update_obs_precision(coef)
         return coef, obs_prec, gscale, lscale, info
 
     def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
