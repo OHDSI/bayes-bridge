@@ -57,6 +57,12 @@ class DenseDesignMatrix(AbstractDesignMatrix):
         else:
             return self.X.T.dot(weight[:, np.newaxis] * self.X)
 
+    def compute_transposed_fisher_info(self, weight):
+        # TODO: Implement.
+        # Note: with current implementation of the class, `self.X` explicitly includes
+        # the intercept when `self.intercept_added == True`.
+        pass
+
     def toarray(self):
         return self.X
 

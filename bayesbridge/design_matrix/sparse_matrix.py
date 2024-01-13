@@ -176,6 +176,11 @@ class SparseDesignMatrix(AbstractDesignMatrix):
     def create_diag_matrix(self, v):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
+    def compute_transposed_fisher_info(self, weight):
+        # TODO: Implement, making sure to exclude the intercept and take care of centering.
+        # Note: `self.X_main` exclude the intercept
+        pass
+
     def toarray(self):
         X = self.X_main.toarray() - self.column_offset[np.newaxis, :]
         if self.intercept_added:
