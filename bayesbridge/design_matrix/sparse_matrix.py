@@ -1,7 +1,10 @@
 from warnings import warn
+
 import numpy as np
 import scipy.sparse as sparse
+
 from .abstract_matrix import AbstractDesignMatrix
+
 try:
     from .mkl_matvec import mkl_csr_matvec
 except:
@@ -177,9 +180,17 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
     def compute_transposed_fisher_info(self, weight):
-        # TODO: Implement, making sure to exclude the intercept and take care of centering.
-        # Note: `self.X_main` exclude the intercept
-        pass
+        weight_mat = self.create_diag_matrix(weight)
+        X = self.X_main
+        X_T = X.T
+        weighted_X = weight_mat.dot(X_T).tocsc()
+        transposed_fisher_info = X.dot(weighted_X).toarray()
+        offset_weight_X = self.column_offset @ weighted_X
+        if self.centered:
+            transposed_fisher_info -= offset_weight_X
+            transposed_fisher_info -= offset_weight_X[:, np.newaxis]
+            transposed_fisher_info += np.sum(weight * self.column_offset ** 2)
+        return transposed_fisher_info
 
     def toarray(self):
         X = self.X_main.toarray() - self.column_offset[np.newaxis, :]
