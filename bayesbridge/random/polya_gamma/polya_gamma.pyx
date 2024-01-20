@@ -6,7 +6,7 @@ import numpy as np
 cimport numpy as np
 from numpy.random import PCG64
 from numpy.random.bit_generator cimport BitGenerator
-from scipy_ndtr cimport log_ndtr as normal_logcdf
+from .scipy_ndtr cimport log_ndtr as normal_logcdf
 from bayesbridge.random.normal.normal cimport random_normal
 from bayesbridge.random.uniform.uniform cimport random_uniform
 
