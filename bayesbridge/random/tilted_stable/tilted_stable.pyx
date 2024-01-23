@@ -1,6 +1,7 @@
 cimport cython
 from libc.math cimport exp as exp_c
-from libc.math cimport fabs, pow, log, sqrt, sin, floor, INFINITY, M_PI
+from libc.math cimport log as log_c
+from libc.math cimport fabs, pow, sqrt, sin, floor, INFINITY, M_PI
 import random
 import numpy as np
 cimport numpy as np
@@ -154,7 +155,7 @@ cdef class ExpTiltedStableDist():
     cdef double sample_non_tilted_rv(self, double char_exp):
         cdef double S = pow(
             - self.zolotarev_function(M_PI * random_uniform(self.bitgen), char_exp)
-                / log(random_uniform(self.bitgen)),
+                / log_c(random_uniform(self.bitgen)),
             (1. - char_exp) / char_exp
         )
         return S
@@ -170,7 +171,7 @@ cdef class ExpTiltedStableDist():
             U, V, z = self.sample_aux_rv(char_exp, tilt_power)
             X, log_accept_prob = \
                 self.sample_reference_rv(U, char_exp, tilt_power, z)
-            accepted = (log_accept_prob > log(V))
+            accepted = (log_accept_prob > log_c(V))
 
         return pow(X, - (1. - char_exp) / char_exp)
 
@@ -285,7 +286,7 @@ cdef class ExpTiltedStableDist():
         elif V < (mass_left + mass_mid) / mass_total:
             X = left_thresh + (right_thresh - left_thresh) * random_uniform(self.bitgen)
         else:
-            E = - log(random_uniform(self.bitgen))
+            E = - log_c(random_uniform(self.bitgen))
             X = right_thresh + E * mass_right
 
         log_accept_prob = self.compute_log_accept_prob(
@@ -303,7 +304,7 @@ cdef class ExpTiltedStableDist():
         else:
             log_accept_prob = - (
                 a * (X - left_thresh)
-                + exp(log(tilt_power) / char_exp - char_exp_odds * log(left_thresh))
+                + exp(log_c(tilt_power) / char_exp - char_exp_odds * log_c(left_thresh))
                 * (pow(left_thresh / X, char_exp_odds) - 1.)
             )
             if X < left_thresh:
