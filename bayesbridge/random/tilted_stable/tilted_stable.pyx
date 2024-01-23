@@ -12,8 +12,17 @@ from bayesbridge.random.uniform.uniform cimport random_uniform
 
 
 cdef double MAX_EXP_ARG = 709  # ~ log(2 ** 1024)
+cdef double MIN_ARGUMENT = 2. ** -1074
 ctypedef np.uint8_t np_uint8
 ctypedef double (*rand_generator)()
+
+
+cdef double log(double x):
+    if x < MIN_ARGUMENT:
+        val = - INFINITY
+    else:
+        val = log_c(x)
+    return val
 
 
 cdef double exp(double x):
