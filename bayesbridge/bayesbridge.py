@@ -214,7 +214,7 @@ class BayesBridge():
                 = self.gibbs_cycle(coef, obs_prec, gscale, lscale, options)
 
             logp = self.compute_posterior_logprob(
-                coef, gscale, obs_prec, self.prior.bridge_exp
+                coef, gscale, lscale, obs_prec, self.prior.bridge_exp
             )
 
             self.manager.store_current_state(
@@ -383,9 +383,12 @@ class BayesBridge():
                 )
             # Collapsed update of global scale.
             y_gaussian, obs_prec = self.get_gaussianized_outcome(self.model, obs_prec)
-            gscale = coef_collapsed_sampler(
-                y_gaussian, self.model.design, lscale, self.prior.gscale_prior, self.rg
+            gscale = self.update_horseshoe_global_scale(
+                gscale, lscale, coef[self.n_unshrunk:]
             )
+            # gscale = coef_collapsed_sampler(
+            #     y_gaussian, self.model.design, lscale, self.prior.gscale_prior, self.rg
+            # )
             obs_prec = self.update_obs_precision(coef)
                 # Under the conjugate normal-gamma prior (currently unsupported), the collapsed sampler
                 # would update `obs_prec` conditional on `gscale` and `lscale` with `coef` integrated out.
@@ -482,6 +485,39 @@ class BayesBridge():
 
         return gscale
 
+    def update_horseshoe_global_scale(
+            self, gscale, lscale, coef_under_shrinkage,
+            coef_expected_magnitude_lower_bd=.001, method='sample'):
+        # :param method: {"sample", "optimize", None}
+
+        if coef_under_shrinkage.size == 0:
+            return 1.  # arbitrary float value as a placeholder
+
+        lower_bd = coef_expected_magnitude_lower_bd
+        # Solve for the value of global shrinkage such that
+        # (expected value of regress_coef given gscale) = coef_expected_magnitude_lower_bd.
+
+        if method == 'sample':
+            if np.count_nonzero(coef_under_shrinkage) == 0:
+                gscale = 0
+            else:
+                prior_param = self.prior.param['gscale_neg_power']
+                shape, rate = prior_param['shape'], prior_param['rate']
+                shape += .5 * coef_under_shrinkage.size
+                rate += .5 * np.sum((coef_under_shrinkage / lscale) ** 2)
+                gscale = 1 / np.sqrt(
+                    self.rg.np_random.gamma(shape, scale=1 / rate)
+                )
+
+        if (method is not None) and gscale < lower_bd:
+            gscale = lower_bd
+            warn(
+                "The global shrinkage parameter update returned an unreasonably "
+                "small value. Returning a specified lower bound value instead."
+            )
+
+        return gscale
+
     def monte_carlo_em_global_scale(
             self, coef_under_shrinkage, bridge_exp):
         """ Maximize the likelihood (not posterior conditional) 'coef | gscale'. """
@@ -490,7 +526,7 @@ class BayesBridge():
         gscale = phi ** - (1 / bridge_exp)
         return gscale
 
-    def compute_posterior_logprob(self, coef, gscale, obs_prec, bridge_exp):
+    def compute_posterior_logprob(self, coef, gscale, lscale, obs_prec, bridge_exp=None):
 
         # Contributions from the likelihood.
         params = [coef] if self.model.name != 'linear' else [coef, obs_prec]
@@ -503,10 +539,19 @@ class BayesBridge():
         prior_logp = 0
         n_shrunk_coef = len(coef) - self.n_unshrunk
 
-        # for coef | gscale.
-        prior_logp += \
-            - n_shrunk_coef * math.log(gscale) \
-            - np.sum(np.abs(coef[self.n_unshrunk:] / gscale) ** bridge_exp)
+        # Contribution from beta (, lscale) | gscale.
+        if self.prior.name == "horseshoe":
+            prior_prec = (gscale * lscale) ** -2 + self.prior.slab_size ** -2
+            prior_logp += \
+                .5 * np.sum(np.log(prior_prec)) \
+                - .5 * np.sum(prior_prec * coef[self.n_unshrunk:] ** 2)
+            prior_logp += - np.sum(np.log(1 + lscale ** 2))
+        elif self.prior.name == "bridge":
+            prior_logp += \
+                - n_shrunk_coef * math.log(gscale) \
+                - np.sum(np.abs(coef[self.n_unshrunk:] / gscale) ** bridge_exp)
+        else:
+            raise ValueError("Unsupported prior type.")
 
         # for coefficients without shrinkage.
         prior_logp += - 1 / 2 * np.sum(
