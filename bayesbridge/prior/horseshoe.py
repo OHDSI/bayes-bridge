@@ -2,6 +2,7 @@ import math
 from warnings import warn
 import numpy as np
 import scipy as sp
+from ..random import sample_horseshoe_local_scale
 
 class HorseshoePrior():
 
@@ -60,5 +61,21 @@ class HorseshoePrior():
         self.name = "horseshoe"
 
     def update_local_scale(self, gscale, coef, rg):
+        # rg: random generator
+        #     we might want to switch to the rg for sampling
+
         # TODO: Implemement, probably starting with the unskewed version.
+        # the unskewed version uses the bridge prior
+        # TODO: write a function to find all the coef without prior info
+        lscale = sample_horseshoe_local_scale(coef, gscale)
+
+        # TODO: Pick the lower and upper bound more carefully.
+        if np.any(lscale == 0):
+            warn(
+                "Local scale parameter under-flowed. Replacing with a small number.")
+            lscale[lscale == 0] = 10e-16
+        elif np.any(np.isinf(lscale)):
+            warn(
+                "Local scale parameter over-flowed. Replacing with a large number.")
+            lscale[np.isinf(lscale)] = 2.0 / gscale
         pass
