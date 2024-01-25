@@ -59,6 +59,15 @@ class HorseshoePrior():
         self.n_fixed = n_fixed_effect
         self.gscale_prior = global_scale_prior
         self.name = "horseshoe"
+        self.bridge_exp = None
+        self._gscale_paramet = None
+        if self.gscale_prior is None:
+            self.param = {
+                'gscale_neg_power': {'shape': 0., 'rate': 0.},
+                    # Reference prior for a scale family.
+                'gscale': None
+            }
+
 
     def update_local_scale(self, gscale, coef, rg):
         # rg: random generator
@@ -78,4 +87,5 @@ class HorseshoePrior():
             warn(
                 "Local scale parameter over-flowed. Replacing with a large number.")
             lscale[np.isinf(lscale)] = 2.0 / gscale
-        pass
+
+        return lscale
