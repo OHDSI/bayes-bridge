@@ -1,6 +1,8 @@
 # TODO: find a way to compute/store mu_beta_a and var_beta_a,
 #  one option is to store them in a csv file,
 #  then for each beta, you find whether it's informed or not
+import numpy as np
+
 
 def compute_horseshoe_lscale():
     if no_prior_info:
@@ -18,8 +20,10 @@ def compute_horseshoe_lscale():
         lscale = 1 / skewed_shrinkage_rejection_sampler(a, c, q=0.5, k1=16, k2=5)
     pass
 
-def get_informed_prior(mu_beta_a, var_beta_a, rho, sigma_sq_ave, sigma_sq_db):
+
+def get_informed_prior(mu_beta_a, var_beta_a, r, dist, sigma_sq_ave, sigma_sq_db):
     sigma_sq_coef = sigma_sq_ave + sigma_sq_db
+    rho = np.exp(- r * dist)
     gamma = rho * sigma_sq_ave / sigma_sq_coef
-    gamma_sq = gamma**2
+    gamma_sq = gamma ** 2
     return gamma * mu_beta_a, (1 - gamma_sq) * sigma_sq_coef + gamma_sq * var_beta_a
