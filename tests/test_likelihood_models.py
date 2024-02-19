@@ -1,7 +1,3 @@
-import sys
-sys.path.append(".") # needed if pytest called from the parent directory
-sys.path.append("..") # needed if pytest called from this directory.
-
 import numpy as np
 import numpy.random
 import scipy as sp
