@@ -18,28 +18,30 @@ class ConjugateGradientSampler():
         self.n_coef_wo_shrinkage = n_coef_wo_shrinkage
 
     def sample(
-            self, X, omega, prior_prec_sqrt, z,
-            beta_init=None, precond_by='prior', beta_scaled_sd=None,
+            self, design, obs_prec, prior_prec_sqrt, z,
+            coef_cg_init=None, precond_by='prior', coef_scaled_sd=None,
             maxiter=None, atol=10e-6, seed=None):
         """
-        Generate a multi-variate Gaussian with the mean mu and covariance Sigma of the form
-           Sigma^{-1} = X' Omega X + prior_prec_sqrt^2, mu = Sigma z
-        where D is assumed to be diagonal. For numerical stability, the code first sample
-        from the scaled parameter regress_coef / precond_scale.
+        Generate a multi-variate Gaussian with mean mu and covariance Sigma of the form
+            mu = Sigma z,
+            Sigma^{-1} = X' diag(obs_prec) X + prior_prec_sqrt ** 2,
+        For numerical stability, the code first sample from the scaled parameter
+        coef / precond_scale.
+
         Param:
         ------
         D : vector
         atol : float
             The absolute tolerance on the residual norm at the termination
             of CG iterations.
-        beta_scaled_sd : vector of length X.shape[1]
+        coef_scaled_sd : vector of length design.shape[1]
             Used to estimate a good preconditioning scale for the coefficient
             without shrinkage. Used only if precond_by == 'prior'.
         precond_by : {'prior', 'diag'}
         """
-        if X.use_cupy:
-            beta_init = cp.asarray(beta_init)
-            beta_scaled_sd = cp.asarray(beta_scaled_sd)
+        if design.use_cupy:
+            coef_cg_init = cp.asarray(coef_cg_init)
+            coef_scaled_sd = cp.asarray(coef_scaled_sd)
             prior_prec_sqrt = cp.asarray(prior_prec_sqrt)
             cg = cpx.scipy.sparse.linalg.cg
             LinearOperator = cpx.scipy.sparse.linalg.LinearOperator
@@ -50,18 +52,18 @@ class ConjugateGradientSampler():
             np.random.seed(seed)
 
         # Define a preconditioned linear operator.
-        Phi_precond_op, precond_scale = \
+        Prec_precond_op, precond_scale = \
             self.precondition_linear_system(
-                prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, LinearOperator
+                prior_prec_sqrt, obs_prec, design, precond_by, coef_scaled_sd, LinearOperator
             )
 
         # Draw a target vector.
-        randn_vec_1 = np.random.randn(X.shape[0])
-        randn_vec_2 = np.random.randn(X.shape[1])
-        if X.use_cupy:
+        randn_vec_1 = np.random.randn(design.shape[0])
+        randn_vec_2 = np.random.randn(design.shape[1])
+        if design.use_cupy:
             randn_vec_1 = cp.asarray(randn_vec_1)
             randn_vec_2 = cp.asarray(randn_vec_2)
-        v = X.Tdot(omega ** (1 / 2) * randn_vec_1) \
+        v = design.Tdot(obs_prec ** (1 / 2) * randn_vec_1) \
             + prior_prec_sqrt * randn_vec_2
         b = precond_scale * (z + v)
 
@@ -71,9 +73,9 @@ class ConjugateGradientSampler():
 
         # Run PCG.
         rtol = atol / np.linalg.norm(b)
-        beta_scaled_init = beta_init / precond_scale
-        beta_scaled, info = cg(
-            Phi_precond_op, b, x0=beta_scaled_init, maxiter=maxiter, tol=rtol,
+        coef_scaled_cg_init = coef_cg_init / precond_scale
+        coef_scaled, info = cg(
+            Prec_precond_op, b, x0=coef_scaled_cg_init, maxiter=maxiter, tol=rtol,
             callback=cg_callback
         )
 
@@ -84,47 +86,47 @@ class ConjugateGradientSampler():
                 "linear algebra instead."
             )
 
-        beta = precond_scale * beta_scaled
+        coef = precond_scale * coef_scaled
         cg_info['valid_input'] = (info >= 0)
         cg_info['converged'] = (info == 0)
-        if X.use_cupy:
-            beta = cp.asnumpy(beta)
-        return beta, cg_info
+        if design.use_cupy:
+            coef = cp.asnumpy(coef)
+        return coef, cg_info
 
     def precondition_linear_system(
-            self, prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd, LinearOperator):
+            self, prior_prec_sqrt, obs_prec, design, precond_by, coef_scaled_sd, LinearOperator):
 
         # Compute the preconditioners.
         precond_scale = self.choose_preconditioner(
-            prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd
+            prior_prec_sqrt, obs_prec, design, precond_by, coef_scaled_sd
         )
 
         # Define a preconditioned linear operator.
         precond_prior_prec = (precond_scale * prior_prec_sqrt) ** 2
-        def Phi_precond(x):
-            Phi_x = precond_prior_prec * x \
-                    + precond_scale * X.Tdot(omega * X.dot(precond_scale * x))
-            return Phi_x
-        Phi_precond_op = LinearOperator(
-            (X.shape[1], X.shape[1]), matvec=Phi_precond
+        def Prec_precond(x):
+            Prec_precond_x = precond_prior_prec * x \
+                + precond_scale * design.Tdot(obs_prec * design.dot(precond_scale * x))
+            return Prec_precond_x
+        Prec_precond_op = LinearOperator(
+            (design.shape[1], design.shape[1]), matvec=Prec_precond
         )
-        return Phi_precond_op, precond_scale
+        return Prec_precond_op, precond_scale
 
     def choose_preconditioner(
-            self, prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd):
+            self, prior_prec_sqrt, obs_prec, design, precond_by, beta_scaled_sd):
 
         precond_scale = self.choose_diag_preconditioner(
-            prior_prec_sqrt, omega, X, precond_by, beta_scaled_sd)
+            prior_prec_sqrt, obs_prec, design, precond_by, beta_scaled_sd)
 
         return precond_scale
 
     def choose_diag_preconditioner(
-            self, prior_prec_sqrt, omega, X, precond_by='diag',
+            self, prior_prec_sqrt, obs_prec, design, precond_by='diag',
             beta_scaled_sd=None):
         # Compute the diagonal (sqrt) preconditioner.
 
         if precond_by == 'prior':
-            precond_scale = cp.ones(len(prior_prec_sqrt)) if X.use_cupy \
+            precond_scale = cp.ones(len(prior_prec_sqrt)) if design.use_cupy \
                 else np.ones(len(prior_prec_sqrt))
             precond_scale[self.n_coef_wo_shrinkage:] = \
                 prior_prec_sqrt[self.n_coef_wo_shrinkage:] ** -1
@@ -136,11 +138,12 @@ class ConjugateGradientSampler():
                     target_sd_scale * beta_scaled_sd[:self.n_coef_wo_shrinkage]
 
         elif precond_by == 'diag':
-            diag = prior_prec_sqrt ** 2 + X.compute_fisher_info(weight=omega, diag_only=True)
+            diag = prior_prec_sqrt ** 2 \
+                + design.compute_fisher_info(weight=obs_prec, diag_only=True)
             precond_scale = 1 / np.sqrt(diag)
 
         elif precond_by is None:
-            precond_scale = np.ones(X.shape[1])
+            precond_scale = np.ones(design.shape[1])
 
         else:
             raise NotImplementedError()
