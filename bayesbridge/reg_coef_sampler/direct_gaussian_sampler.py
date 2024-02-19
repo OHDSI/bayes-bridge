@@ -42,3 +42,48 @@ def compute_precond_post_prec(design, obs_prec, prior_prec_sqrt, precond_scale):
         * precond_scale[np.newaxis, :]
     Prec_precond += np.diag((precond_scale * prior_prec_sqrt) ** 2)
     return Prec_precond
+
+def generate_gaussian_via_woodbury(design, obs_prec, prior_prec_sqrt, z):
+    """
+    Sample from a multi-variate Gaussian using the identity
+        (D + X' W X)^{-1}
+            = D^{-1} - D^{-1} X' (W^{-1} + X D^{-1} X')^{-1} X D^{-1}.
+    """
+    if np.any(prior_prec_sqrt == 0):
+        raise NotImplementedError(
+            "Woodbury sampler currently does not support flat prior on intercept "
+            "nor on fixed effects."
+        )
+
+    # Draw a "target" vector, right-hand side of the linear system to be solved.
+    randn_vec_1 = np.random.randn(design.shape[0])
+    randn_vec_2 = np.random.randn(design.shape[1])
+    v = design.Tdot(obs_prec ** (1 / 2) * randn_vec_1) \
+        + prior_prec_sqrt * randn_vec_2
+    rhs_target_vec = (z + v)
+    sample = matvec_by_post_prec_inverse_via_woodbury(
+        design, obs_prec, prior_prec_sqrt, rhs_target_vec
+    )
+    return sample
+
+def matvec_by_post_prec_inverse_via_woodbury(design, obs_prec, prior_prec_sqrt, x):
+    D_inv = prior_prec_sqrt ** -2
+    to_be_inverted = \
+        np.diag(obs_prec ** - 1) \
+        + design.compute_transposed_fisher_info(weight=D_inv, include_intrcpt=True)
+    result = solve_via_chol(to_be_inverted, design.dot(D_inv * x))
+    result = D_inv * design.Tdot(result)
+    result = D_inv * x - result
+    return result
+
+def solve_via_chol(pos_def_mat, x):
+    # Use Jacobi preconditioner to improve numerical stability.
+    precond_scale = 1 / np.diag(pos_def_mat)
+    precond_mat = \
+        precond_scale[:, np.newaxis] \
+        * pos_def_mat \
+        * precond_scale[np.newaxis, :]
+    result = precond_scale * x
+    result = sp.linalg.cho_solve(sp.linalg.cho_factor(precond_mat), result)
+    result *= precond_scale
+    return result
