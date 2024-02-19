@@ -5,31 +5,31 @@ class RegressionCoeffficientPosteriorSummarizer():
     def __init__(self, n_coef, n_unshrunk, regularizing_slab_size,
                  pc_summary_method='average'):
         self.n_unshrunk = n_unshrunk
-        self.beta_scaled_summarizer = OntheflySummarizer(n_coef)
+        self.coef_scaled_summarizer = OntheflySummarizer(n_coef)
         self.slab_size = regularizing_slab_size
         self.pc_summarizer = DirectionSummarizer(pc_summary_method)
 
-    def scale_beta(self, beta, gscale, lscale):
-        beta_scaled = beta.copy()
-        beta_scaled[self.n_unshrunk:] \
+    def scale_coef(self, coef, gscale, lscale):
+        coef_scaled = coef.copy()
+        coef_scaled[self.n_unshrunk:] \
             /= self.compute_prior_scale(gscale, lscale)
-        return beta_scaled
+        return coef_scaled
 
-    def update(self, beta, gscale, lscale):
-        beta_scaled = self.scale_beta(beta, gscale, lscale)
-        self.beta_scaled_summarizer.update_stats(beta_scaled)
+    def update(self, coef, gscale, lscale):
+        coef_scaled = self.scale_coef(coef, gscale, lscale)
+        self.coef_scaled_summarizer.update_stats(coef_scaled)
 
     def update_precond_hessian_pc(self, pc):
         self.pc_summarizer.update(pc)
 
-    def extrapolate_beta_condmean(self, gscale, lscale):
-        beta_condmean_guess = self.beta_scaled_summarizer.stats['mean'].copy()
-        beta_condmean_guess[self.n_unshrunk:] \
+    def extrapolate_coef_condmean(self, gscale, lscale):
+        coef_condmean_guess = self.coef_scaled_summarizer.stats['mean'].copy()
+        coef_condmean_guess[self.n_unshrunk:] \
             *= self.compute_prior_scale(gscale, lscale)
-        return beta_condmean_guess
+        return coef_condmean_guess
 
-    def estimate_beta_precond_scale_sd(self):
-        return self.beta_scaled_summarizer.estimate_post_sd()
+    def estimate_coef_precond_scale_sd(self):
+        return self.coef_scaled_summarizer.estimate_post_sd()
 
     def estimate_precond_hessian_pc(self):
         return self.pc_summarizer.get_mean()

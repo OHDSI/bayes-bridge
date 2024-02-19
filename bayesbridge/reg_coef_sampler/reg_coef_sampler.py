@@ -62,9 +62,6 @@ class SparseRegressionCoefficientSampler():
         """
         Parameters
         ----------
-        beta_init: vector
-            Used when when method == 'cg' as the starting value of the
-            preconditioned conjugate gradient algorithm.
         method: {'cholesky', 'cg'}
             If 'cholesky', a sample is generated using a cholesky method based on the
             cholesky linear algebra. If 'cg', the preconditioned conjugate gradient
@@ -83,37 +80,37 @@ class SparseRegressionCoefficientSampler():
 
         info = {}
         if method == 'cholesky':
-            beta = generate_gaussian_with_weight(
+            coef = generate_gaussian_with_weight(
                 design, obs_prec, prior_prec_sqrt, v)
 
         elif method == 'cg':
-            beta_condmean_guess = \
-                self.regcoef_summarizer.extrapolate_beta_condmean(gscale, lscale)
-            beta_precond_scale_sd = self.regcoef_summarizer.estimate_beta_precond_scale_sd()
-            beta, cg_info = self.cg_sampler.sample(
+            coef_condmean_guess = \
+                self.regcoef_summarizer.extrapolate_coef_condmean(gscale, lscale)
+            coef_precond_scale_sd = self.regcoef_summarizer.estimate_coef_precond_scale_sd()
+            coef, cg_info = self.cg_sampler.sample(
                 design, obs_prec, prior_prec_sqrt, v,
-                coef_cg_init=beta_condmean_guess,
+                coef_cg_init=coef_condmean_guess,
                 precond_by='prior',
-                coef_scaled_sd=beta_precond_scale_sd,
+                coef_scaled_sd=coef_precond_scale_sd,
                 maxiter=500, atol=10e-6 * np.sqrt(design.shape[1])
             )
-            self.regcoef_summarizer.update(beta, gscale, lscale)
+            self.regcoef_summarizer.update(coef, gscale, lscale)
             info['n_cg_iter'] = cg_info['n_iter']
 
         else:
             raise NotImplementedError()
 
-        return beta, info
+        return coef, info
 
     def sample_by_hmc(
-            self, beta, gscale, lscale, model, method='hmc', max_step=512):
+            self, coef, gscale, lscale, model, method='hmc', max_step=512):
         # TODO: allow for a fixed stepsize (w/o adaptation)?
 
-        beta_precond_post_sd = \
-            self.regcoef_summarizer.estimate_beta_precond_scale_sd()
+        coef_precond_post_sd = \
+            self.regcoef_summarizer.estimate_coef_precond_scale_sd()
         precond_scale, precond_prior_prec = \
             self.compute_preconditioning_scale(
-                gscale, lscale, beta_precond_post_sd, self.prior_sd_for_unshrunk
+                gscale, lscale, coef_precond_post_sd, self.prior_sd_for_unshrunk
             )
 
         # Calibrate the stepsize by estimating the stability limit.
@@ -131,7 +128,7 @@ class SparseRegressionCoefficientSampler():
         dt = np.random.uniform(.5, 1) * stepsize_upper_limit
 
         # Sample the coefficients.
-        beta_precond = beta / precond_scale
+        coef_precond = coef / precond_scale
         f = self.get_precond_logprob_and_gradient(
             model, precond_scale, precond_prior_prec
         )
@@ -139,8 +136,8 @@ class SparseRegressionCoefficientSampler():
             integration_time = np.pi / 2 * np.random.uniform(.8, 1.)
             n_step = np.ceil(integration_time / dt).astype('int')
             n_step = min(n_step, max_step)
-            beta_precond, hmc_info = \
-                hmc.generate_next_state(f, dt, n_step, beta_precond)
+            coef_precond, hmc_info = \
+                hmc.generate_next_state(f, dt, n_step, coef_precond)
             info = {
                 key: hmc_info.get(key)
                 for key in ['accepted', 'accept_prob', 'n_grad_evals',
@@ -152,8 +149,8 @@ class SparseRegressionCoefficientSampler():
         elif method == 'nuts':
             nuts = NoUTurnSampler(f)
             max_height = int(math.log2(max_step))
-            beta_precond, nuts_info = \
-                nuts.generate_next_state(dt, beta_precond, max_height=max_height)
+            coef_precond, nuts_info = \
+                nuts.generate_next_state(dt, coef_precond, max_height=max_height)
             info = {
                 key: nuts_info.get(key)
                 for key in ['ave_accept_prob', 'n_grad_evals', 'tree_height',
@@ -164,15 +161,15 @@ class SparseRegressionCoefficientSampler():
         else:
             raise NotImplementedError()
 
-        beta = beta_precond * precond_scale
-        self.regcoef_summarizer.update(beta, gscale, lscale)
+        coef = coef_precond * precond_scale
+        self.regcoef_summarizer.update(coef, gscale, lscale)
         self.stability_adjustment_adapter.adapt_stepsize(hamiltonian_error)
 
         info['n_hessian_matvec'] = n_hessian_matvec
         info['stepsize'] = dt
         info['stability_limit_est'] = approx_stability_limit
         info['stability_adjustment_factor'] = adjustment_factor
-        return beta, info
+        return coef, info
 
     def compute_preconditioning_scale(
             self, gscale, lscale, regcoef_precond_post_sd,
@@ -205,12 +202,12 @@ class SparseRegressionCoefficientSampler():
 
     def compute_stability_limit(
             self, gscale, lscale, model, precond_scale, precond_prior_prec):
-        beta_condmean_guess = \
-            self.regcoef_summarizer.extrapolate_beta_condmean(gscale, lscale)
+        coef_condmean_guess = \
+            self.regcoef_summarizer.extrapolate_coef_condmean(gscale, lscale)
         hessian_pc_estimate = self.regcoef_summarizer.estimate_precond_hessian_pc()
         max_curvature, hessian_pc, n_hessian_matvec = \
             self.compute_precond_hessian_curvature(
-                beta_condmean_guess, model, precond_scale, precond_prior_prec,
+                coef_condmean_guess, model, precond_scale, precond_prior_prec,
                 hessian_pc_estimate
             )
         self.regcoef_summarizer.update_precond_hessian_pc(hessian_pc)
@@ -218,16 +215,16 @@ class SparseRegressionCoefficientSampler():
         return approx_stability_limit, n_hessian_matvec
 
     def compute_precond_hessian_curvature(
-            self, beta_location, model, precond_scale, precond_prior_prec, pc_estimate):
+            self, coef_location, model, precond_scale, precond_prior_prec, pc_estimate):
 
         precond_hessian_matvec, matvec_counter = self.get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec
+            model, coef_location, precond_scale, precond_prior_prec
         )
         precond_hessian_op = sp.sparse.linalg.LinearOperator(
-            (len(beta_location), len(beta_location)), precond_hessian_matvec
+            (len(coef_location), len(coef_location)), precond_hessian_matvec
         )
         if pc_estimate is None:
-            pc_estimate = np.random.randn(len(beta_location))
+            pc_estimate = np.random.randn(len(coef_location))
         eigval, eigvec = sp.sparse.linalg.eigsh(
             precond_hessian_op, k=1, tol=.1, v0=pc_estimate, ncv=2
         )   # We don't need a high (relative) accuracy.
@@ -244,18 +241,18 @@ class SparseRegressionCoefficientSampler():
 
     @staticmethod
     def get_precond_hessian_matvec(
-            model, beta_location, precond_scale, precond_prior_prec, obs_prec=None):
+            model, coef_location, precond_scale, precond_prior_prec, obs_prec=None):
 
         if model.name == 'linear':
-            args = [beta_location, obs_prec]
+            args = [coef_location, obs_prec]
         else:
-            args = [beta_location]
+            args = [coef_location]
         loglik_hessian_matvec = model.get_hessian_matvec_operator(*args)
         matvec_counter = [0]
-        def precond_hessian_matvec(beta_precond):
+        def precond_hessian_matvec(coef_precond):
             matvec_counter[0] += 1
-            return precond_prior_prec * beta_precond \
-                   - precond_scale * loglik_hessian_matvec(precond_scale * beta_precond)
+            return precond_prior_prec * coef_precond \
+                   - precond_scale * loglik_hessian_matvec(precond_scale * coef_precond)
 
         return precond_hessian_matvec, matvec_counter
 
@@ -267,21 +264,21 @@ class SparseRegressionCoefficientSampler():
         if model.name == 'linear':
             compute_loglik_and_gradient \
                 = partial(compute_loglik_and_gradient, obs_prec=obs_prec)
-        def f(beta_precond, loglik_only=False):
-            beta = beta_precond * precond_scale
-            logp, grad_wrt_beta = \
-                compute_loglik_and_gradient(beta, loglik_only=loglik_only)
-            logp += np.sum(- precond_prior_prec * beta_precond ** 2) / 2
+        def f(coef_precond, loglik_only=False):
+            coef = coef_precond * precond_scale
+            logp, grad_wrt_coef = \
+                compute_loglik_and_gradient(coef, loglik_only=loglik_only)
+            logp += np.sum(- precond_prior_prec * coef_precond ** 2) / 2
 
             grad = None
             if not loglik_only and math.isfinite(logp):
-                grad = precond_scale * grad_wrt_beta  # Chain rule.
-                grad += - precond_prior_prec * beta_precond
+                grad = precond_scale * grad_wrt_coef  # Chain rule.
+                grad += - precond_prior_prec * coef_precond
             return logp, grad
 
         return f
 
-    def search_mode(self, beta, lscale, gscale, obs_prec, model, optim_maxiter=None,
+    def search_mode(self, coef, lscale, gscale, obs_prec, model, optim_maxiter=None,
                     use_newton_method=False, require_trust_region=False,
                     warn_optim_failure=False):
 
@@ -289,20 +286,20 @@ class SparseRegressionCoefficientSampler():
             warn("Trust regions are used only for Newton methods.")
 
         precond_scale, compute_negative_logp, compute_negative_grad, precond_hessian_matvec \
-            = self.define_function_for_optim(beta, lscale, gscale, obs_prec, model)
+            = self.define_function_for_optim(coef, lscale, gscale, obs_prec, model)
         if not use_newton_method:
             precond_hessian_matvec = None
 
         optim_method, optim_options = self.choose_optim_method_and_options(
-            optim_maxiter, use_newton_method, require_trust_region, n_param=len(beta)
+            optim_maxiter, use_newton_method, require_trust_region, n_param=len(coef)
         )
 
-        beta_precond = beta / precond_scale
+        coef_precond = coef / precond_scale
         model.design.memoize_dot(True)
         model.design.reset_matvec_count()
             # Avoid matrix-vector multiplication with the same input.
         optim_result = sp.optimize.minimize(
-            compute_negative_logp, beta_precond, method=optim_method,
+            compute_negative_logp, coef_precond, method=optim_method,
             jac=compute_negative_grad, hessp=precond_hessian_matvec,
             options=optim_options
         )
@@ -315,7 +312,7 @@ class SparseRegressionCoefficientSampler():
                     optim_result.nit
                 )
             )
-        beta = precond_scale * optim_result.x
+        coef = precond_scale * optim_result.x
         info = {
             'is_success': optim_result.success,
             'method': optim_method,
@@ -327,27 +324,27 @@ class SparseRegressionCoefficientSampler():
                 # incorrect output as of the current Scipy version (to be fixed in ver. 1.3.0)
             'n_design_matvec': model.design.n_matvec,
         }
-        return beta, info
+        return coef, info
 
-    def define_function_for_optim(self, beta, lscale, gscale, obs_prec, model):
+    def define_function_for_optim(self, coef, lscale, gscale, obs_prec, model):
 
-        beta_precond_post_sd = np.ones(beta.size)
+        coef_precond_post_sd = np.ones(coef.size)
         # No Monte Carlo estimate yet, so make some reasonable guess. It
         # probably should depend on the outcome and design matrix.
         precond_scale, precond_prior_prec = \
             self.compute_preconditioning_scale(
-                gscale, lscale, beta_precond_post_sd, self.prior_sd_for_unshrunk
+                gscale, lscale, coef_precond_post_sd, self.prior_sd_for_unshrunk
             )
 
         f = self.get_precond_logprob_and_gradient(
             model, precond_scale, precond_prior_prec, obs_prec
         )
-        def compute_negative_logp(beta_precond):
+        def compute_negative_logp(coef_precond):
             # Negative log-density
-            return - f(beta_precond, loglik_only=True)[0]
+            return - f(coef_precond, loglik_only=True)[0]
 
-        def compute_negative_grad(beta_precond):
-            return - f(beta_precond)[1]
+        def compute_negative_grad(coef_precond):
+            return - f(coef_precond)[1]
 
 
         def precond_hessian_matvec(precond_location, v):
