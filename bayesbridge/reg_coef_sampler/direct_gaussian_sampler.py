@@ -3,10 +3,9 @@ import scipy as sp
 
 def generate_gaussian_with_weight(design, obs_prec, prior_prec_sqrt, z, rand_gen=None):
     """
-    Generate a multi-variate Gaussian with
-        mean = Sigma z,
-        covariance^{-1} = X' diag(obs_prec) X + diag(prior_prec_sqrt) ** 2,
-    where X is the `design` matrix.
+    Generate a multi-variate Gaussian with covariance Sigma
+        Sigma^{-1} = X diag(obs_prec) X + diag(prior_prec_sqrt) ** 2
+    and mean = Sigma z, where X is the `design` matrix.
 
     Parameters
     ----------
