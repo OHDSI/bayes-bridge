@@ -3,8 +3,6 @@ import scipy as sp
 import scipy.sparse
 import math
 import sys
-sys.path.append("..") # needed if pytest called from the parent directory
-sys.path.insert(0, '../..') # needed if pytest called from this directory.
 
 from bayesbridge import BayesBridge, RegressionModel, RegressionCoefPrior
 from bayesbridge.model import LinearModel, LogisticModel, CoxModel
