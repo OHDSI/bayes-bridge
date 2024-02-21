@@ -6,7 +6,8 @@ from warnings import warn
 from functools import partial
 from .cg_sampler import ConjugateGradientSampler
 from .reg_coef_posterior_summarizer import RegressionCoeffficientPosteriorSummarizer
-from .direct_gaussian_sampler import generate_gaussian_with_weight
+from .direct_gaussian_sampler \
+    import generate_gaussian_with_weight, generate_gaussian_via_woodbury
 from .hamiltonian_monte_carlo import hmc
 from .hamiltonian_monte_carlo.nuts import NoUTurnSampler
 from .hamiltonian_monte_carlo.stepsize_adapter \
@@ -62,7 +63,7 @@ class SparseRegressionCoefficientSampler():
         """
         Parameters
         ----------
-        method: {'cholesky', 'cg'}
+        method: {'cholesky', 'woodbury', 'cg'}
             If 'cholesky', a sample is generated using a cholesky method based on the
             cholesky linear algebra. If 'cg', the preconditioned conjugate gradient
             sampler is used.
@@ -81,8 +82,12 @@ class SparseRegressionCoefficientSampler():
         info = {}
         if method == 'cholesky':
             coef = generate_gaussian_with_weight(
-                design, obs_prec, prior_prec_sqrt, v)
-
+                design, obs_prec, prior_prec_sqrt, v
+            )
+        elif method == 'woodbury':
+            coef = generate_gaussian_via_woodbury(
+                design, obs_prec, prior_prec_sqrt, v
+            )
         elif method == 'cg':
             coef_condmean_guess = \
                 self.regcoef_summarizer.extrapolate_coef_condmean(gscale, lscale)

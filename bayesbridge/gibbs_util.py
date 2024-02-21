@@ -12,11 +12,11 @@ class SamplerOptions():
         """
         Parameters
         ----------
-        coef_sampler_type : {'cholesky', 'cg', 'hmc'}
+        coef_sampler_type : {'cholesky', 'cg', 'woodbury', 'hmc'}
         global_scale_update : str, {'sample', 'optimize', None}
         hmc_curvature_est_stabilized : bool
         """
-        if coef_sampler_type not in ('cholesky', 'cg', 'hmc'):
+        if coef_sampler_type not in ('cholesky', 'woodbury', 'cg', 'hmc'):
             raise ValueError("Unsupported regression coefficient sampler.")
         self.coef_sampler_type = coef_sampler_type
         self.gscale_update = global_scale_update
@@ -43,7 +43,7 @@ class SamplerOptions():
                      "regression coefficient. Will use the dictionary one.")
             coef_sampler_type = options['coef_sampler_type']
 
-        if coef_sampler_type not in (None, 'cholesky', 'cg', 'hmc'):
+        if coef_sampler_type not in (None, 'cholesky', 'woodbury', 'cg', 'hmc'):
             raise ValueError("Unsupported sampler type.")
 
         if coef_sampler_type not in (None, 'cg') and design.use_cupy:
