@@ -52,21 +52,25 @@ class SamplerOptions():
         if model_name in ('linear', 'logit'):
 
             n_obs, n_pred = design.shape
-            if not design.is_sparse:
-                preferred_method = 'cholesky'
-            elif design.use_cupy:
-                preferred_method = 'cg'
-            else:
+            if design.use_cupy:
+                preferred_method = 'cg' # Cupy supported only for CG
+            elif design.is_sparse:
                 # TODO: Make more informed choice between Cholesky and CG.
                 frac = design.nnz / (n_obs * n_pred)
                 fisher_info_cost = frac ** 2 * n_obs * n_pred ** 2
+                transp_fisher_info_cost = frac ** 2 * n_obs ** 2 * n_pred
                 cg_cost = design.nnz * 100.
-                preferred_method = 'cg' if cg_cost < fisher_info_cost \
-                    else 'cholesky'
+                if cg_cost < min(fisher_info_cost, transp_fisher_info_cost):
+                    preferred_method = 'cg'
+                elif n_obs < n_pred:
+                    preferred_method = 'woodbury'
+                else:
+                    preferred_method = 'cholesky'
+            else:
+                preferred_method = 'cholesky'
 
-            # TODO: Implement Woodbury-based Gaussian sampler.
-            if n_pred > n_obs:
-                warn("Sampler has not been optimized for 'small n' problem.")
+            if n_obs < n_pred and not design.is_sparse:
+                warn("Sampler has not been optimized for dense 'n < p' problems.")
 
             if coef_sampler_type is None:
                 coef_sampler_type = preferred_method
