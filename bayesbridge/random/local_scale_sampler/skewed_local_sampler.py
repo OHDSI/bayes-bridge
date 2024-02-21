@@ -3,9 +3,8 @@
 import numpy as np
 import time
 from typing import Optional
-from helper import log_prob_c_pos, log_prob_c_neg
+from .helper import log_prob_c_pos, log_prob_c_neg
 import logging
-
 
 
 def compute_inflection_point(c: float) -> Optional[float]:
@@ -120,7 +119,7 @@ def compute_rv_and_log_prob(uniform_rlim, x, log_den, derivative):
     return rv, log_prob
 
 
-def right_log_concave(a_sq,c, x_transformed, den_x):
+def right_log_concave(a_sq, c, x_transformed, den_x):
     d_concave_opp = - h_derivative(a_sq, c, x_transformed)
     int_concave = den_x / d_concave_opp
     return d_concave_opp, int_concave
@@ -164,7 +163,7 @@ def sample_c_positive(a: float, c: float, q: float, k1: int, k2: int):
     # proposing tangent line
     # d_concave_opp = - h_derivative(a_sq, c, x_transformed[k0 + k1])
     # int_concave_right = den_const[k0 + k1] / d_concave_opp
-    d_concave_opp, int_concave_right = right_log_concave(a_sq,c, x_transformed[k0 + k1], den_const[k0 + k1])
+    d_concave_opp, int_concave_right = right_log_concave(a_sq, c, x_transformed[k0 + k1], den_const[k0 + k1])
 
     # left tail if l_computed == True
     int_concave_left = 0
@@ -180,7 +179,7 @@ def sample_c_positive(a: float, c: float, q: float, k1: int, k2: int):
         if (r_transformed is None) or (r[0] >= x[0]):
             d_concave_left, coef_concave_left, int_concave_left = \
                 mass_concave_left_to_ziggurat(log_den_x=log_den_const[0], den_x=den_const[0],
-                                              x_trans=x_transformed[0],x=x[0], a=a)
+                                              x_trans=x_transformed[0], x=x[0], a=a)
 
         else:
             # the leftmost log-concave region
@@ -189,7 +188,7 @@ def sample_c_positive(a: float, c: float, q: float, k1: int, k2: int):
             # the middle log-convex region - split into k2 parts
             # print(k2 + 1)
             m_convex, log_den_convex, d_convex, coef, int_convex = \
-                mass_log_convex_c_pos(m1=r[0],m2=np.min(r[1], x[0]),k=k2, a=a, c=c)
+                mass_log_convex_c_pos(m1=r[0], m2=np.min(r[1], x[0]), k=k2, a=a, c=c)
 
             if r[1] < x[0]:
                 d_concave_mid, coef_concave_mid, int_concave_mid = mass_concave_left_to_ziggurat(
@@ -309,12 +308,12 @@ def sample_c_negative(a: float, c: float, q: float, k1: int, k2: int):
     return rv, log_prob
 
 
-# def sample_from_ziggurat():
+ # def sample_from_ziggurat():
 #     return
 
 def main():
     logging.basicConfig(level=logging.WARNING,  # Change level to INFO
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                        format='%(asctime)s -%(name)s - %(levelname)s - %(message)s')
 
     # Adding a file handler
     file_handler = logging.FileHandler('app.log')
