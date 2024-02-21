@@ -53,9 +53,9 @@ class AbstractDesignMatrix():
         pass
 
     @abc.abstractmethod
-    def compute_transposed_fisher_info(self, weight):
+    def compute_transposed_fisher_info(self, weight, include_intrcpt):
         """ Computes X diag(weight) X' and returns it as a numpy array, where
-        `X` is a design matrix excluding the intercept term. """
+        `X` is a design matrix. """
         pass
 
     @property

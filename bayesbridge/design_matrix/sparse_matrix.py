@@ -179,16 +179,20 @@ class SparseDesignMatrix(AbstractDesignMatrix):
     def create_diag_matrix(self, v):
         return sparse.dia_matrix((v, 0), (len(v), len(v)))
 
-    def compute_transposed_fisher_info(self, weight):
-        weight_mat = self.create_diag_matrix(weight)
+    def compute_transposed_fisher_info(self, weight, include_intrcpt=False):
         X = self.X_main
+        weight_ex_intrcpt = weight[1:] if include_intrcpt else weight
+        weight_mat = self.create_diag_matrix(weight_ex_intrcpt)
         weighted_X_T = weight_mat.dot(X.T).tocsc()
         transposed_fisher_info = X.dot(weighted_X_T).toarray()
         offset_weight_X = self.column_offset @ weighted_X_T
         if self.centered:
             transposed_fisher_info -= offset_weight_X[np.newaxis, :]
             transposed_fisher_info -= offset_weight_X[:, np.newaxis]
-            transposed_fisher_info += np.sum(weight * self.column_offset ** 2)
+            transposed_fisher_info \
+                += np.sum(weight_ex_intrcpt * self.column_offset ** 2)
+        if include_intrcpt:
+            transposed_fisher_info += weight[0]
         return transposed_fisher_info
 
     def toarray(self):
