@@ -371,7 +371,7 @@ class BayesBridge():
 
     def update_regress_coef(self, coef, obs_prec, gscale, lscale, sampling_method):
 
-        if sampling_method in ('cholesky', 'cg'):
+        if sampling_method in ('cholesky', 'woodbury', 'cg'):
 
             if self.model.name == 'linear':
                 y_gaussian = self.model.y
