@@ -184,6 +184,7 @@ class SparseDesignMatrix(AbstractDesignMatrix):
         weight_ex_intrcpt = weight[1:] if include_intrcpt else weight
         weight_mat = self.create_diag_matrix(weight_ex_intrcpt)
         weighted_X_T = weight_mat.dot(X.T).tocsc()
+            # This line seems to invoke `csr_matmat()` but is actually inexpensive.
         transposed_fisher_info = X.dot(weighted_X_T).toarray()
         offset_weight_X = self.column_offset @ weighted_X_T
         if self.centered:
