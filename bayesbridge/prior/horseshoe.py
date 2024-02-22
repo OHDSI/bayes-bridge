@@ -15,7 +15,8 @@ class HorseshoePrior():
             regularizing_slab_size=float('inf'),
             skew_mean=0.,
             skew_sd=1.,
-            global_scale_prior=None
+            global_scale_prior=None,
+            gscale_prior_method=None,
     ):
         """ Encapisulate horseshoe prior information for BayesBridge.
 
@@ -44,6 +45,7 @@ class HorseshoePrior():
         skew_mean : float, numpy array
         skew_sd : float, numpy array
         global_scale_prior : callable, None
+        gscale_prior_method : callable, 'sample' or 'grid_search'
         """
         if not (np.isscalar(sd_for_fixed_effect)
                 or n_fixed_effect == len(sd_for_fixed_effect)):
@@ -59,19 +61,21 @@ class HorseshoePrior():
         self.slab_size = regularizing_slab_size
         self.n_fixed = n_fixed_effect
         self.gscale_prior = global_scale_prior
+        self.gscale_prior_method = gscale_prior_method
         self.name = "horseshoe"
         self.skew_mean = skew_mean
         self.skew_sd = skew_sd
         self.bridge_exp = None
         self._gscale_paramet = None
         if self.gscale_prior is None:
+            self.gscale_prior_method = 'sample'
             self.param = {
                 'gscale_neg_power': {'shape': 0., 'rate': 0.},
                 # Reference prior for a scale family.
                 'gscale': None
             }
 
-    def update_local_scale(self, gscale, coef, beta_mean_prior, beta_sd_prior, rg):
+    def update_local_scale(self, gscale, coef, rg):
         # rg: random generator
         #     we might want to switch to the rg for sampling
 
@@ -83,6 +87,7 @@ class HorseshoePrior():
         lscale, acc_count = compute_horseshoe_lscale(coef, gscale, self.skew_mean, self.skew_sd)
 
         # ar = 1 / np.mean(acc_count)
+        # can add the logging info later to see the ave acceptance rate
 
         # TODO: Pick the lower and upper bound more carefully.
         if np.any(lscale == 0):

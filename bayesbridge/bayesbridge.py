@@ -383,12 +383,13 @@ class BayesBridge():
                 )
             # Collapsed update of global scale.
             y_gaussian, obs_prec = self.get_gaussianized_outcome(self.model, obs_prec)
-            gscale = self.update_horseshoe_global_scale(
-                gscale, lscale, coef[self.n_unshrunk:]
-            )
             # gscale = coef_collapsed_sampler(
             #     y_gaussian, self.model.design, lscale, self.prior.gscale_prior, self.rg
             # )
+            gscale = self.update_horseshoe_global_scale(
+                gscale=gscale, lscale=lscale, coef_under_shrinkage=coef[self.n_unshrunk:],
+                method=self.prior.gscale_prior_method
+            )
             obs_prec = self.update_obs_precision(coef)
                 # Under the conjugate normal-gamma prior (currently unsupported), the collapsed sampler
                 # would update `obs_prec` conditional on `gscale` and `lscale` with `coef` integrated out.
@@ -508,6 +509,8 @@ class BayesBridge():
                 gscale = 1 / np.sqrt(
                     self.rg.np_random.gamma(shape, scale=1 / rate)
                 )
+        if method == 'grid_search':
+            gscale = self.prior.gscale_prior
 
         if (method is not None) and gscale < lower_bd:
             gscale = lower_bd
