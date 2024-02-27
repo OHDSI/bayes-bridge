@@ -17,6 +17,7 @@ class HorseshoePrior():
             skew_sd=1.,
             global_scale_prior=None,
             gscale_prior_method=None,
+            centered=True,
     ):
         """ Encapisulate horseshoe prior information for BayesBridge.
 
@@ -65,15 +66,16 @@ class HorseshoePrior():
         self.name = "horseshoe"
         self.skew_mean = skew_mean
         self.skew_sd = skew_sd
+        self.centered = centered
         self.bridge_exp = None
         self._gscale_paramet = None
         if self.gscale_prior is None:
             self.gscale_prior_method = 'sample'
-            self.param = {
-                'gscale_neg_power': {'shape': 0., 'rate': 0.},
-                # Reference prior for a scale family.
-                'gscale': None
-            }
+        self.param = {
+            'gscale_neg_power': {'shape': 0., 'rate': 0.},
+            # Reference prior for a scale family.
+            'gscale': None
+        }
 
     def update_local_scale(self, gscale, coef, rg):
         # rg: random generator
@@ -81,10 +83,14 @@ class HorseshoePrior():
 
         # TODO: Implemement, probably starting with the unskewed version.
         # the unskewed version uses the bridge prior
-        # lscale = sample_horseshoe_local_scale(coef, gscale)
 
-        # switch for the function that works for both skewed and centered version
-        lscale, acc_count = compute_horseshoe_lscale(coef, gscale, self.skew_mean, self.skew_sd)
+        if self.centered == True:
+            # lscale, acc_count = compute_horseshoe_lscale(coef, gscale, 0, 1)
+            lscale = sample_horseshoe_local_scale(coef, gscale)
+        else:
+            # switch for the function that works for both skewed and centered version
+            # print("using the skewed sampler")
+            lscale, acc_count = compute_horseshoe_lscale(coef, gscale, self.skew_mean, self.skew_sd)
 
         # ar = 1 / np.mean(acc_count)
         # can add the logging info later to see the ave acceptance rate
