@@ -488,7 +488,7 @@ class BayesBridge():
 
     def update_horseshoe_global_scale(
             self, gscale, lscale, coef_under_shrinkage,
-            coef_expected_magnitude_lower_bd=.001, method='sample'):
+            coef_expected_magnitude_lower_bd=.0001, method='sample'):
         # :param method: {"sample", "optimize", None}
 
         if coef_under_shrinkage.size == 0:
