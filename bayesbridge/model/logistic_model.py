@@ -51,7 +51,7 @@ class LogisticModel(AbstractModel):
         predicted_prob = LogisticModel.convert_to_probability_scale(logit_prob)
         loglik = np.sum(
             self.n_success * logit_prob \
-            - self.n_trial * np.log(1 + np.exp(logit_prob))
+            - self.n_trial * np.logaddexp(0, logit_prob)
         )
         if loglik_only:
             grad = None
