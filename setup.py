@@ -1,9 +1,8 @@
 import numpy as np
 from Cython.Build import cythonize
-from distutils.command.build_ext import build_ext
-from numpy.distutils.misc_util import get_info
 from os.path import dirname, join, abspath
 from setuptools import setup, find_packages
+from setuptools.command.build_ext import build_ext
 from setuptools.extension import Extension
 
 path = dirname(__file__)
@@ -11,8 +10,7 @@ src_dir = join(dirname(path), '..', 'src')
 defs = [('NPY_NO_DEPRECATED_API', 0)]
 inc_path = np.get_include()
 lib_path = [abspath(join(np.get_include(), '..', '..', 'random', 'lib'))]
-lib_path += get_info('npymath')['library_dirs']
-np_libs = ['npyrandom', 'npymath']
+np_libs = ['npyrandom']
 
 class CustomBuildExtCommand(build_ext):
     """ build_ext command when numpy headers are needed. """
