@@ -67,17 +67,18 @@ def generate_gaussian_via_woodbury(design, obs_prec, prior_prec_sqrt, z):
 
 def matvec_by_post_prec_inverse_via_woodbury(design, obs_prec, prior_prec_sqrt, x):
     D_inv = prior_prec_sqrt[design.intercept_added:] ** -2
-    to_be_inverted = \
+    # Matrix W^{-1} + X D^{-1} X', which is to be inverted.
+    reduced_mat = \
         np.diag(obs_prec ** - 1) \
         + design.compute_transposed_fisher_info(weight=D_inv)
-    precond_scale = 1 / np.diag(to_be_inverted)
-    chol = sp.linalg.cho_factor(
-        precond_scale[:, np.newaxis] * to_be_inverted * precond_scale[np.newaxis, :]
+    precond_scale = 1 / np.diag(reduced_mat)
+    precond_reduced_mat_cho_factor = sp.linalg.cho_factor(
+        precond_scale[:, np.newaxis] * reduced_mat * precond_scale[np.newaxis, :]
     )
 
-    def solve_via_chol(x):
+    def matvec_by_post_prec_inverse_via_reduced_mat_cho_factor(x):
         result = precond_scale * design.main_dot(D_inv * x)
-        result = sp.linalg.cho_solve(chol, result)
+        result = sp.linalg.cho_solve(precond_reduced_mat_cho_factor, result)
         result *= precond_scale
         result = D_inv * design.main_Tdot(result)
         result = D_inv * x - result
@@ -87,10 +88,11 @@ def matvec_by_post_prec_inverse_via_woodbury(design, obs_prec, prior_prec_sqrt, 
         return matvec_via_block_inverse(
             prior_prec_sqrt[0] ** 2 + np.sum(obs_prec),
             design.main_Tdot(obs_prec),
-            solve_via_chol,
-            x)
+            matvec_by_post_prec_inverse_via_reduced_mat_cho_factor,
+            x
+        )
     else:
-        return solve_via_chol(x)
+        return matvec_by_post_prec_inverse_via_reduced_mat_cho_factor(x)
 
 def matvec_via_block_inverse(block11, block12, block22_inv_matvec, x):
     """
