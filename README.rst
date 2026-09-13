@@ -1,7 +1,7 @@
 BayesBridge
 ===========
 
-Python package for Bayesian sparse regression, implementing the standard (Polya-Gamma augmented) Gibbs sampler as well as the CG-accelerated sampler of Nishimura and Suchard (2022). The latter algorithm can be orders of magnitudes faster for a large and sparse design matrix.
+Python package for Bayesian sparse regression, implementing the standard (Polya-Gamma augmented) Gibbs sampler as well as the CG-accelerated sampler of Nishimura and Suchard (2023). The latter algorithm can be orders of magnitudes faster for a large and sparse design matrix.
 
 Installation
 ------------
@@ -47,7 +47,7 @@ Citation
 --------
 If you find this package useful, please consider citing:
 
-    Akihiko Nishimura and Marc A. Suchard (2022).
+    Akihiko Nishimura and Marc A. Suchard (2023).
     Prior-preconditioned conjugate gradient method for accelerated Gibbs sampling in "large *n*, large *p*" Bayesian sparse regression. *Journal of the American Statistical Association*.
 
     Akihiko Nishimura and Marc A. Suchard (2022).

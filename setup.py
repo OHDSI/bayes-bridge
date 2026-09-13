@@ -52,8 +52,8 @@ setup(
     description=\
         'Generates posterior samples under Bayesian sparse regression based on '
         + 'the bridge prior using the CG-accelerated Gibbs sampler of Nishimura '
-        + 'et. al. (2018). The linear and logistic model are currently supported.',
-    url='https://github.com/aki-nishimura/bayes-bridge',
+        + 'et. al. (2023). The linear and logistic model are currently supported.',
+    url='https://github.com/ohdsi/bayes-bridge',
     author='Akihiko (Aki) Nishimura',
     author_email='aki.nishimura@jhu.edu',
     license='MIT',
